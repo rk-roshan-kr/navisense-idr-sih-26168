@@ -142,3 +142,44 @@ def apply_road_corridor_constraint(
     estimator.P = (np.eye(10) - K @ H) @ P
     
     return True, r_y, r_psi
+
+def apply_graph_corridor_constraint(
+    estimator,
+    matcher,
+    sigma_lane: float = 2.0,                # 1-sigma lane corridor width (metres)
+    sigma_psi_road: float = np.radians(4.0),    # 1-sigma road heading alignment (radians)
+    veh_yaw_rate_rads: float = 0.0
+):
+    """
+    Applies uncertainty-aware Kalman road-corridor constraint using MultiHypothesisMapMatcher.
+    Maintains hypothesis scoring across intersection branches.
+    """
+    pos_enu = estimator.x[:2]
+    veh_psi = estimator.x[3]
+    
+    found, edge_id, r_y, r_psi, psi_road, n_unit = matcher.match(pos_enu, veh_psi, veh_yaw_rate_rads)
+    if not found:
+        return False, None, 0.0, 0.0
+        
+    y = np.array([-r_y, -r_psi], dtype=np.float64)
+    
+    H = np.zeros((2, 10), dtype=np.float64)
+    H[0, 0] = n_unit[0] # East
+    H[0, 1] = n_unit[1] # North
+    H[1, 3] = 1.0       # Heading psi
+    
+    R_map = np.diag([
+        sigma_lane ** 2,
+        sigma_psi_road ** 2
+    ])
+    
+    P = estimator.P
+    S = H @ P @ H.T + R_map
+    K = P @ H.T @ np.linalg.inv(S)
+    
+    dx = K @ y
+    estimator.x += dx
+    estimator.x[3] = estimator.x[3] % (2.0 * np.pi)
+    estimator.P = (np.eye(10) - K @ H) @ P
+    
+    return True, edge_id, r_y, r_psi

@@ -185,7 +185,8 @@ class PersonalizationAdapter(nn.Module):
         self.mount_euler = nn.Parameter(torch.zeros(3))        # [roll, pitch, yaw] in radians
         self.accel_bias  = nn.Parameter(torch.zeros(3))        # DC bias in m/s^2
         self.gyro_bias   = nn.Parameter(torch.zeros(3))        # DC bias in rad/s
-        self.vehicle_scale = nn.Parameter(torch.tensor([1.0])) # scale factor
+        self.vehicle_scale = nn.Parameter(torch.tensor([1.0])) # speed scale factor
+        self.yaw_scale     = nn.Parameter(torch.tensor([1.0])) # vehicle chassis turn scale factor
 
         # Store train-set normalization statistics
         if norm_mean is not None and norm_std is not None:
@@ -251,12 +252,13 @@ class PersonalizationAdapter(nn.Module):
         v_seq_pers = F.softplus(base_v_seq * self.vehicle_scale + delta_v.unsqueeze(-1))
         personalized_v = v_seq_pers[:, -1]
         personalized_s = torch.sum((v_seq_pers[:, :-1] + v_seq_pers[:, 1:]) * 0.5, dim=-1) * self.base_model.dt
+        personalized_yaw = base_yaw * self.yaw_scale
 
         return {
             "v_t": personalized_v,
             "speed": personalized_v,
             "delta_s": personalized_s,
-            "delta_psi": base_yaw,
+            "delta_psi": personalized_yaw,
             "p_stop": base_stop,
             "v_seq": v_seq_pers,
             "mount_rotation": R,
@@ -277,7 +279,7 @@ class PersonalizationAdapter(nn.Module):
 
         loss_v = F.mse_loss(out["v_t"], target_v)
         loss_yaw = F.mse_loss(out["delta_psi"], target_yaw)
-        total_loss = loss_v + 0.3 * loss_yaw
+        total_loss = loss_v + 10.0 * loss_yaw
 
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.parameters(), 0.5)

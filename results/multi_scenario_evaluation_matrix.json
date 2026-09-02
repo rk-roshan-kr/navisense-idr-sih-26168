@@ -1,0 +1,281 @@
+{
+  "Highway Cruising": {
+    "scenario": "Highway Cruising",
+    "durations": {
+      "10": {
+        "duration_s": 10.0,
+        "dist_m": 164.69883728027344,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 18.711445970927777,
+            "drift_pct": 11.361006719850666
+          },
+          "2. + Personalization": {
+            "drift_m": 12.291835390680887,
+            "drift_pct": 7.46321928779829
+          },
+          "3. + ZUPT": {
+            "drift_m": 12.341883579753427,
+            "drift_pct": 7.493606988099641
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 9.931101405455943,
+            "drift_pct": 6.0298552008329365
+          }
+        }
+      },
+      "30": {
+        "duration_s": 30.0,
+        "dist_m": 488.9178161621094,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 153.72666726452235,
+            "drift_pct": 31.442230612752216
+          },
+          "2. + Personalization": {
+            "drift_m": 92.15898878015322,
+            "drift_pct": 18.849586931312864
+          },
+          "3. + ZUPT": {
+            "drift_m": 92.11759648941255,
+            "drift_pct": 18.841120827323117
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 346.7865696402391,
+            "drift_pct": 70.92941966452207
+          }
+        }
+      },
+      "60": {
+        "duration_s": 60.0,
+        "dist_m": 1001.4544067382812,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 347.1838593217436,
+            "drift_pct": 34.66796461084186
+          },
+          "2. + Personalization": {
+            "drift_m": 206.87880400310664,
+            "drift_pct": 20.657835505153663
+          },
+          "3. + ZUPT": {
+            "drift_m": 205.64205278766144,
+            "drift_pct": 20.534339996309352
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 1173.6850774266825,
+            "drift_pct": 117.19805410306729
+          }
+        }
+      },
+      "120": {
+        "duration_s": 120.0,
+        "dist_m": 1943.6953125,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 354.05619861889153,
+            "drift_pct": 18.215622394206473
+          },
+          "2. + Personalization": {
+            "drift_m": 189.3174934091232,
+            "drift_pct": 9.740080772516817
+          },
+          "3. + ZUPT": {
+            "drift_m": 182.62188187647365,
+            "drift_pct": 9.395602320076781
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 2355.755725301625,
+            "drift_pct": 121.19984599189205
+          }
+        }
+      }
+    }
+  },
+  "Urban Stop-and-Go": {
+    "scenario": "Urban Stop-and-Go",
+    "durations": {
+      "10": {
+        "duration_s": 10.0,
+        "dist_m": 80.64258575439453,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 8.458107768364236,
+            "drift_pct": 10.488388596720215
+          },
+          "2. + Personalization": {
+            "drift_m": 5.120710645416155,
+            "drift_pct": 6.349883994310174
+          },
+          "3. + ZUPT": {
+            "drift_m": 5.120710645416155,
+            "drift_pct": 6.349883994310174
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 2.2187684791460476,
+            "drift_pct": 2.7513607833751017
+          }
+        }
+      },
+      "30": {
+        "duration_s": 30.0,
+        "dist_m": 144.2937774658203,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 115.70116492416362,
+            "drift_pct": 80.18444520351574
+          },
+          "2. + Personalization": {
+            "drift_m": 127.5060722969875,
+            "drift_pct": 88.36560698342699
+          },
+          "3. + ZUPT": {
+            "drift_m": 127.5060722969875,
+            "drift_pct": 88.36560698342699
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 111.77994169624216,
+            "drift_pct": 77.46691760337352
+          }
+        }
+      },
+      "60": {
+        "duration_s": 60.0,
+        "dist_m": 535.1785888671875,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 316.94465791730875,
+            "drift_pct": 59.222223106530755
+          },
+          "2. + Personalization": {
+            "drift_m": 302.6127207146464,
+            "drift_pct": 56.54425027637723
+          },
+          "3. + ZUPT": {
+            "drift_m": 302.6127207146464,
+            "drift_pct": 56.54425027637723
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 71.43038549099852,
+            "drift_pct": 13.347018542388852
+          }
+        }
+      },
+      "120": {
+        "duration_s": 120.0,
+        "dist_m": 1253.79296875,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 728.2984756843357,
+            "drift_pct": 58.08761843755042
+          },
+          "2. + Personalization": {
+            "drift_m": 649.7177766488779,
+            "drift_pct": 51.82018027239618
+          },
+          "3. + ZUPT": {
+            "drift_m": 649.7177766488779,
+            "drift_pct": 51.82018027239618
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 65.61667848337873,
+            "drift_pct": 5.233454016638561
+          }
+        }
+      }
+    }
+  },
+  "Winding Route": {
+    "scenario": "Winding Route",
+    "durations": {
+      "10": {
+        "duration_s": 10.0,
+        "dist_m": 112.42943572998047,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 105.82090462293675,
+            "drift_pct": 94.12206326204884
+          },
+          "2. + Personalization": {
+            "drift_m": 98.58825864417408,
+            "drift_pct": 87.68900955880588
+          },
+          "3. + ZUPT": {
+            "drift_m": 98.58825864417408,
+            "drift_pct": 87.68900955880588
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 84.25069237036861,
+            "drift_pct": 74.9365073508968
+          }
+        }
+      },
+      "30": {
+        "duration_s": 30.0,
+        "dist_m": 539.385498046875,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 781.0281599419499,
+            "drift_pct": 144.79962156381058
+          },
+          "2. + Personalization": {
+            "drift_m": 650.4563755493994,
+            "drift_pct": 120.59211415670501
+          },
+          "3. + ZUPT": {
+            "drift_m": 650.4563755493994,
+            "drift_pct": 120.59211415670501
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 471.9821231766855,
+            "drift_pct": 87.50367314022004
+          }
+        }
+      },
+      "60": {
+        "duration_s": 60.0,
+        "dist_m": 1132.250244140625,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 1625.5398501268085,
+            "drift_pct": 143.56718919151913
+          },
+          "2. + Personalization": {
+            "drift_m": 1416.1111647328912,
+            "drift_pct": 125.07051087524523
+          },
+          "3. + ZUPT": {
+            "drift_m": 1416.1111647328912,
+            "drift_pct": 125.07051087524523
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 769.8148238292495,
+            "drift_pct": 67.98981301289425
+          }
+        }
+      },
+      "120": {
+        "duration_s": 120.0,
+        "dist_m": 1870.984130859375,
+        "layers": {
+          "1. Base Model": {
+            "drift_m": 2266.0697760426215,
+            "drift_pct": 121.11646158119882
+          },
+          "2. + Personalization": {
+            "drift_m": 2000.442094591974,
+            "drift_pct": 106.9192443483279
+          },
+          "3. + ZUPT": {
+            "drift_m": 2000.442094591974,
+            "drift_pct": 106.9192443483279
+          },
+          "4. + Offline Road Graph": {
+            "drift_m": 1153.0144742898483,
+            "drift_pct": 61.626095875022145
+          }
+        }
+      }
+    }
+  }
+}

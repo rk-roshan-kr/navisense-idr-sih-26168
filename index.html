@@ -546,12 +546,12 @@
           <div class="stat-lbl">Calibration</div>
         </div>
         <div class="stat-cell">
-          <div class="stat-val" id="stat-dr-time">—</div>
-          <div class="stat-lbl">DR duration</div>
+          <div class="stat-val" id="stat-corridor-kb">0.0 KB</div>
+          <div class="stat-lbl">Vector Graph RAM</div>
         </div>
         <div class="stat-cell">
-          <div class="stat-val" id="stat-tiles">—</div>
-          <div class="stat-lbl">Tiles cached</div>
+          <div class="stat-val" id="stat-map-conf" style="color:#10b981;font-weight:600;">HIGH</div>
+          <div class="stat-lbl">Graph Confidence</div>
         </div>
       </div>
     </div>
@@ -587,7 +587,7 @@
 
   <script src="js/idr_engine.js"></script>
   <script src="js/imu_simulator.js"></script>
-  <script src="js/map_chunk_manager.js"></script>
+  <script src="js/road_graph_cache.js"></script>
   <script src="js/demo_controller.js"></script>
 <script>
   window.addEventListener('DOMContentLoaded', () => {
