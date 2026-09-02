@@ -1,0 +1,26 @@
+{
+  "test_file": "S-Y1.csv",
+  "adapt_duration_s": 180.0,
+  "outage_duration_s": 6510.8,
+  "total_distance_m": 54134.51712392044,
+  "base_model": {
+    "drift_30s_m": 137.7138169768228,
+    "drift_30s_pct": 28.194350045239148,
+    "drift_60s_m": 316.056567570807,
+    "drift_60s_pct": 31.412819996044263,
+    "drift_1km_m": 314.29585636068043,
+    "drift_1km_pct": 31.400613391843553,
+    "final_drift_m": 6993.043644818218,
+    "final_drift_pct": 12.917901583587229
+  },
+  "personalized_adapter": {
+    "drift_30s_m": 83.45373030758027,
+    "drift_30s_pct": 17.085603583763113,
+    "drift_60s_m": 202.77211221153382,
+    "drift_60s_pct": 20.153493123320693,
+    "drift_1km_m": 201.50971762903924,
+    "drift_1km_pct": 20.1323963072159,
+    "final_drift_m": 8153.795005058548,
+    "final_drift_pct": 15.062099817743874
+  }
+}

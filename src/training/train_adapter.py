@@ -1,261 +1,265 @@
 """
-SIH 26168 — Online Adapter Training (Per-Vehicle Calibration)
-Simulates what happens on the phone while GNSS is active:
-  - Frozen base model (UniversalMotionNet)
-  - Only PersonalizationAdapter weights are updated
-  - Teacher signal = GPS speed + position
-  - 1 SGD step per second (every 10 IMU samples at 10 Hz)
-
-This is the "RL-inspired online learning" phase described in the design.
-GNSS is used ONLY as a supervision signal — never injected into the
-dead-reckoning inference path.
-
-Usage:
-    python src/training/train_adapter.py --seq S2 --driver S
-
-Output:
-    models/adapter_<driver>_<seq>.pt   — adapter checkpoint
-    results/adapter_calibration.json   — convergence log
+SIH 26168 — Frozen-Adapter Personalization Benchmark
+Scientific Protocol:
+  1. Unseen Vehicle / Driver (e.g. Driver D - Y1).
+  2. Phase 1 (Adaptation): First 3 minutes (180s) with GNSS supervision -> adapt parameters.
+  3. Phase 2 (Freeze): Completely FREEZE adapter parameters at t = 180s.
+  4. Phase 3 (Evaluation): 15-60 min GNSS DENIED outage -> evaluate position drift at 30s, 60s, 1km.
+  5. Compare Unadapted Universal Base Model vs Personalized Adapter side-by-side.
 """
 
-import sys, argparse, json
+import sys, json, time
 from pathlib import Path
+sys.stdout.reconfigure(line_buffering=True)
+
+# Make src importable from repo root
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from src.data.iovnbd_loader import load_sequence, find_all_s_csvs, BASE
+from src.data.preprocessor import repair_and_resample_sequence
 from src.models.nn_models import UniversalMotionNet, PersonalizationAdapter
 
+def latlon_to_enu(lat, lon, lat0, lon0):
+    R = 6_371_000.0  # Earth radius in metres
+    east  = R * np.radians(lon - lon0) * np.cos(np.radians(lat0))
+    north = R * np.radians(lat - lat0)
+    return east, north
 
-# ── Config ─────────────────────────────────────────────────────────────────────
+def run_frozen_adapter_benchmark(
+    base_model_path="models/universal_motion_net.pt",
+    norm_stats_path="models/imu_norm_stats.json",
+    test_csv_path=r"D:\SIH prototype\data\IO-VNBD\Synchronised V abd S datasets\Categorised IOVNB Dataset\Y (Driver D)\Y1\S-Y1.csv",
+    adapt_seconds=180.0,   # 3 minutes GNSS-assisted adaptation
+    device="cuda" if torch.cuda.is_available() else "cpu",
+    window=20
+):
+    print(f"\n{'='*70}")
+    print(f"  FROZEN-ADAPTER GNSS-DENIED BENCHMARK (SIH 26168)")
+    print(f"  Test File: {Path(test_csv_path).name}")
+    print(f"  Protocol:  {adapt_seconds:.0f}s GNSS Adaptation -> FREEZE -> Outage Evaluation")
+    print(f"{'='*70}\n")
 
-WINDOW      = 100          # IMU samples per inference window
-UPDATE_EVERY = 10          # update adapter every N samples (1 s at 10 Hz)
-LR_ADAPTER  = 5e-4        # fast adaptation learning rate
-DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
+    # 1. Load Normalization Statistics
+    with open(norm_stats_path, "r") as f:
+        norm_info = json.load(f)
+    norm_mean = np.array(norm_info["mean"], dtype=np.float32)
+    norm_std  = np.array(norm_info["std"],  dtype=np.float32)
 
+    # 2. Load Base Model
+    base_model = UniversalMotionNet(in_channels=9, dt=0.1).to(device)
+    base_model.load_state_dict(torch.load(base_model_path, map_location=device))
+    base_model.eval()
 
-# ── Online training loop ────────────────────────────────────────────────────────
+    # 3. Create Personalization Adapter
+    adapter = PersonalizationAdapter(
+        base_model=base_model,
+        norm_mean=norm_mean,
+        norm_std=norm_std,
+        latent_dim=16
+    ).to(device)
 
-def run_online_adapter(base_model, seq, device, window=WINDOW,
-                       update_every=UPDATE_EVERY, lr=LR_ADAPTER,
-                       blackout_fraction=0.5):
-    """
-    Simulate one full drive with GNSS active for the first half.
-    The adapter fine-tunes during the GNSS-active phase.
-    After blackout, we run pure inference on the adapter.
+    # 4. Load & Preprocess Unseen Test Sequence
+    segs = repair_and_resample_sequence(test_csv_path)
+    if not segs:
+        raise ValueError(f"Failed loading {test_csv_path}")
 
-    Args:
-        base_model:          pre-trained UniversalMotionNet (frozen)
-        seq:                 dict from load_sequence()
-        blackout_fraction:   fraction of sequence where GPS is cut
+    # Use the longest continuous segment
+    seg = max(segs, key=lambda s: len(s["time_s"]))
+    N = len(seg["time_s"])
+    total_dur_s = seg["time_s"][-1]
+    print(f"Test Segment: {N} samples ({total_dur_s/60.0:.1f} mins) at 10.0 Hz")
 
-    Returns:
-        log:      dict with convergence history and drift metrics
-        pred_pos: (N, 2) predicted positions
-    """
-    adapter = PersonalizationAdapter(base_model).to(device)
+    # Prepare raw sensor arrays (physical units: m/s^2, rad/s)
+    raw_imu = np.stack([
+        seg["ax"], seg["ay"], seg["az"],
+        seg["gyaw"], seg["gpit"], seg["grol"],
+        seg["gx"], seg["gy"], seg["gz"]
+    ], axis=0).astype(np.float32)  # (9, N)
+
+    can_speed = seg["spd_ms"]
+    can_lat = seg["lat"]
+    can_lon = seg["lon"]
+    can_head = seg["head_deg"]
+    dt = 0.1
+
+    # Convert CAN coordinates to ENU ground truth trajectory
+    lat0, lon0 = can_lat[0], can_lon[0]
+    gt_east, gt_north = latlon_to_enu(can_lat, can_lon, lat0, lon0)
+    gt_pos = np.column_stack([gt_east, gt_north])  # (N, 2)
+
+    adapt_samples = int(adapt_seconds / dt)
+    adapt_samples = min(adapt_samples, N // 3)
+
+    print(f"Adaptation window: samples 0 to {adapt_samples} ({adapt_samples * dt:.0f}s)")
+    print(f"Outage evaluation window: samples {adapt_samples} to {N} ({(N - adapt_samples)*dt/60.0:.1f} mins)\n")
+
+    # ── PHASE 1: Online GNSS-Assisted Adaptation (0 -> adapt_samples) ─────────
     optimizer = torch.optim.Adam(
         [p for p in adapter.parameters() if p.requires_grad],
-        lr=lr
+        lr=1e-3
     )
 
-    N = len(seq["time_ms"])
-    blackout_start = int(N * blackout_fraction)
-    accel    = seq["accel"]
-    gyro     = seq["gyro"]
-    pos_true = seq["pos_enu"]
-    gps_spd  = seq["gps_speed_ms"]
+    adapt_losses = []
+    print("Running Online Adaptation...")
+    for i in range(window, adapt_samples, 5):  # adapt every 0.5s
+        win_raw = raw_imu[:, i-window:i]  # (9, W) in physical units
+        win_t = torch.from_numpy(win_raw).unsqueeze(0).to(device)
 
-    pred_pos   = np.zeros((N, 2))
-    pred_pos[0]= pos_true[0]
-    heading    = 0.0
+        gps_spd = float(can_speed[i-1])
+        # Heading delta over window
+        h_diff = np.radians(can_head[i-1] - can_head[i-window])
+        h_delta = np.arctan2(np.sin(h_diff), np.cos(h_diff))
 
-    calibration_log = []   # (sample_idx, speed_error_ms, convergence_score)
-    speed_errors    = []
+        loss, l_spd = adapter.adapt_step(win_t, gps_spd, h_delta, optimizer)
+        adapt_losses.append(loss)
 
-    print(f"  Sequence: {N} samples  |  blackout @ sample {blackout_start}")
-    print(f"  Adapter params: "
-          f"{sum(p.numel() for p in adapter.parameters() if p.requires_grad):,}")
+    print(f"  Adaptation Complete. Final Loss: {np.mean(adapt_losses[-10:]):.4f}")
+    print(f"  Calibrated Mount Euler: {adapter.mount_euler.detach().cpu().numpy().round(4)} rad")
+    print(f"  Calibrated Accel Bias:  {adapter.accel_bias.detach().cpu().numpy().round(4)} m/s^2")
+    print(f"  Calibrated Gyro Bias:   {adapter.gyro_bias.detach().cpu().numpy().round(5)} rad/s")
+    print(f"  Calibrated Vehicle Scale: {adapter.vehicle_scale.item():.4f}")
 
-    for i in range(1, N):
-        start = max(0, i - window)
-        end   = i
+    # ── PHASE 2: FREEZE ADAPTER & RUN OUTAGE EVALUATION ──────────────────────
+    adapter.eval()
+    print("\nFREEZING ADAPTER. Cutting GNSS. Running Pure Dead Reckoning...")
 
-        # Build IMU window (pad if needed)
-        imu_win = np.concatenate([accel[start:end], gyro[start:end]], axis=1)
-        if len(imu_win) < window:
-            pad = np.zeros((window - len(imu_win), 6), dtype=np.float32)
-            imu_win = np.vstack([pad, imu_win])
+    # Trajectories to evaluate:
+    # 1. Base Model (Unadapted)
+    # 2. Personalized Adapter (Adapted & Frozen)
+    pos_base = np.zeros((N, 2))
+    pos_pers = np.zeros((N, 2))
 
-        imu_t = torch.from_numpy(imu_win.T.astype(np.float32)).unsqueeze(0).to(device)
-        dt    = float(seq["dt"][i])
+    # Initialize at true CAN position at blackout boundary
+    pos_base[:adapt_samples] = gt_pos[:adapt_samples]
+    pos_pers[:adapt_samples] = gt_pos[:adapt_samples]
 
-        # ── GNSS-active phase: train adapter ─────────────────────────────
-        if i < blackout_start:
-            adapter.train()
-            out = adapter(imu_t)
-            pred_speed = out["speed"][0]
+    heading_base = np.radians(can_head[adapt_samples - 1])
+    heading_pers = np.radians(can_head[adapt_samples - 1])
 
-            # Supervision: GPS speed + indirect position constraint
-            true_speed = torch.tensor(gps_spd[i], dtype=torch.float32, device=device)
-            loss = nn.functional.mse_loss(pred_speed, true_speed)
+    # Pre-normalize for Base Model
+    norm_imu = (raw_imu - norm_mean[:, None]) / (norm_std[:, None] + 1e-6)
 
-            if i % update_every == 0:
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(adapter.parameters(), 0.5)
-                optimizer.step()
+    # ── BATCHED INFERENCE ACROSS OUTAGE (Fast GPU Execution) ────────────────
+    outage_len = N - adapt_samples
+    print(f"Running batched GPU inference across {outage_len} outage samples...")
 
-            spd_err = abs(float(pred_speed.detach().cpu()) - float(gps_spd[i]))
-            speed_errors.append(spd_err)
+    # Build all sliding windows for the outage using tensor slicing
+    batch_size = 512
+    v_base_all = np.zeros(outage_len, dtype=np.float32)
+    yaw_base_all = np.zeros(outage_len, dtype=np.float32)
+    v_pers_all = np.zeros(outage_len, dtype=np.float32)
+    yaw_pers_all = np.zeros(outage_len, dtype=np.float32)
 
-            # Convergence score: rolling mean of recent speed errors
-            recent_err = np.mean(speed_errors[-100:]) if speed_errors else 99.0
-            conv_score = max(0.0, min(1.0, 1.0 - recent_err / 5.0))  # 5 m/s → 0%, 0 m/s → 100%
+    with torch.no_grad():
+        for b_start in range(0, outage_len, batch_size):
+            b_end = min(b_start + batch_size, outage_len)
+            B = b_end - b_start
 
-            if i % 500 == 0:
-                print(f"    Step {i:5d} | speed_err={recent_err:.3f} m/s | "
-                      f"calibration={conv_score*100:.1f}%")
+            # Extract window slices for this batch: (B, 9, W)
+            batch_raw = np.zeros((B, 9, window), dtype=np.float32)
+            batch_norm = np.zeros((B, 9, window), dtype=np.float32)
+            for k, idx in enumerate(range(adapt_samples + b_start, adapt_samples + b_end)):
+                batch_raw[k] = raw_imu[:, idx-window:idx]
+                batch_norm[k] = norm_imu[:, idx-window:idx]
 
-            calibration_log.append({
-                "sample": i,
-                "speed_err_ms": float(spd_err),
-                "conv_score":   float(conv_score),
-            })
+            t_raw = torch.from_numpy(batch_raw).to(device)
+            t_norm = torch.from_numpy(batch_norm).to(device)
 
-            # During calibration, still track true position (GNSS fusion mode)
-            pred_pos[i] = pos_true[i]
-            d = pos_true[i] - pos_true[i - 1]
-            if np.linalg.norm(d) > 0.1:
-                heading = np.arctan2(d[1], d[0])
+            out_b = base_model(t_norm)
+            out_p = adapter(t_raw)
 
-        # ── GNSS-dead phase: pure sensor inference ────────────────────────
-        else:
-            adapter.eval()
-            with torch.no_grad():
-                out = adapter(imu_t)
-                speed_ms = float(out["speed"][0].cpu())
-                yaw_rate = float(out["yaw_rate"][0].cpu())
+            v_base_all[b_start:b_end] = out_b["v_t"].cpu().numpy()
+            yaw_base_all[b_start:b_end] = (out_b["delta_psi"] / (window * dt)).cpu().numpy()
 
-            heading   += yaw_rate * dt
-            dx         = speed_ms * np.cos(heading) * dt
-            dy         = speed_ms * np.sin(heading) * dt
-            pred_pos[i]= pred_pos[i - 1] + np.array([dx, dy])
+            v_pers_all[b_start:b_end] = out_p["v_t"].cpu().numpy()
+            yaw_pers_all[b_start:b_end] = (out_p["delta_psi"] / (window * dt)).cpu().numpy()
 
-    # ── Compute drift metrics ─────────────────────────────────────────────
-    errors   = np.linalg.norm(pred_pos[blackout_start:] - pos_true[blackout_start:], axis=1)
-    diffs    = np.linalg.norm(np.diff(pos_true[blackout_start:], axis=0), axis=1)
-    dist_cum = np.concatenate([[0], np.cumsum(diffs)])
+    # ── INTEGRATE DEAD-RECKONING POSITION ────────────────────────────────────
+    print("Integrating ENU positions...")
+    for k in range(outage_len):
+        i = adapt_samples + k
+        v_b, yaw_b = v_base_all[k], yaw_base_all[k]
+        v_p, yaw_p = v_pers_all[k], yaw_pers_all[k]
 
-    dt_arr   = seq["dt"][blackout_start:]
-    dt_mean  = float(np.mean(dt_arr)) if len(dt_arr) else 0.1
+        heading_base += yaw_b * dt
+        dx_b = v_b * np.sin(heading_base) * dt
+        dy_b = v_b * np.cos(heading_base) * dt
+        pos_base[i] = pos_base[i-1] + np.array([dx_b, dy_b])
 
-    def drift_at(seconds=None, metres=None):
+        heading_pers += yaw_p * dt
+        dx_p = v_p * np.sin(heading_pers) * dt
+        dy_p = v_p * np.cos(heading_pers) * dt
+        pos_pers[i] = pos_pers[i-1] + np.array([dx_p, dy_p])
+
+    # ── COMPUTE DRIFT METRICS ACROSS OUTAGE ──────────────────────────────────
+    outage_mask = np.arange(adapt_samples, N)
+    cum_dist = np.cumsum(np.linalg.norm(np.diff(gt_pos[outage_mask], axis=0), axis=1))
+    cum_dist = np.insert(cum_dist, 0, 0.0)
+
+    err_base = np.linalg.norm(pos_base[outage_mask] - gt_pos[outage_mask], axis=1)
+    err_pers = np.linalg.norm(pos_pers[outage_mask] - gt_pos[outage_mask], axis=1)
+
+    def get_drift_metrics(err_arr, seconds=None, metres=None):
         if seconds:
-            idx = min(int(seconds / dt_mean), len(errors) - 1)
-        else:
-            idx = int(np.searchsorted(dist_cum, metres))
-            idx = min(idx, len(errors) - 1)
-        err_m   = float(errors[idx])
-        dist_m  = float(dist_cum[min(idx, len(dist_cum) - 1)])
-        pct     = err_m / max(dist_m, 1.0) * 100.0
+            idx = min(int(seconds / dt), len(err_arr) - 1)
+        elif metres:
+            idx = min(int(np.searchsorted(cum_dist, metres)), len(err_arr) - 1)
+        err_m = float(err_arr[idx])
+        dist_m = float(cum_dist[idx])
+        pct = (err_m / max(dist_m, 1.0)) * 100.0
         return err_m, pct
 
-    e30,  p30  = drift_at(seconds=30)
-    e60,  p60  = drift_at(seconds=60)
-    e1km, p1km = drift_at(metres=1000)
-
-    print(f"\n  === Drift Results ===")
-    print(f"  30s  outage: {e30:.1f} m  ({p30:.1f}% of dist)")
-    print(f"  60s  outage: {e60:.1f} m  ({p60:.1f}% of dist)")
-    print(f"  1km  outage: {e1km:.1f} m ({p1km:.1f}% of dist)")
-
-    final_conv = calibration_log[-1]["conv_score"] if calibration_log else 0.0
-    print(f"  Adapter calibration at blackout: {final_conv*100:.1f}%")
-
-    log = {
-        "calibration_history": calibration_log[::50],  # thin out for file size
-        "final_convergence":   float(final_conv),
-        "drift_30s_m":         e30,  "drift_30s_pct":  p30,
-        "drift_60s_m":         e60,  "drift_60s_pct":  p60,
-        "drift_1km_m":         e1km, "drift_1km_pct":  p1km,
-        "blackout_start_idx":  blackout_start,
+    results = {
+        "test_file": Path(test_csv_path).name,
+        "adapt_duration_s": adapt_seconds,
+        "outage_duration_s": (N - adapt_samples) * dt,
+        "total_distance_m": float(cum_dist[-1]),
+        "base_model": {
+            "drift_30s_m": get_drift_metrics(err_base, seconds=30)[0],
+            "drift_30s_pct": get_drift_metrics(err_base, seconds=30)[1],
+            "drift_60s_m": get_drift_metrics(err_base, seconds=60)[0],
+            "drift_60s_pct": get_drift_metrics(err_base, seconds=60)[1],
+            "drift_1km_m": get_drift_metrics(err_base, metres=1000)[0],
+            "drift_1km_pct": get_drift_metrics(err_base, metres=1000)[1],
+            "final_drift_m": float(err_base[-1]),
+            "final_drift_pct": float(err_base[-1] / max(1.0, cum_dist[-1]) * 100.0)
+        },
+        "personalized_adapter": {
+            "drift_30s_m": get_drift_metrics(err_pers, seconds=30)[0],
+            "drift_30s_pct": get_drift_metrics(err_pers, seconds=30)[1],
+            "drift_60s_m": get_drift_metrics(err_pers, seconds=60)[0],
+            "drift_60s_pct": get_drift_metrics(err_pers, seconds=60)[1],
+            "drift_1km_m": get_drift_metrics(err_pers, metres=1000)[0],
+            "drift_1km_pct": get_drift_metrics(err_pers, metres=1000)[1],
+            "final_drift_m": float(err_pers[-1]),
+            "final_drift_pct": float(err_pers[-1] / max(1.0, cum_dist[-1]) * 100.0)
+        }
     }
 
-    return adapter, log, pred_pos, pos_true
+    # Print Comparison Table
+    print("\n" + "="*70)
+    print("  SCIENTIFIC DRIFT BENCHMARK: BASE MODEL vs. PERSONALIZED ADAPTER")
+    print("="*70)
+    print(f"  {'Outage Interval':<20} | {'Base Model':<22} | {'Personalized':<22}")
+    print("-" * 70)
+    b, p = results["base_model"], results["personalized_adapter"]
+    print(f"  {'30s GNSS Outage':<20} | {b['drift_30s_m']:>6.1f} m ({b['drift_30s_pct']:>4.1f}%)        | {p['drift_30s_m']:>6.1f} m ({p['drift_30s_pct']:>4.1f}%)")
+    print(f"  {'60s GNSS Outage':<20} | {b['drift_60s_m']:>6.1f} m ({b['drift_60s_pct']:>4.1f}%)        | {p['drift_60s_m']:>6.1f} m ({p['drift_60s_pct']:>4.1f}%)")
+    print(f"  {'1 km Distance':<20}   | {b['drift_1km_m']:>6.1f} m ({b['drift_1km_pct']:>4.1f}%)        | {p['drift_1km_m']:>6.1f} m ({p['drift_1km_pct']:>4.1f}%)")
+    print(f"  {'Total Outage':<20}   | {b['final_drift_m']:>6.1f} m ({b['final_drift_pct']:>4.1f}%)        | {p['final_drift_m']:>6.1f} m ({p['final_drift_pct']:>4.1f}%)")
+    print("="*70)
 
-
-# ── Main ────────────────────────────────────────────────────────────────────────
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--seq",    default="S2",  help="Sequence ID, e.g. S2")
-    parser.add_argument("--driver", default="S",   help="Driver key, e.g. S for Driver A")
-    parser.add_argument("--base",   default="models/universal_motion_net.pt",
-                        help="Path to base model checkpoint")
-    args = parser.parse_args()
-
-    base_path = Path(args.base)
-    if not base_path.exists():
-        print(f"ERROR: Base model not found at {base_path}")
-        print("       Run train_base_model.py first.")
-        sys.exit(1)
-
-    # Load base model (frozen)
-    base_model = UniversalMotionNet(in_channels=6, hidden_dim=64, rnn_dim=64)
-    base_model.load_state_dict(torch.load(base_path, map_location="cpu"))
-    base_model.eval()
-    print(f"Loaded base model from {base_path}")
-
-    # Find the target sequence CSV
-    all_csvs = find_all_s_csvs()
-    target_csv = None
-    for p in all_csvs:
-        driver_key = p.parent.parent.name.split()[0]
-        seq_name   = p.parent.name
-        if driver_key == args.driver and seq_name == args.seq:
-            target_csv = p
-            break
-
-    if target_csv is None:
-        print(f"ERROR: Sequence {args.driver}/{args.seq} not found in dataset.")
-        sys.exit(1)
-
-    print(f"Sequence: {target_csv}")
-    seq = load_sequence(target_csv)
-    print(f"Loaded: {len(seq['time_ms'])} samples  "
-          f"({len(seq['time_ms'])/10/60:.1f} min at 10 Hz)")
-
-    # Run online adapter training
-    adapter, log, pred_pos, pos_true = run_online_adapter(
-        base_model, seq, device=DEVICE
-    )
-
-    # Save adapter checkpoint
-    out_dir = Path("models")
-    out_dir.mkdir(exist_ok=True)
-    adapter_path = out_dir / f"adapter_{args.driver}_{args.seq}.pt"
-    torch.save(adapter.state_dict(), adapter_path)
-    print(f"\nAdapter saved → {adapter_path}")
-
-    # Save results
+    # Save to results
     results_dir = Path("results")
-    results_dir.mkdir(exist_ok=True)
-    log_path = results_dir / f"adapter_{args.driver}_{args.seq}_log.json"
-
-    # Add position arrays (thinned)
-    log["pos_true_thinned"]  = pos_true[::10].tolist()
-    log["pos_pred_thinned"]  = pred_pos[::10].tolist()
-
-    with open(log_path, "w") as f:
-        json.dump(log, f, indent=2)
-    print(f"Results log → {log_path}")
-
+    results_dir.mkdir(exist_ok=True, parents=True)
+    out_file = results_dir / "frozen_adapter_benchmark.json"
+    with open(out_file, "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"\nSaved benchmark results to: {out_file}\n")
+    return results
 
 if __name__ == "__main__":
-    main()
+    run_frozen_adapter_benchmark()

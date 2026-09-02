@@ -1,0 +1,3357 @@
+{
+  "summary": {
+    "audited_sequences": 69,
+    "total_rows_audited": 1296658,
+    "total_duration_hours": 26.7
+  },
+  "files": [
+    {
+      "s_file": "S-M.csv",
+      "folder": "Categorised IOVNB Dataset / M (Driver B)",
+      "rows": 105974,
+      "v_paired": true,
+      "duration_s": 6171.7,
+      "dt_mean_ms": 58.24,
+      "dt_std_ms": 13598.53,
+      "dt_min_ms": -4426717.0,
+      "dt_max_ms": 1365.0,
+      "gps_unique_updates": 1091,
+      "gps_effective_rate_hz": 0.18,
+      "gps_spd_max_kmh": 27.0,
+      "gps_spd_mean_kmh": 10.0,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.01,
+      "accel_norm_std": 0.717,
+      "ax_range": [
+        -39.65,
+        18.24
+      ],
+      "ay_range": [
+        -39.36,
+        12.81
+      ],
+      "az_range": [
+        -19.58,
+        59.45
+      ],
+      "gyro_yaw_mean_rads": -0.00204,
+      "gyro_yaw_std_rads": 0.0944,
+      "gyro_yaw_max_rads": 9.811,
+      "stationary_pct": 7.8,
+      "stat_accel_noise_std": 0.2551,
+      "stat_gyro_bias_rads": -0.00084,
+      "stat_gyro_noise_std": 0.02327,
+      "vehicle_reference": {
+        "v_rows": 105974,
+        "v_spd_max_kmh": 100.7,
+        "v_spd_mean_kmh": 35.7,
+        "v_rpm_idle": 791.0,
+        "v_rpm_max": 6332.0,
+        "v_yaw_rate_max_degs": 66.0,
+        "v_long_accel_g_range": [
+          -1.011,
+          0.44
+        ]
+      }
+    },
+    {
+      "s_file": "S-M.csv",
+      "folder": "Categorised IOVNB Dataset / M (Driver B)",
+      "rows": 105974,
+      "v_paired": true,
+      "duration_s": 6171.7,
+      "dt_mean_ms": 58.24,
+      "dt_std_ms": 13598.53,
+      "dt_min_ms": -4426717.0,
+      "dt_max_ms": 1365.0,
+      "gps_unique_updates": 1091,
+      "gps_effective_rate_hz": 0.18,
+      "gps_spd_max_kmh": 27.0,
+      "gps_spd_mean_kmh": 10.0,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.01,
+      "accel_norm_std": 0.717,
+      "ax_range": [
+        -39.65,
+        18.24
+      ],
+      "ay_range": [
+        -39.36,
+        12.81
+      ],
+      "az_range": [
+        -19.58,
+        59.45
+      ],
+      "gyro_yaw_mean_rads": -0.00204,
+      "gyro_yaw_std_rads": 0.0944,
+      "gyro_yaw_max_rads": 9.811,
+      "stationary_pct": 7.8,
+      "stat_accel_noise_std": 0.2551,
+      "stat_gyro_bias_rads": -0.00084,
+      "stat_gyro_noise_std": 0.02327,
+      "vehicle_reference": {
+        "v_rows": 105974,
+        "v_spd_max_kmh": 100.7,
+        "v_spd_mean_kmh": 35.7,
+        "v_rpm_idle": 791.0,
+        "v_rpm_max": 6332.0,
+        "v_yaw_rate_max_degs": 66.0,
+        "v_long_accel_g_range": [
+          -1.011,
+          0.44
+        ]
+      }
+    },
+    {
+      "s_file": "S-S1.csv",
+      "folder": "S (Driver A) / S1",
+      "rows": 51746,
+      "v_paired": true,
+      "duration_s": 5174.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.76,
+      "dt_min_ms": 89.0,
+      "dt_max_ms": 111.0,
+      "gps_unique_updates": 532,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 18.8,
+      "gps_spd_mean_kmh": 7.4,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 9.962,
+      "accel_norm_std": 0.52,
+      "ax_range": [
+        -8.37,
+        7.57
+      ],
+      "ay_range": [
+        -8.21,
+        11.35
+      ],
+      "az_range": [
+        2.42,
+        16.15
+      ],
+      "gyro_yaw_mean_rads": 0.00219,
+      "gyro_yaw_std_rads": 0.0999,
+      "gyro_yaw_max_rads": 1.356,
+      "stationary_pct": 8.6,
+      "stat_accel_noise_std": 0.2317,
+      "stat_gyro_bias_rads": -0.0011,
+      "stat_gyro_noise_std": 0.03893,
+      "vehicle_reference": {
+        "v_rows": 51746,
+        "v_spd_max_kmh": 93.8,
+        "v_spd_mean_kmh": 26.4,
+        "v_rpm_idle": 797.0,
+        "v_rpm_max": 3135.0,
+        "v_yaw_rate_max_degs": 42.2,
+        "v_long_accel_g_range": [
+          -0.59,
+          0.34
+        ]
+      }
+    },
+    {
+      "s_file": "S-S1.csv",
+      "folder": "S (Driver A) / S1",
+      "rows": 51746,
+      "v_paired": true,
+      "duration_s": 5174.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.76,
+      "dt_min_ms": 89.0,
+      "dt_max_ms": 111.0,
+      "gps_unique_updates": 532,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 18.8,
+      "gps_spd_mean_kmh": 7.4,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 9.962,
+      "accel_norm_std": 0.52,
+      "ax_range": [
+        -8.37,
+        7.57
+      ],
+      "ay_range": [
+        -8.21,
+        11.35
+      ],
+      "az_range": [
+        2.42,
+        16.15
+      ],
+      "gyro_yaw_mean_rads": 0.00219,
+      "gyro_yaw_std_rads": 0.0999,
+      "gyro_yaw_max_rads": 1.356,
+      "stationary_pct": 8.6,
+      "stat_accel_noise_std": 0.2317,
+      "stat_gyro_bias_rads": -0.0011,
+      "stat_gyro_noise_std": 0.03893,
+      "vehicle_reference": {
+        "v_rows": 51746,
+        "v_spd_max_kmh": 93.8,
+        "v_spd_mean_kmh": 26.4,
+        "v_rpm_idle": 797.0,
+        "v_rpm_max": 3135.0,
+        "v_yaw_rate_max_degs": 42.2,
+        "v_long_accel_g_range": [
+          -0.59,
+          0.34
+        ]
+      }
+    },
+    {
+      "s_file": "S-S2.csv",
+      "folder": "S (Driver A) / S2",
+      "rows": 93876,
+      "v_paired": true,
+      "duration_s": 9201.1,
+      "dt_mean_ms": 98.01,
+      "dt_std_ms": 608.37,
+      "dt_min_ms": -186301.0,
+      "dt_max_ms": 112.0,
+      "gps_unique_updates": 941,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 28.6,
+      "gps_spd_mean_kmh": 8.1,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 9.993,
+      "accel_norm_std": 0.67,
+      "ax_range": [
+        -17.9,
+        11.93
+      ],
+      "ay_range": [
+        -31.96,
+        13.08
+      ],
+      "az_range": [
+        0.61,
+        41.06
+      ],
+      "gyro_yaw_mean_rads": 0.00283,
+      "gyro_yaw_std_rads": 0.1708,
+      "gyro_yaw_max_rads": 13.692,
+      "stationary_pct": 11.1,
+      "stat_accel_noise_std": 0.2087,
+      "stat_gyro_bias_rads": 0.00262,
+      "stat_gyro_noise_std": 0.03988,
+      "vehicle_reference": {
+        "v_rows": 93876,
+        "v_spd_max_kmh": 105.2,
+        "v_spd_mean_kmh": 28.9,
+        "v_rpm_idle": 787.0,
+        "v_rpm_max": 4254.0,
+        "v_yaw_rate_max_degs": 52.8,
+        "v_long_accel_g_range": [
+          -0.56,
+          0.429
+        ]
+      }
+    },
+    {
+      "s_file": "S-S2.csv",
+      "folder": "S (Driver A) / S2",
+      "rows": 93876,
+      "v_paired": true,
+      "duration_s": 9201.1,
+      "dt_mean_ms": 98.01,
+      "dt_std_ms": 608.37,
+      "dt_min_ms": -186301.0,
+      "dt_max_ms": 112.0,
+      "gps_unique_updates": 941,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 28.6,
+      "gps_spd_mean_kmh": 8.1,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 9.993,
+      "accel_norm_std": 0.67,
+      "ax_range": [
+        -17.9,
+        11.93
+      ],
+      "ay_range": [
+        -31.96,
+        13.08
+      ],
+      "az_range": [
+        0.61,
+        41.06
+      ],
+      "gyro_yaw_mean_rads": 0.00283,
+      "gyro_yaw_std_rads": 0.1708,
+      "gyro_yaw_max_rads": 13.692,
+      "stationary_pct": 11.1,
+      "stat_accel_noise_std": 0.2087,
+      "stat_gyro_bias_rads": 0.00262,
+      "stat_gyro_noise_std": 0.03988,
+      "vehicle_reference": {
+        "v_rows": 93876,
+        "v_spd_max_kmh": 105.2,
+        "v_spd_mean_kmh": 28.9,
+        "v_rpm_idle": 787.0,
+        "v_rpm_max": 4254.0,
+        "v_yaw_rate_max_degs": 52.8,
+        "v_long_accel_g_range": [
+          -0.56,
+          0.429
+        ]
+      }
+    },
+    {
+      "s_file": "S-S3a.csv",
+      "folder": "S (Driver A) / S3a",
+      "rows": 24621,
+      "v_paired": true,
+      "duration_s": 2462.0,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.78,
+      "dt_min_ms": 87.0,
+      "dt_max_ms": 112.0,
+      "gps_unique_updates": 254,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 26.8,
+      "gps_spd_mean_kmh": 10.6,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.924,
+      "accel_norm_std": 0.539,
+      "ax_range": [
+        -5.94,
+        6.47
+      ],
+      "ay_range": [
+        -5.32,
+        4.85
+      ],
+      "az_range": [
+        3.18,
+        16.5
+      ],
+      "gyro_yaw_mean_rads": 0.0002,
+      "gyro_yaw_std_rads": 0.0331,
+      "gyro_yaw_max_rads": 0.784,
+      "stationary_pct": 3.9,
+      "stat_accel_noise_std": 0.2182,
+      "stat_gyro_bias_rads": 0.00041,
+      "stat_gyro_noise_std": 0.01216,
+      "vehicle_reference": {
+        "v_rows": 24621,
+        "v_spd_max_kmh": 98.0,
+        "v_spd_mean_kmh": 37.9,
+        "v_rpm_idle": 793.0,
+        "v_rpm_max": 4230.0,
+        "v_yaw_rate_max_degs": 44.5,
+        "v_long_accel_g_range": [
+          -0.57,
+          0.4
+        ]
+      }
+    },
+    {
+      "s_file": "S-S3a.csv",
+      "folder": "S (Driver A) / S3a",
+      "rows": 24621,
+      "v_paired": true,
+      "duration_s": 2462.0,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.78,
+      "dt_min_ms": 87.0,
+      "dt_max_ms": 112.0,
+      "gps_unique_updates": 254,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 26.8,
+      "gps_spd_mean_kmh": 10.6,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.924,
+      "accel_norm_std": 0.539,
+      "ax_range": [
+        -5.94,
+        6.47
+      ],
+      "ay_range": [
+        -5.32,
+        4.85
+      ],
+      "az_range": [
+        3.18,
+        16.5
+      ],
+      "gyro_yaw_mean_rads": 0.0002,
+      "gyro_yaw_std_rads": 0.0331,
+      "gyro_yaw_max_rads": 0.784,
+      "stationary_pct": 3.9,
+      "stat_accel_noise_std": 0.2182,
+      "stat_gyro_bias_rads": 0.00041,
+      "stat_gyro_noise_std": 0.01216,
+      "vehicle_reference": {
+        "v_rows": 24621,
+        "v_spd_max_kmh": 98.0,
+        "v_spd_mean_kmh": 37.9,
+        "v_rpm_idle": 793.0,
+        "v_rpm_max": 4230.0,
+        "v_yaw_rate_max_degs": 44.5,
+        "v_long_accel_g_range": [
+          -0.57,
+          0.4
+        ]
+      }
+    },
+    {
+      "s_file": "S-S3b.csv",
+      "folder": "S (Driver A) / S3b",
+      "rows": 6813,
+      "v_paired": true,
+      "duration_s": -2026.4,
+      "dt_mean_ms": -297.48,
+      "dt_std_ms": 32803.28,
+      "dt_min_ms": -2707512.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 74,
+      "gps_effective_rate_hz": 74.0,
+      "gps_spd_max_kmh": 12.5,
+      "gps_spd_mean_kmh": 5.8,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.963,
+      "accel_norm_std": 0.974,
+      "ax_range": [
+        -39.98,
+        13.43
+      ],
+      "ay_range": [
+        -25.4,
+        33.95
+      ],
+      "az_range": [
+        -28.07,
+        19.25
+      ],
+      "gyro_yaw_mean_rads": -0.0045,
+      "gyro_yaw_std_rads": 0.2725,
+      "gyro_yaw_max_rads": 13.507,
+      "stationary_pct": 10.8,
+      "stat_accel_noise_std": 0.37,
+      "stat_gyro_bias_rads": -0.00387,
+      "stat_gyro_noise_std": 0.04421,
+      "vehicle_reference": {
+        "v_rows": 6813,
+        "v_spd_max_kmh": 44.7,
+        "v_spd_mean_kmh": 19.9,
+        "v_rpm_idle": 805.0,
+        "v_rpm_max": 2814.0,
+        "v_yaw_rate_max_degs": 42.1,
+        "v_long_accel_g_range": [
+          -0.37,
+          0.3
+        ]
+      }
+    },
+    {
+      "s_file": "S-S3b.csv",
+      "folder": "S (Driver A) / S3b",
+      "rows": 6813,
+      "v_paired": true,
+      "duration_s": -2026.4,
+      "dt_mean_ms": -297.48,
+      "dt_std_ms": 32803.28,
+      "dt_min_ms": -2707512.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 74,
+      "gps_effective_rate_hz": 74.0,
+      "gps_spd_max_kmh": 12.5,
+      "gps_spd_mean_kmh": 5.8,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.963,
+      "accel_norm_std": 0.974,
+      "ax_range": [
+        -39.98,
+        13.43
+      ],
+      "ay_range": [
+        -25.4,
+        33.95
+      ],
+      "az_range": [
+        -28.07,
+        19.25
+      ],
+      "gyro_yaw_mean_rads": -0.0045,
+      "gyro_yaw_std_rads": 0.2725,
+      "gyro_yaw_max_rads": 13.507,
+      "stationary_pct": 10.8,
+      "stat_accel_noise_std": 0.37,
+      "stat_gyro_bias_rads": -0.00387,
+      "stat_gyro_noise_std": 0.04421,
+      "vehicle_reference": {
+        "v_rows": 6813,
+        "v_spd_max_kmh": 44.7,
+        "v_spd_mean_kmh": 19.9,
+        "v_rpm_idle": 805.0,
+        "v_rpm_max": 2814.0,
+        "v_yaw_rate_max_degs": 42.1,
+        "v_long_accel_g_range": [
+          -0.37,
+          0.3
+        ]
+      }
+    },
+    {
+      "s_file": "S-S3c.csv",
+      "folder": "S (Driver A) / S3c",
+      "rows": 37183,
+      "v_paired": true,
+      "duration_s": 3718.2,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.85,
+      "dt_min_ms": 82.0,
+      "dt_max_ms": 121.0,
+      "gps_unique_updates": 391,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 32.3,
+      "gps_spd_mean_kmh": 11.8,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.924,
+      "accel_norm_std": 0.455,
+      "ax_range": [
+        -5.45,
+        5.56
+      ],
+      "ay_range": [
+        -5.51,
+        5.14
+      ],
+      "az_range": [
+        5.05,
+        17.88
+      ],
+      "gyro_yaw_mean_rads": -0.00023,
+      "gyro_yaw_std_rads": 0.029,
+      "gyro_yaw_max_rads": 0.878,
+      "stationary_pct": 9.0,
+      "stat_accel_noise_std": 0.1609,
+      "stat_gyro_bias_rads": 0.00028,
+      "stat_gyro_noise_std": 0.00956,
+      "vehicle_reference": {
+        "v_rows": 37183,
+        "v_spd_max_kmh": 117.1,
+        "v_spd_mean_kmh": 42.3,
+        "v_rpm_idle": 803.0,
+        "v_rpm_max": 3859.0,
+        "v_yaw_rate_max_degs": 37.6,
+        "v_long_accel_g_range": [
+          -0.36,
+          0.35
+        ]
+      }
+    },
+    {
+      "s_file": "S-S3c.csv",
+      "folder": "S (Driver A) / S3c",
+      "rows": 37183,
+      "v_paired": true,
+      "duration_s": 3718.2,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.85,
+      "dt_min_ms": 82.0,
+      "dt_max_ms": 121.0,
+      "gps_unique_updates": 391,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 32.3,
+      "gps_spd_mean_kmh": 11.8,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.924,
+      "accel_norm_std": 0.455,
+      "ax_range": [
+        -5.45,
+        5.56
+      ],
+      "ay_range": [
+        -5.51,
+        5.14
+      ],
+      "az_range": [
+        5.05,
+        17.88
+      ],
+      "gyro_yaw_mean_rads": -0.00023,
+      "gyro_yaw_std_rads": 0.029,
+      "gyro_yaw_max_rads": 0.878,
+      "stationary_pct": 9.0,
+      "stat_accel_noise_std": 0.1609,
+      "stat_gyro_bias_rads": 0.00028,
+      "stat_gyro_noise_std": 0.00956,
+      "vehicle_reference": {
+        "v_rows": 37183,
+        "v_spd_max_kmh": 117.1,
+        "v_spd_mean_kmh": 42.3,
+        "v_rpm_idle": 803.0,
+        "v_rpm_max": 3859.0,
+        "v_yaw_rate_max_degs": 37.6,
+        "v_long_accel_g_range": [
+          -0.36,
+          0.35
+        ]
+      }
+    },
+    {
+      "s_file": "S-S4.csv",
+      "folder": "S (Driver A) / S4",
+      "rows": 94600,
+      "v_paired": true,
+      "duration_s": 354.8,
+      "dt_mean_ms": 3.75,
+      "dt_std_ms": 21457.13,
+      "dt_min_ms": -5578000.0,
+      "dt_max_ms": 117.0,
+      "gps_unique_updates": 932,
+      "gps_effective_rate_hz": 2.63,
+      "gps_spd_max_kmh": 29.4,
+      "gps_spd_mean_kmh": 9.9,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.957,
+      "accel_norm_std": 0.566,
+      "ax_range": [
+        -49.2,
+        10.51
+      ],
+      "ay_range": [
+        -9.23,
+        52.4
+      ],
+      "az_range": [
+        -6.17,
+        17.06
+      ],
+      "gyro_yaw_mean_rads": 0.00068,
+      "gyro_yaw_std_rads": 0.1216,
+      "gyro_yaw_max_rads": 9.522,
+      "stationary_pct": 11.6,
+      "stat_accel_noise_std": 0.1903,
+      "stat_gyro_bias_rads": 0.0003,
+      "stat_gyro_noise_std": 0.03209,
+      "vehicle_reference": {
+        "v_rows": 94600,
+        "v_spd_max_kmh": 109.6,
+        "v_spd_mean_kmh": 33.7,
+        "v_rpm_idle": 761.0,
+        "v_rpm_max": 4082.0,
+        "v_yaw_rate_max_degs": 47.6,
+        "v_long_accel_g_range": [
+          -0.48,
+          0.41
+        ]
+      }
+    },
+    {
+      "s_file": "S-S4.csv",
+      "folder": "S (Driver A) / S4",
+      "rows": 94600,
+      "v_paired": true,
+      "duration_s": 354.8,
+      "dt_mean_ms": 3.75,
+      "dt_std_ms": 21457.13,
+      "dt_min_ms": -5578000.0,
+      "dt_max_ms": 117.0,
+      "gps_unique_updates": 932,
+      "gps_effective_rate_hz": 2.63,
+      "gps_spd_max_kmh": 29.4,
+      "gps_spd_mean_kmh": 9.9,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.957,
+      "accel_norm_std": 0.566,
+      "ax_range": [
+        -49.2,
+        10.51
+      ],
+      "ay_range": [
+        -9.23,
+        52.4
+      ],
+      "az_range": [
+        -6.17,
+        17.06
+      ],
+      "gyro_yaw_mean_rads": 0.00068,
+      "gyro_yaw_std_rads": 0.1216,
+      "gyro_yaw_max_rads": 9.522,
+      "stationary_pct": 11.6,
+      "stat_accel_noise_std": 0.1903,
+      "stat_gyro_bias_rads": 0.0003,
+      "stat_gyro_noise_std": 0.03209,
+      "vehicle_reference": {
+        "v_rows": 94600,
+        "v_spd_max_kmh": 109.6,
+        "v_spd_mean_kmh": 33.7,
+        "v_rpm_idle": 761.0,
+        "v_rpm_max": 4082.0,
+        "v_yaw_rate_max_degs": 47.6,
+        "v_long_accel_g_range": [
+          -0.48,
+          0.41
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vfa01.csv",
+      "folder": "Vf (Driver E) / V-Vfa01",
+      "rows": 11486,
+      "v_paired": true,
+      "duration_s": 1148.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.85,
+      "dt_min_ms": 86.0,
+      "dt_max_ms": 113.0,
+      "gps_unique_updates": 123,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 26.8,
+      "gps_spd_mean_kmh": 16.4,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.234,
+      "accel_norm_std": 1.021,
+      "ax_range": [
+        -15.11,
+        16.52
+      ],
+      "ay_range": [
+        -10.88,
+        11.06
+      ],
+      "az_range": [
+        1.12,
+        15.56
+      ],
+      "gyro_yaw_mean_rads": -0.00139,
+      "gyro_yaw_std_rads": 0.0955,
+      "gyro_yaw_max_rads": 0.738,
+      "stationary_pct": 6.3,
+      "stat_accel_noise_std": 0.2145,
+      "stat_gyro_bias_rads": -0.00229,
+      "stat_gyro_noise_std": 0.02323,
+      "vehicle_reference": {
+        "v_rows": 11535,
+        "v_spd_max_kmh": 98.4,
+        "v_spd_mean_kmh": 58.6,
+        "v_rpm_idle": 877.0,
+        "v_rpm_max": 3376.0,
+        "v_yaw_rate_max_degs": 34.0,
+        "v_long_accel_g_range": [
+          -0.56,
+          0.42
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta1a.csv",
+      "folder": "Vta (Driver E) / Vta01a",
+      "rows": 25676,
+      "v_paired": true,
+      "duration_s": 2567.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 88.0,
+      "dt_max_ms": 111.0,
+      "gps_unique_updates": 2519,
+      "gps_effective_rate_hz": 0.98,
+      "gps_spd_max_kmh": 28.8,
+      "gps_spd_mean_kmh": 15.7,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.359,
+      "accel_norm_std": 1.117,
+      "ax_range": [
+        -16.93,
+        15.12
+      ],
+      "ay_range": [
+        -15.96,
+        15.89
+      ],
+      "az_range": [
+        3.79,
+        16.45
+      ],
+      "gyro_yaw_mean_rads": -0.0014,
+      "gyro_yaw_std_rads": 0.0998,
+      "gyro_yaw_max_rads": 0.662,
+      "stationary_pct": 1.9,
+      "stat_accel_noise_std": 0.2332,
+      "stat_gyro_bias_rads": -0.00348,
+      "stat_gyro_noise_std": 0.02362,
+      "vehicle_reference": {
+        "v_rows": 25676,
+        "v_spd_max_kmh": 103.4,
+        "v_spd_mean_kmh": 57.1,
+        "v_rpm_idle": 1186.0,
+        "v_rpm_max": 3635.0,
+        "v_yaw_rate_max_degs": 41.9,
+        "v_long_accel_g_range": [
+          -0.54,
+          0.35
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta1a.csv",
+      "folder": "Vta (Driver E) / Vta01a",
+      "rows": 25676,
+      "v_paired": true,
+      "duration_s": 2567.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 88.0,
+      "dt_max_ms": 111.0,
+      "gps_unique_updates": 2519,
+      "gps_effective_rate_hz": 0.98,
+      "gps_spd_max_kmh": 28.8,
+      "gps_spd_mean_kmh": 15.7,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.359,
+      "accel_norm_std": 1.117,
+      "ax_range": [
+        -16.93,
+        15.12
+      ],
+      "ay_range": [
+        -15.96,
+        15.89
+      ],
+      "az_range": [
+        3.79,
+        16.45
+      ],
+      "gyro_yaw_mean_rads": -0.0014,
+      "gyro_yaw_std_rads": 0.0998,
+      "gyro_yaw_max_rads": 0.662,
+      "stationary_pct": 1.9,
+      "stat_accel_noise_std": 0.2332,
+      "stat_gyro_bias_rads": -0.00348,
+      "stat_gyro_noise_std": 0.02362,
+      "vehicle_reference": {
+        "v_rows": 25676,
+        "v_spd_max_kmh": 103.4,
+        "v_spd_mean_kmh": 57.1,
+        "v_rpm_idle": 1186.0,
+        "v_rpm_max": 3635.0,
+        "v_yaw_rate_max_degs": 41.9,
+        "v_long_accel_g_range": [
+          -0.54,
+          0.35
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta1b.csv",
+      "folder": "Vta (Driver E) / Vta01b",
+      "rows": 954,
+      "v_paired": true,
+      "duration_s": 95.3,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.61,
+      "dt_min_ms": 94.0,
+      "dt_max_ms": 106.0,
+      "gps_unique_updates": 94,
+      "gps_effective_rate_hz": 0.99,
+      "gps_spd_max_kmh": 21.4,
+      "gps_spd_mean_kmh": 13.2,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.438,
+      "accel_norm_std": 1.18,
+      "ax_range": [
+        -7.44,
+        6.25
+      ],
+      "ay_range": [
+        -13.18,
+        12.78
+      ],
+      "az_range": [
+        7.03,
+        13.04
+      ],
+      "gyro_yaw_mean_rads": -0.00233,
+      "gyro_yaw_std_rads": 0.1001,
+      "gyro_yaw_max_rads": 0.417,
+      "stationary_pct": 3.1,
+      "vehicle_reference": {
+        "v_rows": 953,
+        "v_spd_max_kmh": 77.7,
+        "v_spd_mean_kmh": 47.5,
+        "v_rpm_idle": 1200.0,
+        "v_rpm_max": 3165.0,
+        "v_yaw_rate_max_degs": 10.6,
+        "v_long_accel_g_range": [
+          -0.49,
+          0.279
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta1b.csv",
+      "folder": "Vta (Driver E) / Vta01b",
+      "rows": 954,
+      "v_paired": true,
+      "duration_s": 95.3,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.61,
+      "dt_min_ms": 94.0,
+      "dt_max_ms": 106.0,
+      "gps_unique_updates": 94,
+      "gps_effective_rate_hz": 0.99,
+      "gps_spd_max_kmh": 21.4,
+      "gps_spd_mean_kmh": 13.2,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.438,
+      "accel_norm_std": 1.18,
+      "ax_range": [
+        -7.44,
+        6.25
+      ],
+      "ay_range": [
+        -13.18,
+        12.78
+      ],
+      "az_range": [
+        7.03,
+        13.04
+      ],
+      "gyro_yaw_mean_rads": -0.00233,
+      "gyro_yaw_std_rads": 0.1001,
+      "gyro_yaw_max_rads": 0.417,
+      "stationary_pct": 3.1,
+      "vehicle_reference": {
+        "v_rows": 953,
+        "v_spd_max_kmh": 77.7,
+        "v_spd_mean_kmh": 47.5,
+        "v_rpm_idle": 1200.0,
+        "v_rpm_max": 3165.0,
+        "v_yaw_rate_max_degs": 10.6,
+        "v_long_accel_g_range": [
+          -0.49,
+          0.279
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta10.csv",
+      "folder": "Vta (Driver E) / Vta10",
+      "rows": 1502,
+      "v_paired": true,
+      "duration_s": 150.1,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.69,
+      "dt_min_ms": 91.0,
+      "dt_max_ms": 109.0,
+      "gps_unique_updates": 17,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 31.6,
+      "gps_spd_mean_kmh": 25.2,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.333,
+      "accel_norm_std": 1.072,
+      "ax_range": [
+        -13.47,
+        11.51
+      ],
+      "ay_range": [
+        -7.15,
+        7.05
+      ],
+      "az_range": [
+        5.61,
+        12.92
+      ],
+      "gyro_yaw_mean_rads": -0.00043,
+      "gyro_yaw_std_rads": 0.1097,
+      "gyro_yaw_max_rads": 0.445,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 1502,
+        "v_spd_max_kmh": 118.0,
+        "v_spd_mean_kmh": 90.0,
+        "v_rpm_idle": 1440.0,
+        "v_rpm_max": 4520.0,
+        "v_yaw_rate_max_degs": 21.3,
+        "v_long_accel_g_range": [
+          -0.279,
+          0.13
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta10.csv",
+      "folder": "Vta (Driver E) / Vta10",
+      "rows": 1502,
+      "v_paired": true,
+      "duration_s": 150.1,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.69,
+      "dt_min_ms": 91.0,
+      "dt_max_ms": 109.0,
+      "gps_unique_updates": 17,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 31.6,
+      "gps_spd_mean_kmh": 25.2,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.333,
+      "accel_norm_std": 1.072,
+      "ax_range": [
+        -13.47,
+        11.51
+      ],
+      "ay_range": [
+        -7.15,
+        7.05
+      ],
+      "az_range": [
+        5.61,
+        12.92
+      ],
+      "gyro_yaw_mean_rads": -0.00043,
+      "gyro_yaw_std_rads": 0.1097,
+      "gyro_yaw_max_rads": 0.445,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 1502,
+        "v_spd_max_kmh": 118.0,
+        "v_spd_mean_kmh": 90.0,
+        "v_rpm_idle": 1440.0,
+        "v_rpm_max": 4520.0,
+        "v_yaw_rate_max_degs": 21.3,
+        "v_long_accel_g_range": [
+          -0.279,
+          0.13
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta11.csv",
+      "folder": "Vta (Driver E) / Vta11",
+      "rows": 510,
+      "v_paired": true,
+      "duration_s": 50.9,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.58,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 102.0,
+      "gps_unique_updates": 6,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 26.7,
+      "gps_spd_mean_kmh": 15.2,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.447,
+      "accel_norm_std": 0.99,
+      "ax_range": [
+        -8.19,
+        9.1
+      ],
+      "ay_range": [
+        -13.2,
+        7.58
+      ],
+      "az_range": [
+        6.93,
+        12.35
+      ],
+      "gyro_yaw_mean_rads": 0.00063,
+      "gyro_yaw_std_rads": 0.0797,
+      "gyro_yaw_max_rads": 0.278,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 510,
+        "v_spd_max_kmh": 97.7,
+        "v_spd_mean_kmh": 50.6,
+        "v_rpm_idle": 1130.0,
+        "v_rpm_max": 2976.0,
+        "v_yaw_rate_max_degs": 25.1,
+        "v_long_accel_g_range": [
+          -0.45,
+          0.15
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta11.csv",
+      "folder": "Vta (Driver E) / Vta11",
+      "rows": 510,
+      "v_paired": true,
+      "duration_s": 50.9,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.58,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 102.0,
+      "gps_unique_updates": 6,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 26.7,
+      "gps_spd_mean_kmh": 15.2,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.447,
+      "accel_norm_std": 0.99,
+      "ax_range": [
+        -8.19,
+        9.1
+      ],
+      "ay_range": [
+        -13.2,
+        7.58
+      ],
+      "az_range": [
+        6.93,
+        12.35
+      ],
+      "gyro_yaw_mean_rads": 0.00063,
+      "gyro_yaw_std_rads": 0.0797,
+      "gyro_yaw_max_rads": 0.278,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 510,
+        "v_spd_max_kmh": 97.7,
+        "v_spd_mean_kmh": 50.6,
+        "v_rpm_idle": 1130.0,
+        "v_rpm_max": 2976.0,
+        "v_yaw_rate_max_degs": 25.1,
+        "v_long_accel_g_range": [
+          -0.45,
+          0.15
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta12.csv",
+      "folder": "Vta (Driver E) / Vta12",
+      "rows": 610,
+      "v_paired": true,
+      "duration_s": 60.9,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.62,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 7,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 23.2,
+      "gps_spd_mean_kmh": 18.8,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.148,
+      "accel_norm_std": 0.697,
+      "ax_range": [
+        -6.26,
+        3.71
+      ],
+      "ay_range": [
+        -6.62,
+        6.31
+      ],
+      "az_range": [
+        7.15,
+        12.01
+      ],
+      "gyro_yaw_mean_rads": 0.00098,
+      "gyro_yaw_std_rads": 0.0646,
+      "gyro_yaw_max_rads": 0.223,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 610,
+        "v_spd_max_kmh": 85.3,
+        "v_spd_mean_kmh": 66.3,
+        "v_rpm_idle": 1441.0,
+        "v_rpm_max": 3223.0,
+        "v_yaw_rate_max_degs": 7.5,
+        "v_long_accel_g_range": [
+          -0.44,
+          0.13
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta12.csv",
+      "folder": "Vta (Driver E) / Vta12",
+      "rows": 610,
+      "v_paired": true,
+      "duration_s": 60.9,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.62,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 7,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 23.2,
+      "gps_spd_mean_kmh": 18.8,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.148,
+      "accel_norm_std": 0.697,
+      "ax_range": [
+        -6.26,
+        3.71
+      ],
+      "ay_range": [
+        -6.62,
+        6.31
+      ],
+      "az_range": [
+        7.15,
+        12.01
+      ],
+      "gyro_yaw_mean_rads": 0.00098,
+      "gyro_yaw_std_rads": 0.0646,
+      "gyro_yaw_max_rads": 0.223,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 610,
+        "v_spd_max_kmh": 85.3,
+        "v_spd_mean_kmh": 66.3,
+        "v_rpm_idle": 1441.0,
+        "v_rpm_max": 3223.0,
+        "v_yaw_rate_max_degs": 7.5,
+        "v_long_accel_g_range": [
+          -0.44,
+          0.13
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta13.csv",
+      "folder": "Vta (Driver E) / Vta13",
+      "rows": 404,
+      "v_paired": true,
+      "duration_s": 40.3,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.64,
+      "dt_min_ms": 96.0,
+      "dt_max_ms": 104.0,
+      "gps_unique_updates": 6,
+      "gps_effective_rate_hz": 0.15,
+      "gps_spd_max_kmh": 27.1,
+      "gps_spd_mean_kmh": 23.4,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 3.0,
+      "accel_norm_mean": 10.179,
+      "accel_norm_std": 1.058,
+      "ax_range": [
+        -5.69,
+        4.2
+      ],
+      "ay_range": [
+        -6.75,
+        6.44
+      ],
+      "az_range": [
+        6.94,
+        13.99
+      ],
+      "gyro_yaw_mean_rads": -0.00315,
+      "gyro_yaw_std_rads": 0.0874,
+      "gyro_yaw_max_rads": 0.263,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 404,
+        "v_spd_max_kmh": 103.6,
+        "v_spd_mean_kmh": 87.3,
+        "v_rpm_idle": 2020.0,
+        "v_rpm_max": 3823.0,
+        "v_yaw_rate_max_degs": 7.7,
+        "v_long_accel_g_range": [
+          -0.379,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta13.csv",
+      "folder": "Vta (Driver E) / Vta13",
+      "rows": 404,
+      "v_paired": true,
+      "duration_s": 40.3,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.64,
+      "dt_min_ms": 96.0,
+      "dt_max_ms": 104.0,
+      "gps_unique_updates": 6,
+      "gps_effective_rate_hz": 0.15,
+      "gps_spd_max_kmh": 27.1,
+      "gps_spd_mean_kmh": 23.4,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 3.0,
+      "accel_norm_mean": 10.179,
+      "accel_norm_std": 1.058,
+      "ax_range": [
+        -5.69,
+        4.2
+      ],
+      "ay_range": [
+        -6.75,
+        6.44
+      ],
+      "az_range": [
+        6.94,
+        13.99
+      ],
+      "gyro_yaw_mean_rads": -0.00315,
+      "gyro_yaw_std_rads": 0.0874,
+      "gyro_yaw_max_rads": 0.263,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 404,
+        "v_spd_max_kmh": 103.6,
+        "v_spd_mean_kmh": 87.3,
+        "v_rpm_idle": 2020.0,
+        "v_rpm_max": 3823.0,
+        "v_yaw_rate_max_degs": 7.7,
+        "v_long_accel_g_range": [
+          -0.379,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta14.csv",
+      "folder": "Vta (Driver E) / Vta14",
+      "rows": 2885,
+      "v_paired": true,
+      "duration_s": 288.4,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.64,
+      "dt_min_ms": 96.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 33,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 24.7,
+      "gps_spd_mean_kmh": 18.8,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.289,
+      "accel_norm_std": 0.966,
+      "ax_range": [
+        -13.83,
+        10.74
+      ],
+      "ay_range": [
+        -10.07,
+        12.65
+      ],
+      "az_range": [
+        6.73,
+        14.27
+      ],
+      "gyro_yaw_mean_rads": 0.00231,
+      "gyro_yaw_std_rads": 0.083,
+      "gyro_yaw_max_rads": 0.405,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 2885,
+        "v_spd_max_kmh": 91.0,
+        "v_spd_mean_kmh": 67.8,
+        "v_rpm_idle": 1500.0,
+        "v_rpm_max": 3544.0,
+        "v_yaw_rate_max_degs": 11.5,
+        "v_long_accel_g_range": [
+          -0.32,
+          0.13
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta14.csv",
+      "folder": "Vta (Driver E) / Vta14",
+      "rows": 2885,
+      "v_paired": true,
+      "duration_s": 288.4,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.64,
+      "dt_min_ms": 96.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 33,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 24.7,
+      "gps_spd_mean_kmh": 18.8,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.289,
+      "accel_norm_std": 0.966,
+      "ax_range": [
+        -13.83,
+        10.74
+      ],
+      "ay_range": [
+        -10.07,
+        12.65
+      ],
+      "az_range": [
+        6.73,
+        14.27
+      ],
+      "gyro_yaw_mean_rads": 0.00231,
+      "gyro_yaw_std_rads": 0.083,
+      "gyro_yaw_max_rads": 0.405,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 2885,
+        "v_spd_max_kmh": 91.0,
+        "v_spd_mean_kmh": 67.8,
+        "v_rpm_idle": 1500.0,
+        "v_rpm_max": 3544.0,
+        "v_yaw_rate_max_degs": 11.5,
+        "v_long_accel_g_range": [
+          -0.32,
+          0.13
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta15.csv",
+      "folder": "Vta (Driver E) / Vta15",
+      "rows": 833,
+      "v_paired": true,
+      "duration_s": 83.2,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.84,
+      "dt_min_ms": 90.0,
+      "dt_max_ms": 110.0,
+      "gps_unique_updates": 10,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 21.5,
+      "gps_spd_mean_kmh": 19.9,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.23,
+      "accel_norm_std": 0.853,
+      "ax_range": [
+        -9.17,
+        11.38
+      ],
+      "ay_range": [
+        -3.52,
+        4.55
+      ],
+      "az_range": [
+        6.57,
+        13.26
+      ],
+      "gyro_yaw_mean_rads": 0.00101,
+      "gyro_yaw_std_rads": 0.0803,
+      "gyro_yaw_max_rads": 0.33,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 833,
+        "v_spd_max_kmh": 78.8,
+        "v_spd_mean_kmh": 71.6,
+        "v_rpm_idle": 1614.0,
+        "v_rpm_max": 2317.0,
+        "v_yaw_rate_max_degs": 5.6,
+        "v_long_accel_g_range": [
+          -0.119,
+          0.059
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta15.csv",
+      "folder": "Vta (Driver E) / Vta15",
+      "rows": 833,
+      "v_paired": true,
+      "duration_s": 83.2,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.84,
+      "dt_min_ms": 90.0,
+      "dt_max_ms": 110.0,
+      "gps_unique_updates": 10,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 21.5,
+      "gps_spd_mean_kmh": 19.9,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.23,
+      "accel_norm_std": 0.853,
+      "ax_range": [
+        -9.17,
+        11.38
+      ],
+      "ay_range": [
+        -3.52,
+        4.55
+      ],
+      "az_range": [
+        6.57,
+        13.26
+      ],
+      "gyro_yaw_mean_rads": 0.00101,
+      "gyro_yaw_std_rads": 0.0803,
+      "gyro_yaw_max_rads": 0.33,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 833,
+        "v_spd_max_kmh": 78.8,
+        "v_spd_mean_kmh": 71.6,
+        "v_rpm_idle": 1614.0,
+        "v_rpm_max": 2317.0,
+        "v_yaw_rate_max_degs": 5.6,
+        "v_long_accel_g_range": [
+          -0.119,
+          0.059
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta16.csv",
+      "folder": "Vta (Driver E) / Vta16",
+      "rows": 11335,
+      "v_paired": true,
+      "duration_s": 1133.4,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.65,
+      "dt_min_ms": 90.0,
+      "dt_max_ms": 110.0,
+      "gps_unique_updates": 122,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 25.9,
+      "gps_spd_mean_kmh": 12.1,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.217,
+      "accel_norm_std": 0.839,
+      "ax_range": [
+        -11.31,
+        16.11
+      ],
+      "ay_range": [
+        -11.66,
+        15.59
+      ],
+      "az_range": [
+        5.61,
+        14.29
+      ],
+      "gyro_yaw_mean_rads": 0.00228,
+      "gyro_yaw_std_rads": 0.0767,
+      "gyro_yaw_max_rads": 0.543,
+      "stationary_pct": 2.5,
+      "stat_accel_noise_std": 0.327,
+      "stat_gyro_bias_rads": 0.00192,
+      "stat_gyro_noise_std": 0.02605,
+      "vehicle_reference": {
+        "v_rows": 11335,
+        "v_spd_max_kmh": 93.9,
+        "v_spd_mean_kmh": 43.4,
+        "v_rpm_idle": 887.0,
+        "v_rpm_max": 3458.0,
+        "v_yaw_rate_max_degs": 34.9,
+        "v_long_accel_g_range": [
+          -0.49,
+          0.42
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta16.csv",
+      "folder": "Vta (Driver E) / Vta16",
+      "rows": 11335,
+      "v_paired": true,
+      "duration_s": 1133.4,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.65,
+      "dt_min_ms": 90.0,
+      "dt_max_ms": 110.0,
+      "gps_unique_updates": 122,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 25.9,
+      "gps_spd_mean_kmh": 12.1,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.217,
+      "accel_norm_std": 0.839,
+      "ax_range": [
+        -11.31,
+        16.11
+      ],
+      "ay_range": [
+        -11.66,
+        15.59
+      ],
+      "az_range": [
+        5.61,
+        14.29
+      ],
+      "gyro_yaw_mean_rads": 0.00228,
+      "gyro_yaw_std_rads": 0.0767,
+      "gyro_yaw_max_rads": 0.543,
+      "stationary_pct": 2.5,
+      "stat_accel_noise_std": 0.327,
+      "stat_gyro_bias_rads": 0.00192,
+      "stat_gyro_noise_std": 0.02605,
+      "vehicle_reference": {
+        "v_rows": 11335,
+        "v_spd_max_kmh": 93.9,
+        "v_spd_mean_kmh": 43.4,
+        "v_rpm_idle": 887.0,
+        "v_rpm_max": 3458.0,
+        "v_yaw_rate_max_degs": 34.9,
+        "v_long_accel_g_range": [
+          -0.49,
+          0.42
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta17.csv",
+      "folder": "Vta (Driver E) / Vta17",
+      "rows": 4519,
+      "v_paired": true,
+      "duration_s": 453.0,
+      "dt_mean_ms": 100.26,
+      "dt_std_ms": 17.62,
+      "dt_min_ms": 93.0,
+      "dt_max_ms": 1284.0,
+      "gps_unique_updates": 50,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 15.0,
+      "gps_spd_mean_kmh": 8.8,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.333,
+      "accel_norm_std": 1.021,
+      "ax_range": [
+        -18.51,
+        13.47
+      ],
+      "ay_range": [
+        -13.15,
+        9.84
+      ],
+      "az_range": [
+        4.65,
+        14.31
+      ],
+      "gyro_yaw_mean_rads": -0.00048,
+      "gyro_yaw_std_rads": 0.0818,
+      "gyro_yaw_max_rads": 0.566,
+      "stationary_pct": 2.0,
+      "stat_accel_noise_std": 0.2925,
+      "stat_gyro_bias_rads": 0.00382,
+      "stat_gyro_noise_std": 0.02653,
+      "vehicle_reference": {
+        "v_rows": 4519,
+        "v_spd_max_kmh": 56.2,
+        "v_spd_mean_kmh": 32.7,
+        "v_rpm_idle": 888.0,
+        "v_rpm_max": 3100.0,
+        "v_yaw_rate_max_degs": 36.1,
+        "v_long_accel_g_range": [
+          -0.51,
+          0.279
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta17.csv",
+      "folder": "Vta (Driver E) / Vta17",
+      "rows": 4519,
+      "v_paired": true,
+      "duration_s": 453.0,
+      "dt_mean_ms": 100.26,
+      "dt_std_ms": 17.62,
+      "dt_min_ms": 93.0,
+      "dt_max_ms": 1284.0,
+      "gps_unique_updates": 50,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 15.0,
+      "gps_spd_mean_kmh": 8.8,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.333,
+      "accel_norm_std": 1.021,
+      "ax_range": [
+        -18.51,
+        13.47
+      ],
+      "ay_range": [
+        -13.15,
+        9.84
+      ],
+      "az_range": [
+        4.65,
+        14.31
+      ],
+      "gyro_yaw_mean_rads": -0.00048,
+      "gyro_yaw_std_rads": 0.0818,
+      "gyro_yaw_max_rads": 0.566,
+      "stationary_pct": 2.0,
+      "stat_accel_noise_std": 0.2925,
+      "stat_gyro_bias_rads": 0.00382,
+      "stat_gyro_noise_std": 0.02653,
+      "vehicle_reference": {
+        "v_rows": 4519,
+        "v_spd_max_kmh": 56.2,
+        "v_spd_mean_kmh": 32.7,
+        "v_rpm_idle": 888.0,
+        "v_rpm_max": 3100.0,
+        "v_yaw_rate_max_degs": 36.1,
+        "v_long_accel_g_range": [
+          -0.51,
+          0.279
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta19.csv",
+      "folder": "Vta (Driver E) / Vta19",
+      "rows": 292,
+      "v_paired": true,
+      "duration_s": 29.1,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 104.0,
+      "gps_unique_updates": 4,
+      "gps_effective_rate_hz": 0.14,
+      "gps_spd_max_kmh": 14.8,
+      "gps_spd_mean_kmh": 9.9,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.164,
+      "accel_norm_std": 0.622,
+      "ax_range": [
+        -4.9,
+        4.2
+      ],
+      "ay_range": [
+        -4.48,
+        5.54
+      ],
+      "az_range": [
+        8.43,
+        12.38
+      ],
+      "gyro_yaw_mean_rads": 0.00063,
+      "gyro_yaw_std_rads": 0.057,
+      "gyro_yaw_max_rads": 0.169,
+      "stationary_pct": 7.5,
+      "vehicle_reference": {
+        "v_rows": 292,
+        "v_spd_max_kmh": 54.3,
+        "v_spd_mean_kmh": 29.1,
+        "v_rpm_idle": 747.0,
+        "v_rpm_max": 3218.0,
+        "v_yaw_rate_max_degs": 16.1,
+        "v_long_accel_g_range": [
+          -0.35,
+          0.219
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vta19.csv",
+      "folder": "Vta (Driver E) / Vta19",
+      "rows": 292,
+      "v_paired": true,
+      "duration_s": 29.1,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 104.0,
+      "gps_unique_updates": 4,
+      "gps_effective_rate_hz": 0.14,
+      "gps_spd_max_kmh": 14.8,
+      "gps_spd_mean_kmh": 9.9,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.164,
+      "accel_norm_std": 0.622,
+      "ax_range": [
+        -4.9,
+        4.2
+      ],
+      "ay_range": [
+        -4.48,
+        5.54
+      ],
+      "az_range": [
+        8.43,
+        12.38
+      ],
+      "gyro_yaw_mean_rads": 0.00063,
+      "gyro_yaw_std_rads": 0.057,
+      "gyro_yaw_max_rads": 0.169,
+      "stationary_pct": 7.5,
+      "vehicle_reference": {
+        "v_rows": 292,
+        "v_spd_max_kmh": 54.3,
+        "v_spd_mean_kmh": 29.1,
+        "v_rpm_idle": 747.0,
+        "v_rpm_max": 3218.0,
+        "v_yaw_rate_max_degs": 16.1,
+        "v_long_accel_g_range": [
+          -0.35,
+          0.219
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb1.csv",
+      "folder": "Vtb (Driver E) / Vtb01",
+      "rows": 32459,
+      "v_paired": true,
+      "duration_s": 3245.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 3670.75,
+      "dt_min_ms": 0.0,
+      "dt_max_ms": 661376.0,
+      "gps_unique_updates": 280,
+      "gps_effective_rate_hz": 0.09,
+      "gps_spd_max_kmh": 27.8,
+      "gps_spd_mean_kmh": 11.5,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 2400.0,
+      "accel_norm_mean": 10.265,
+      "accel_norm_std": 1.025,
+      "ax_range": [
+        -16.26,
+        16.24
+      ],
+      "ay_range": [
+        -18.6,
+        12.83
+      ],
+      "az_range": [
+        3.91,
+        16.48
+      ],
+      "gyro_yaw_mean_rads": -0.00197,
+      "gyro_yaw_std_rads": 0.092,
+      "gyro_yaw_max_rads": 0.635,
+      "stationary_pct": 4.4,
+      "stat_accel_noise_std": 0.2514,
+      "stat_gyro_bias_rads": 0.00031,
+      "stat_gyro_noise_std": 0.02851,
+      "vehicle_reference": {
+        "v_rows": 32459,
+        "v_spd_max_kmh": 101.2,
+        "v_spd_mean_kmh": 46.1,
+        "v_rpm_idle": 843.0,
+        "v_rpm_max": 3553.0,
+        "v_yaw_rate_max_degs": 37.8,
+        "v_long_accel_g_range": [
+          -0.63,
+          0.36
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb1.csv",
+      "folder": "Vtb (Driver E) / Vtb01",
+      "rows": 32459,
+      "v_paired": true,
+      "duration_s": 3245.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 3670.75,
+      "dt_min_ms": 0.0,
+      "dt_max_ms": 661376.0,
+      "gps_unique_updates": 280,
+      "gps_effective_rate_hz": 0.09,
+      "gps_spd_max_kmh": 27.8,
+      "gps_spd_mean_kmh": 11.5,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 2400.0,
+      "accel_norm_mean": 10.265,
+      "accel_norm_std": 1.025,
+      "ax_range": [
+        -16.26,
+        16.24
+      ],
+      "ay_range": [
+        -18.6,
+        12.83
+      ],
+      "az_range": [
+        3.91,
+        16.48
+      ],
+      "gyro_yaw_mean_rads": -0.00197,
+      "gyro_yaw_std_rads": 0.092,
+      "gyro_yaw_max_rads": 0.635,
+      "stationary_pct": 4.4,
+      "stat_accel_noise_std": 0.2514,
+      "stat_gyro_bias_rads": 0.00031,
+      "stat_gyro_noise_std": 0.02851,
+      "vehicle_reference": {
+        "v_rows": 32459,
+        "v_spd_max_kmh": 101.2,
+        "v_spd_mean_kmh": 46.1,
+        "v_rpm_idle": 843.0,
+        "v_rpm_max": 3553.0,
+        "v_yaw_rate_max_degs": 37.8,
+        "v_long_accel_g_range": [
+          -0.63,
+          0.36
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb10.csv",
+      "folder": "Vtb (Driver E) / Vtb10",
+      "rows": 196,
+      "v_paired": true,
+      "duration_s": 19.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.87,
+      "dt_min_ms": 95.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 3,
+      "gps_effective_rate_hz": 0.15,
+      "gps_spd_max_kmh": 18.8,
+      "gps_spd_mean_kmh": 11.3,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.14,
+      "accel_norm_std": 0.733,
+      "ax_range": [
+        -3.45,
+        5.58
+      ],
+      "ay_range": [
+        -7.79,
+        4.05
+      ],
+      "az_range": [
+        7.74,
+        12.04
+      ],
+      "gyro_yaw_mean_rads": -0.00092,
+      "gyro_yaw_std_rads": 0.0736,
+      "gyro_yaw_max_rads": 0.275,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 195,
+        "v_spd_max_kmh": 58.5,
+        "v_spd_mean_kmh": 41.7,
+        "v_rpm_idle": 1141.0,
+        "v_rpm_max": 2399.0,
+        "v_yaw_rate_max_degs": 20.3,
+        "v_long_accel_g_range": [
+          -0.24,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb10.csv",
+      "folder": "Vtb (Driver E) / Vtb10",
+      "rows": 196,
+      "v_paired": true,
+      "duration_s": 19.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.87,
+      "dt_min_ms": 95.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 3,
+      "gps_effective_rate_hz": 0.15,
+      "gps_spd_max_kmh": 18.8,
+      "gps_spd_mean_kmh": 11.3,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.14,
+      "accel_norm_std": 0.733,
+      "ax_range": [
+        -3.45,
+        5.58
+      ],
+      "ay_range": [
+        -7.79,
+        4.05
+      ],
+      "az_range": [
+        7.74,
+        12.04
+      ],
+      "gyro_yaw_mean_rads": -0.00092,
+      "gyro_yaw_std_rads": 0.0736,
+      "gyro_yaw_max_rads": 0.275,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 195,
+        "v_spd_max_kmh": 58.5,
+        "v_spd_mean_kmh": 41.7,
+        "v_rpm_idle": 1141.0,
+        "v_rpm_max": 2399.0,
+        "v_yaw_rate_max_degs": 20.3,
+        "v_long_accel_g_range": [
+          -0.24,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb11.csv",
+      "folder": "Vtb (Driver E) / Vtb11",
+      "rows": 361,
+      "v_paired": true,
+      "duration_s": 36.0,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.85,
+      "dt_min_ms": 96.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 5,
+      "gps_effective_rate_hz": 0.14,
+      "gps_spd_max_kmh": 20.7,
+      "gps_spd_mean_kmh": 19.3,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.304,
+      "accel_norm_std": 0.938,
+      "ax_range": [
+        -5.96,
+        4.73
+      ],
+      "ay_range": [
+        -6.99,
+        6.57
+      ],
+      "az_range": [
+        7.5,
+        12.35
+      ],
+      "gyro_yaw_mean_rads": -0.00119,
+      "gyro_yaw_std_rads": 0.0987,
+      "gyro_yaw_max_rads": 0.288,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 361,
+        "v_spd_max_kmh": 75.3,
+        "v_spd_mean_kmh": 69.8,
+        "v_rpm_idle": 1668.0,
+        "v_rpm_max": 2988.0,
+        "v_yaw_rate_max_degs": 2.3,
+        "v_long_accel_g_range": [
+          -0.05,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb11.csv",
+      "folder": "Vtb (Driver E) / Vtb11",
+      "rows": 361,
+      "v_paired": true,
+      "duration_s": 36.0,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.85,
+      "dt_min_ms": 96.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 5,
+      "gps_effective_rate_hz": 0.14,
+      "gps_spd_max_kmh": 20.7,
+      "gps_spd_mean_kmh": 19.3,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.304,
+      "accel_norm_std": 0.938,
+      "ax_range": [
+        -5.96,
+        4.73
+      ],
+      "ay_range": [
+        -6.99,
+        6.57
+      ],
+      "az_range": [
+        7.5,
+        12.35
+      ],
+      "gyro_yaw_mean_rads": -0.00119,
+      "gyro_yaw_std_rads": 0.0987,
+      "gyro_yaw_max_rads": 0.288,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 361,
+        "v_spd_max_kmh": 75.3,
+        "v_spd_mean_kmh": 69.8,
+        "v_rpm_idle": 1668.0,
+        "v_rpm_max": 2988.0,
+        "v_yaw_rate_max_degs": 2.3,
+        "v_long_accel_g_range": [
+          -0.05,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb12.csv",
+      "folder": "Vtb (Driver E) / Vtb12",
+      "rows": 447,
+      "v_paired": true,
+      "duration_s": 44.6,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 5,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 19.7,
+      "gps_spd_mean_kmh": 12.5,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.116,
+      "accel_norm_std": 0.653,
+      "ax_range": [
+        -4.67,
+        4.08
+      ],
+      "ay_range": [
+        -8.31,
+        5.13
+      ],
+      "az_range": [
+        6.47,
+        11.66
+      ],
+      "gyro_yaw_mean_rads": -0.00297,
+      "gyro_yaw_std_rads": 0.0746,
+      "gyro_yaw_max_rads": 0.353,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 447,
+        "v_spd_max_kmh": 71.0,
+        "v_spd_mean_kmh": 42.8,
+        "v_rpm_idle": 1043.0,
+        "v_rpm_max": 2624.0,
+        "v_yaw_rate_max_degs": 23.9,
+        "v_long_accel_g_range": [
+          -0.379,
+          0.169
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vtb12.csv",
+      "folder": "Vtb (Driver E) / Vtb12",
+      "rows": 447,
+      "v_paired": true,
+      "duration_s": 44.6,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 5,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 19.7,
+      "gps_spd_mean_kmh": 12.5,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.116,
+      "accel_norm_std": 0.653,
+      "ax_range": [
+        -4.67,
+        4.08
+      ],
+      "ay_range": [
+        -8.31,
+        5.13
+      ],
+      "az_range": [
+        6.47,
+        11.66
+      ],
+      "gyro_yaw_mean_rads": -0.00297,
+      "gyro_yaw_std_rads": 0.0746,
+      "gyro_yaw_max_rads": 0.353,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 447,
+        "v_spd_max_kmh": 71.0,
+        "v_spd_mean_kmh": 42.8,
+        "v_rpm_idle": 1043.0,
+        "v_rpm_max": 2624.0,
+        "v_yaw_rate_max_degs": 23.9,
+        "v_long_accel_g_range": [
+          -0.379,
+          0.169
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw1.csv",
+      "folder": "Vw (Driver E) / Vw01",
+      "rows": 20476,
+      "v_paired": true,
+      "duration_s": 2047.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.8,
+      "dt_min_ms": 84.0,
+      "dt_max_ms": 115.0,
+      "gps_unique_updates": 1,
+      "gps_effective_rate_hz": 0.0,
+      "gps_spd_max_kmh": 0.0,
+      "gps_spd_mean_kmh": 0.0,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.854,
+      "accel_norm_std": 0.094,
+      "ax_range": [
+        -1.54,
+        4.64
+      ],
+      "ay_range": [
+        -1.51,
+        0.66
+      ],
+      "az_range": [
+        9.12,
+        10.97
+      ],
+      "gyro_yaw_mean_rads": -0.00189,
+      "gyro_yaw_std_rads": 0.0139,
+      "gyro_yaw_max_rads": 0.33,
+      "stationary_pct": 100.0,
+      "stat_accel_noise_std": 0.0937,
+      "stat_gyro_bias_rads": -0.00189,
+      "stat_gyro_noise_std": 0.01386,
+      "vehicle_reference": {
+        "v_rows": 20475,
+        "v_spd_max_kmh": 0.3,
+        "v_spd_mean_kmh": 0.0,
+        "v_rpm_idle": 850.0,
+        "v_rpm_max": 939.0,
+        "v_yaw_rate_max_degs": 0.5,
+        "v_long_accel_g_range": [
+          -0.059,
+          -0.03
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw1.csv",
+      "folder": "Vw (Driver E) / Vw01",
+      "rows": 20476,
+      "v_paired": true,
+      "duration_s": 2047.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.8,
+      "dt_min_ms": 84.0,
+      "dt_max_ms": 115.0,
+      "gps_unique_updates": 1,
+      "gps_effective_rate_hz": 0.0,
+      "gps_spd_max_kmh": 0.0,
+      "gps_spd_mean_kmh": 0.0,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.854,
+      "accel_norm_std": 0.094,
+      "ax_range": [
+        -1.54,
+        4.64
+      ],
+      "ay_range": [
+        -1.51,
+        0.66
+      ],
+      "az_range": [
+        9.12,
+        10.97
+      ],
+      "gyro_yaw_mean_rads": -0.00189,
+      "gyro_yaw_std_rads": 0.0139,
+      "gyro_yaw_max_rads": 0.33,
+      "stationary_pct": 100.0,
+      "stat_accel_noise_std": 0.0937,
+      "stat_gyro_bias_rads": -0.00189,
+      "stat_gyro_noise_std": 0.01386,
+      "vehicle_reference": {
+        "v_rows": 20475,
+        "v_spd_max_kmh": 0.3,
+        "v_spd_mean_kmh": 0.0,
+        "v_rpm_idle": 850.0,
+        "v_rpm_max": 939.0,
+        "v_yaw_rate_max_degs": 0.5,
+        "v_long_accel_g_range": [
+          -0.059,
+          -0.03
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw10.csv",
+      "folder": "Vw (Driver E) / Vw10",
+      "rows": 652,
+      "v_paired": true,
+      "duration_s": 65.1,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.68,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 8,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 13.5,
+      "gps_spd_mean_kmh": 10.2,
+      "gps_acc_median_m": 2.0,
+      "gps_acc_95th_m": 3.0,
+      "accel_norm_mean": 10.478,
+      "accel_norm_std": 1.545,
+      "ax_range": [
+        -6.32,
+        5.36
+      ],
+      "ay_range": [
+        -13.21,
+        14.4
+      ],
+      "az_range": [
+        5.11,
+        14.89
+      ],
+      "gyro_yaw_mean_rads": 0.0093,
+      "gyro_yaw_std_rads": 0.1608,
+      "gyro_yaw_max_rads": 0.696,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 652,
+        "v_spd_max_kmh": 58.9,
+        "v_spd_mean_kmh": 40.5,
+        "v_rpm_idle": 1207.0,
+        "v_rpm_max": 2233.0,
+        "v_yaw_rate_max_degs": 15.0,
+        "v_long_accel_g_range": [
+          -0.42,
+          0.109
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw10.csv",
+      "folder": "Vw (Driver E) / Vw10",
+      "rows": 652,
+      "v_paired": true,
+      "duration_s": 65.1,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.68,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 8,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 13.5,
+      "gps_spd_mean_kmh": 10.2,
+      "gps_acc_median_m": 2.0,
+      "gps_acc_95th_m": 3.0,
+      "accel_norm_mean": 10.478,
+      "accel_norm_std": 1.545,
+      "ax_range": [
+        -6.32,
+        5.36
+      ],
+      "ay_range": [
+        -13.21,
+        14.4
+      ],
+      "az_range": [
+        5.11,
+        14.89
+      ],
+      "gyro_yaw_mean_rads": 0.0093,
+      "gyro_yaw_std_rads": 0.1608,
+      "gyro_yaw_max_rads": 0.696,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 652,
+        "v_spd_max_kmh": 58.9,
+        "v_spd_mean_kmh": 40.5,
+        "v_rpm_idle": 1207.0,
+        "v_rpm_max": 2233.0,
+        "v_yaw_rate_max_degs": 15.0,
+        "v_long_accel_g_range": [
+          -0.42,
+          0.109
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw11.csv",
+      "folder": "Vw (Driver E) / Vw11",
+      "rows": 4909,
+      "v_paired": true,
+      "duration_s": 490.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.78,
+      "dt_min_ms": 91.0,
+      "dt_max_ms": 109.0,
+      "gps_unique_updates": 49,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 27.0,
+      "gps_spd_mean_kmh": 11.8,
+      "gps_acc_median_m": 2.0,
+      "gps_acc_95th_m": 3.0,
+      "accel_norm_mean": 10.247,
+      "accel_norm_std": 1.202,
+      "ax_range": [
+        -9.89,
+        10.39
+      ],
+      "ay_range": [
+        -10.8,
+        12.18
+      ],
+      "az_range": [
+        -1.22,
+        16.26
+      ],
+      "gyro_yaw_mean_rads": 0.00413,
+      "gyro_yaw_std_rads": 0.1327,
+      "gyro_yaw_max_rads": 1.09,
+      "stationary_pct": 14.3,
+      "stat_accel_noise_std": 0.1682,
+      "stat_gyro_bias_rads": 0.00093,
+      "stat_gyro_noise_std": 0.01966,
+      "vehicle_reference": {
+        "v_rows": 4909,
+        "v_spd_max_kmh": 98.4,
+        "v_spd_mean_kmh": 42.8,
+        "v_rpm_idle": 861.0,
+        "v_rpm_max": 3796.0,
+        "v_yaw_rate_max_degs": 28.9,
+        "v_long_accel_g_range": [
+          -0.37,
+          0.329
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw11.csv",
+      "folder": "Vw (Driver E) / Vw11",
+      "rows": 4909,
+      "v_paired": true,
+      "duration_s": 490.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.78,
+      "dt_min_ms": 91.0,
+      "dt_max_ms": 109.0,
+      "gps_unique_updates": 49,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 27.0,
+      "gps_spd_mean_kmh": 11.8,
+      "gps_acc_median_m": 2.0,
+      "gps_acc_95th_m": 3.0,
+      "accel_norm_mean": 10.247,
+      "accel_norm_std": 1.202,
+      "ax_range": [
+        -9.89,
+        10.39
+      ],
+      "ay_range": [
+        -10.8,
+        12.18
+      ],
+      "az_range": [
+        -1.22,
+        16.26
+      ],
+      "gyro_yaw_mean_rads": 0.00413,
+      "gyro_yaw_std_rads": 0.1327,
+      "gyro_yaw_max_rads": 1.09,
+      "stationary_pct": 14.3,
+      "stat_accel_noise_std": 0.1682,
+      "stat_gyro_bias_rads": 0.00093,
+      "stat_gyro_noise_std": 0.01966,
+      "vehicle_reference": {
+        "v_rows": 4909,
+        "v_spd_max_kmh": 98.4,
+        "v_spd_mean_kmh": 42.8,
+        "v_rpm_idle": 861.0,
+        "v_rpm_max": 3796.0,
+        "v_yaw_rate_max_degs": 28.9,
+        "v_long_accel_g_range": [
+          -0.37,
+          0.329
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw12.csv",
+      "folder": "Vw (Driver E) / Vw12",
+      "rows": 918,
+      "v_paired": true,
+      "duration_s": 91.7,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.66,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 104.0,
+      "gps_unique_updates": 11,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 26.5,
+      "gps_spd_mean_kmh": 25.1,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.225,
+      "accel_norm_std": 1.245,
+      "ax_range": [
+        -7.83,
+        8.44
+      ],
+      "ay_range": [
+        -7.46,
+        6.5
+      ],
+      "az_range": [
+        5.14,
+        13.65
+      ],
+      "gyro_yaw_mean_rads": -0.00438,
+      "gyro_yaw_std_rads": 0.1452,
+      "gyro_yaw_max_rads": 0.577,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 918,
+        "v_spd_max_kmh": 97.4,
+        "v_spd_mean_kmh": 90.4,
+        "v_rpm_idle": 2069.0,
+        "v_rpm_max": 2847.0,
+        "v_yaw_rate_max_degs": 2.8,
+        "v_long_accel_g_range": [
+          -0.059,
+          0.069
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw12.csv",
+      "folder": "Vw (Driver E) / Vw12",
+      "rows": 918,
+      "v_paired": true,
+      "duration_s": 91.7,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.66,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 104.0,
+      "gps_unique_updates": 11,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 26.5,
+      "gps_spd_mean_kmh": 25.1,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.225,
+      "accel_norm_std": 1.245,
+      "ax_range": [
+        -7.83,
+        8.44
+      ],
+      "ay_range": [
+        -7.46,
+        6.5
+      ],
+      "az_range": [
+        5.14,
+        13.65
+      ],
+      "gyro_yaw_mean_rads": -0.00438,
+      "gyro_yaw_std_rads": 0.1452,
+      "gyro_yaw_max_rads": 0.577,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 918,
+        "v_spd_max_kmh": 97.4,
+        "v_spd_mean_kmh": 90.4,
+        "v_rpm_idle": 2069.0,
+        "v_rpm_max": 2847.0,
+        "v_yaw_rate_max_degs": 2.8,
+        "v_long_accel_g_range": [
+          -0.059,
+          0.069
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw13.csv",
+      "folder": "Vw (Driver E) / Vw13",
+      "rows": 284,
+      "v_paired": true,
+      "duration_s": 28.3,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.73,
+      "dt_min_ms": 98.0,
+      "dt_max_ms": 102.0,
+      "gps_unique_updates": 4,
+      "gps_effective_rate_hz": 0.14,
+      "gps_spd_max_kmh": 31.4,
+      "gps_spd_mean_kmh": 28.3,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.537,
+      "accel_norm_std": 1.387,
+      "ax_range": [
+        -10.0,
+        8.72
+      ],
+      "ay_range": [
+        -6.1,
+        7.33
+      ],
+      "az_range": [
+        5.85,
+        15.68
+      ],
+      "gyro_yaw_mean_rads": 0.02858,
+      "gyro_yaw_std_rads": 0.1405,
+      "gyro_yaw_max_rads": 0.78,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 284,
+        "v_spd_max_kmh": 113.5,
+        "v_spd_mean_kmh": 98.6,
+        "v_rpm_idle": 2331.0,
+        "v_rpm_max": 2794.0,
+        "v_yaw_rate_max_degs": 1.3,
+        "v_long_accel_g_range": [
+          -0.069,
+          0.059
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw13.csv",
+      "folder": "Vw (Driver E) / Vw13",
+      "rows": 284,
+      "v_paired": true,
+      "duration_s": 28.3,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.73,
+      "dt_min_ms": 98.0,
+      "dt_max_ms": 102.0,
+      "gps_unique_updates": 4,
+      "gps_effective_rate_hz": 0.14,
+      "gps_spd_max_kmh": 31.4,
+      "gps_spd_mean_kmh": 28.3,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.537,
+      "accel_norm_std": 1.387,
+      "ax_range": [
+        -10.0,
+        8.72
+      ],
+      "ay_range": [
+        -6.1,
+        7.33
+      ],
+      "az_range": [
+        5.85,
+        15.68
+      ],
+      "gyro_yaw_mean_rads": 0.02858,
+      "gyro_yaw_std_rads": 0.1405,
+      "gyro_yaw_max_rads": 0.78,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 284,
+        "v_spd_max_kmh": 113.5,
+        "v_spd_mean_kmh": 98.6,
+        "v_rpm_idle": 2331.0,
+        "v_rpm_max": 2794.0,
+        "v_yaw_rate_max_degs": 1.3,
+        "v_long_accel_g_range": [
+          -0.069,
+          0.059
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw14a.csv",
+      "folder": "Vw (Driver E) / Vw14a",
+      "rows": 3138,
+      "v_paired": true,
+      "duration_s": 313.7,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.75,
+      "dt_min_ms": 95.0,
+      "dt_max_ms": 106.0,
+      "gps_unique_updates": 36,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 29.7,
+      "gps_spd_mean_kmh": 25.1,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.233,
+      "accel_norm_std": 1.274,
+      "ax_range": [
+        -15.22,
+        7.64
+      ],
+      "ay_range": [
+        -9.89,
+        9.86
+      ],
+      "az_range": [
+        4.76,
+        14.59
+      ],
+      "gyro_yaw_mean_rads": 0.00173,
+      "gyro_yaw_std_rads": 0.1477,
+      "gyro_yaw_max_rads": 0.69,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 3138,
+        "v_spd_max_kmh": 109.4,
+        "v_spd_mean_kmh": 90.9,
+        "v_rpm_idle": 2020.0,
+        "v_rpm_max": 3462.0,
+        "v_yaw_rate_max_degs": 6.0,
+        "v_long_accel_g_range": [
+          -0.379,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw14a.csv",
+      "folder": "Vw (Driver E) / Vw14a",
+      "rows": 3138,
+      "v_paired": true,
+      "duration_s": 313.7,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.75,
+      "dt_min_ms": 95.0,
+      "dt_max_ms": 106.0,
+      "gps_unique_updates": 36,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 29.7,
+      "gps_spd_mean_kmh": 25.1,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.233,
+      "accel_norm_std": 1.274,
+      "ax_range": [
+        -15.22,
+        7.64
+      ],
+      "ay_range": [
+        -9.89,
+        9.86
+      ],
+      "az_range": [
+        4.76,
+        14.59
+      ],
+      "gyro_yaw_mean_rads": 0.00173,
+      "gyro_yaw_std_rads": 0.1477,
+      "gyro_yaw_max_rads": 0.69,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 3138,
+        "v_spd_max_kmh": 109.4,
+        "v_spd_mean_kmh": 90.9,
+        "v_rpm_idle": 2020.0,
+        "v_rpm_max": 3462.0,
+        "v_yaw_rate_max_degs": 6.0,
+        "v_long_accel_g_range": [
+          -0.379,
+          0.119
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw14b.csv",
+      "folder": "Vw (Driver E) / Vw14b",
+      "rows": 19588,
+      "v_paired": true,
+      "duration_s": 1958.7,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.76,
+      "dt_min_ms": 91.0,
+      "dt_max_ms": 109.0,
+      "gps_unique_updates": 219,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 31.8,
+      "gps_spd_mean_kmh": 21.0,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.141,
+      "accel_norm_std": 1.079,
+      "ax_range": [
+        -14.36,
+        11.54
+      ],
+      "ay_range": [
+        -11.4,
+        10.64
+      ],
+      "az_range": [
+        2.7,
+        16.56
+      ],
+      "gyro_yaw_mean_rads": -0.00095,
+      "gyro_yaw_std_rads": 0.1294,
+      "gyro_yaw_max_rads": 0.85,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 19588,
+        "v_spd_max_kmh": 120.1,
+        "v_spd_mean_kmh": 75.7,
+        "v_rpm_idle": 1272.0,
+        "v_rpm_max": 3878.0,
+        "v_yaw_rate_max_degs": 5.2,
+        "v_long_accel_g_range": [
+          -0.279,
+          0.279
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw14b.csv",
+      "folder": "Vw (Driver E) / Vw14b",
+      "rows": 19588,
+      "v_paired": true,
+      "duration_s": 1958.7,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.76,
+      "dt_min_ms": 91.0,
+      "dt_max_ms": 109.0,
+      "gps_unique_updates": 219,
+      "gps_effective_rate_hz": 0.11,
+      "gps_spd_max_kmh": 31.8,
+      "gps_spd_mean_kmh": 21.0,
+      "gps_acc_median_m": 4.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.141,
+      "accel_norm_std": 1.079,
+      "ax_range": [
+        -14.36,
+        11.54
+      ],
+      "ay_range": [
+        -11.4,
+        10.64
+      ],
+      "az_range": [
+        2.7,
+        16.56
+      ],
+      "gyro_yaw_mean_rads": -0.00095,
+      "gyro_yaw_std_rads": 0.1294,
+      "gyro_yaw_max_rads": 0.85,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 19588,
+        "v_spd_max_kmh": 120.1,
+        "v_spd_mean_kmh": 75.7,
+        "v_rpm_idle": 1272.0,
+        "v_rpm_max": 3878.0,
+        "v_yaw_rate_max_degs": 5.2,
+        "v_long_accel_g_range": [
+          -0.279,
+          0.279
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw14c.csv",
+      "folder": "Vw (Driver E) / Vw14c",
+      "rows": 15826,
+      "v_paired": true,
+      "duration_s": 1582.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.76,
+      "dt_min_ms": 88.0,
+      "dt_max_ms": 112.0,
+      "gps_unique_updates": 157,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 27.6,
+      "gps_spd_mean_kmh": 10.9,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.087,
+      "accel_norm_std": 0.906,
+      "ax_range": [
+        -13.5,
+        14.43
+      ],
+      "ay_range": [
+        -12.34,
+        13.9
+      ],
+      "az_range": [
+        1.92,
+        16.97
+      ],
+      "gyro_yaw_mean_rads": -4e-05,
+      "gyro_yaw_std_rads": 0.1013,
+      "gyro_yaw_max_rads": 0.96,
+      "stationary_pct": 11.1,
+      "stat_accel_noise_std": 0.1507,
+      "stat_gyro_bias_rads": -0.00035,
+      "stat_gyro_noise_std": 0.01432,
+      "vehicle_reference": {
+        "v_rows": 15826,
+        "v_spd_max_kmh": 100.5,
+        "v_spd_mean_kmh": 38.9,
+        "v_rpm_idle": 861.0,
+        "v_rpm_max": 3506.0,
+        "v_yaw_rate_max_degs": 22.4,
+        "v_long_accel_g_range": [
+          -0.53,
+          0.41
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw14c.csv",
+      "folder": "Vw (Driver E) / Vw14c",
+      "rows": 15826,
+      "v_paired": true,
+      "duration_s": 1582.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.76,
+      "dt_min_ms": 88.0,
+      "dt_max_ms": 112.0,
+      "gps_unique_updates": 157,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 27.6,
+      "gps_spd_mean_kmh": 10.9,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.087,
+      "accel_norm_std": 0.906,
+      "ax_range": [
+        -13.5,
+        14.43
+      ],
+      "ay_range": [
+        -12.34,
+        13.9
+      ],
+      "az_range": [
+        1.92,
+        16.97
+      ],
+      "gyro_yaw_mean_rads": -4e-05,
+      "gyro_yaw_std_rads": 0.1013,
+      "gyro_yaw_max_rads": 0.96,
+      "stationary_pct": 11.1,
+      "stat_accel_noise_std": 0.1507,
+      "stat_gyro_bias_rads": -0.00035,
+      "stat_gyro_noise_std": 0.01432,
+      "vehicle_reference": {
+        "v_rows": 15826,
+        "v_spd_max_kmh": 100.5,
+        "v_spd_mean_kmh": 38.9,
+        "v_rpm_idle": 861.0,
+        "v_rpm_max": 3506.0,
+        "v_yaw_rate_max_degs": 22.4,
+        "v_long_accel_g_range": [
+          -0.53,
+          0.41
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw15.csv",
+      "folder": "Vw (Driver E) / Vw15",
+      "rows": 1380,
+      "v_paired": true,
+      "duration_s": 137.9,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.62,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 102.0,
+      "gps_unique_updates": 1,
+      "gps_effective_rate_hz": 0.01,
+      "gps_spd_max_kmh": 0.0,
+      "gps_spd_mean_kmh": 0.0,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.851,
+      "accel_norm_std": 0.085,
+      "ax_range": [
+        -1.33,
+        1.11
+      ],
+      "ay_range": [
+        -2.82,
+        2.09
+      ],
+      "az_range": [
+        9.12,
+        11.2
+      ],
+      "gyro_yaw_mean_rads": -0.00082,
+      "gyro_yaw_std_rads": 0.0094,
+      "gyro_yaw_max_rads": 0.169,
+      "stationary_pct": 100.0,
+      "stat_accel_noise_std": 0.0852,
+      "stat_gyro_bias_rads": -0.00082,
+      "stat_gyro_noise_std": 0.00936,
+      "vehicle_reference": {
+        "v_rows": 1391,
+        "v_spd_max_kmh": 0.8,
+        "v_spd_mean_kmh": 0.1,
+        "v_rpm_idle": 848.0,
+        "v_rpm_max": 902.0,
+        "v_yaw_rate_max_degs": 0.4,
+        "v_long_accel_g_range": [
+          -0.04,
+          0.0
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw15.csv",
+      "folder": "Vw (Driver E) / Vw15",
+      "rows": 1380,
+      "v_paired": true,
+      "duration_s": 137.9,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.62,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 102.0,
+      "gps_unique_updates": 1,
+      "gps_effective_rate_hz": 0.01,
+      "gps_spd_max_kmh": 0.0,
+      "gps_spd_mean_kmh": 0.0,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 9.851,
+      "accel_norm_std": 0.085,
+      "ax_range": [
+        -1.33,
+        1.11
+      ],
+      "ay_range": [
+        -2.82,
+        2.09
+      ],
+      "az_range": [
+        9.12,
+        11.2
+      ],
+      "gyro_yaw_mean_rads": -0.00082,
+      "gyro_yaw_std_rads": 0.0094,
+      "gyro_yaw_max_rads": 0.169,
+      "stationary_pct": 100.0,
+      "stat_accel_noise_std": 0.0852,
+      "stat_gyro_bias_rads": -0.00082,
+      "stat_gyro_noise_std": 0.00936,
+      "vehicle_reference": {
+        "v_rows": 1391,
+        "v_spd_max_kmh": 0.8,
+        "v_spd_mean_kmh": 0.1,
+        "v_rpm_idle": 848.0,
+        "v_rpm_max": 902.0,
+        "v_yaw_rate_max_degs": 0.4,
+        "v_long_accel_g_range": [
+          -0.04,
+          0.0
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw16a.csv",
+      "folder": "Vw (Driver E) / Vw16a",
+      "rows": 5879,
+      "v_paired": true,
+      "duration_s": 587.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.72,
+      "dt_min_ms": 95.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 61,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 22.7,
+      "gps_spd_mean_kmh": 13.9,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.183,
+      "accel_norm_std": 1.11,
+      "ax_range": [
+        -10.21,
+        11.84
+      ],
+      "ay_range": [
+        -10.57,
+        15.8
+      ],
+      "az_range": [
+        3.49,
+        15.88
+      ],
+      "gyro_yaw_mean_rads": -0.0037,
+      "gyro_yaw_std_rads": 0.1266,
+      "gyro_yaw_max_rads": 0.881,
+      "stationary_pct": 12.1,
+      "stat_accel_noise_std": 0.2585,
+      "stat_gyro_bias_rads": 0.00104,
+      "stat_gyro_noise_std": 0.02529,
+      "vehicle_reference": {
+        "v_rows": 5879,
+        "v_spd_max_kmh": 83.5,
+        "v_spd_mean_kmh": 51.9,
+        "v_rpm_idle": 878.0,
+        "v_rpm_max": 4856.0,
+        "v_yaw_rate_max_degs": 24.4,
+        "v_long_accel_g_range": [
+          -0.39,
+          0.4
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw16a.csv",
+      "folder": "Vw (Driver E) / Vw16a",
+      "rows": 5879,
+      "v_paired": true,
+      "duration_s": 587.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.72,
+      "dt_min_ms": 95.0,
+      "dt_max_ms": 105.0,
+      "gps_unique_updates": 61,
+      "gps_effective_rate_hz": 0.1,
+      "gps_spd_max_kmh": 22.7,
+      "gps_spd_mean_kmh": 13.9,
+      "gps_acc_median_m": 3.0,
+      "gps_acc_95th_m": 4.0,
+      "accel_norm_mean": 10.183,
+      "accel_norm_std": 1.11,
+      "ax_range": [
+        -10.21,
+        11.84
+      ],
+      "ay_range": [
+        -10.57,
+        15.8
+      ],
+      "az_range": [
+        3.49,
+        15.88
+      ],
+      "gyro_yaw_mean_rads": -0.0037,
+      "gyro_yaw_std_rads": 0.1266,
+      "gyro_yaw_max_rads": 0.881,
+      "stationary_pct": 12.1,
+      "stat_accel_noise_std": 0.2585,
+      "stat_gyro_bias_rads": 0.00104,
+      "stat_gyro_noise_std": 0.02529,
+      "vehicle_reference": {
+        "v_rows": 5879,
+        "v_spd_max_kmh": 83.5,
+        "v_spd_mean_kmh": 51.9,
+        "v_rpm_idle": 878.0,
+        "v_rpm_max": 4856.0,
+        "v_yaw_rate_max_degs": 24.4,
+        "v_long_accel_g_range": [
+          -0.39,
+          0.4
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw16b.csv",
+      "folder": "Vw (Driver E) / Vw16b",
+      "rows": 1126,
+      "v_paired": true,
+      "duration_s": 112.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 98.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 13,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 23.5,
+      "gps_spd_mean_kmh": 16.5,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.355,
+      "accel_norm_std": 1.305,
+      "ax_range": [
+        -13.15,
+        9.81
+      ],
+      "ay_range": [
+        -8.8,
+        10.74
+      ],
+      "az_range": [
+        4.63,
+        15.44
+      ],
+      "gyro_yaw_mean_rads": -0.00073,
+      "gyro_yaw_std_rads": 0.1418,
+      "gyro_yaw_max_rads": 0.933,
+      "stationary_pct": 7.9,
+      "stat_accel_noise_std": 0.6045,
+      "stat_gyro_bias_rads": -0.01037,
+      "stat_gyro_noise_std": 0.06285,
+      "vehicle_reference": {
+        "v_rows": 1126,
+        "v_spd_max_kmh": 86.3,
+        "v_spd_mean_kmh": 60.5,
+        "v_rpm_idle": 1255.0,
+        "v_rpm_max": 3670.0,
+        "v_yaw_rate_max_degs": 22.5,
+        "v_long_accel_g_range": [
+          -0.75,
+          0.29
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw16b.csv",
+      "folder": "Vw (Driver E) / Vw16b",
+      "rows": 1126,
+      "v_paired": true,
+      "duration_s": 112.5,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.71,
+      "dt_min_ms": 98.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 13,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 23.5,
+      "gps_spd_mean_kmh": 16.5,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.355,
+      "accel_norm_std": 1.305,
+      "ax_range": [
+        -13.15,
+        9.81
+      ],
+      "ay_range": [
+        -8.8,
+        10.74
+      ],
+      "az_range": [
+        4.63,
+        15.44
+      ],
+      "gyro_yaw_mean_rads": -0.00073,
+      "gyro_yaw_std_rads": 0.1418,
+      "gyro_yaw_max_rads": 0.933,
+      "stationary_pct": 7.9,
+      "stat_accel_noise_std": 0.6045,
+      "stat_gyro_bias_rads": -0.01037,
+      "stat_gyro_noise_std": 0.06285,
+      "vehicle_reference": {
+        "v_rows": 1126,
+        "v_spd_max_kmh": 86.3,
+        "v_spd_mean_kmh": 60.5,
+        "v_rpm_idle": 1255.0,
+        "v_rpm_max": 3670.0,
+        "v_yaw_rate_max_degs": 22.5,
+        "v_long_accel_g_range": [
+          -0.75,
+          0.29
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw17.csv",
+      "folder": "Vw (Driver E) / Vw17",
+      "rows": 329,
+      "v_paired": true,
+      "duration_s": 32.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.74,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 4,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 19.6,
+      "gps_spd_mean_kmh": 18.0,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.336,
+      "accel_norm_std": 1.067,
+      "ax_range": [
+        -7.53,
+        5.21
+      ],
+      "ay_range": [
+        -4.71,
+        8.16
+      ],
+      "az_range": [
+        5.15,
+        13.05
+      ],
+      "gyro_yaw_mean_rads": 0.00494,
+      "gyro_yaw_std_rads": 0.1172,
+      "gyro_yaw_max_rads": 0.588,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 329,
+        "v_spd_max_kmh": 72.7,
+        "v_spd_mean_kmh": 59.1,
+        "v_rpm_idle": 1363.0,
+        "v_rpm_max": 4080.0,
+        "v_yaw_rate_max_degs": 6.0,
+        "v_long_accel_g_range": [
+          -0.801,
+          0.19
+        ]
+      }
+    },
+    {
+      "s_file": "S-Vw17.csv",
+      "folder": "Vw (Driver E) / Vw17",
+      "rows": 329,
+      "v_paired": true,
+      "duration_s": 32.8,
+      "dt_mean_ms": 100.0,
+      "dt_std_ms": 0.74,
+      "dt_min_ms": 97.0,
+      "dt_max_ms": 103.0,
+      "gps_unique_updates": 4,
+      "gps_effective_rate_hz": 0.12,
+      "gps_spd_max_kmh": 19.6,
+      "gps_spd_mean_kmh": 18.0,
+      "gps_acc_median_m": 6.0,
+      "gps_acc_95th_m": 6.0,
+      "accel_norm_mean": 10.336,
+      "accel_norm_std": 1.067,
+      "ax_range": [
+        -7.53,
+        5.21
+      ],
+      "ay_range": [
+        -4.71,
+        8.16
+      ],
+      "az_range": [
+        5.15,
+        13.05
+      ],
+      "gyro_yaw_mean_rads": 0.00494,
+      "gyro_yaw_std_rads": 0.1172,
+      "gyro_yaw_max_rads": 0.588,
+      "stationary_pct": 0.0,
+      "vehicle_reference": {
+        "v_rows": 329,
+        "v_spd_max_kmh": 72.7,
+        "v_spd_mean_kmh": 59.1,
+        "v_rpm_idle": 1363.0,
+        "v_rpm_max": 4080.0,
+        "v_yaw_rate_max_degs": 6.0,
+        "v_long_accel_g_range": [
+          -0.801,
+          0.19
+        ]
+      }
+    }
+  ]
+}

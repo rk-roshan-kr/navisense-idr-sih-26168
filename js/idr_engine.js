@@ -1,70 +1,75 @@
 /**
- * SIH 26168 — ONNX-powered IDR Engine
+ * IDREngine — Universal MotionNet Inference & Dead Reckoning Core
  *
- * Loads universal_motion_net.onnx via onnxruntime-web and runs
- * real neural network inference in the browser.
- *
- * Falls back to physics equations if ONNX isn't loaded yet.
- *
- * Input:  imu_window  [1, 6, 100]  — (batch, channels, time)
- *         channels:   [ax, ay, az, gyro_yaw, gyro_pitch, gyro_roll]
- *
- * Output: speed    (m/s)
- *         yaw_rate (rad/s)
+ * Runs the pre-trained Universal MotionNet via ONNX Runtime Web.
+ * Input: 9-channel normalized sliding window (2.0s at 10.0 Hz)
+ *        [ax, ay, az, gyro_yaw, gyro_pitch, gyro_roll, gx, gy, gz]
+ * Output: PseudoGNSSPacket
+ *         { lat, lon, speed, heading, accuracy, confidence, source }
  */
 
 class IDREngine {
   constructor() {
     this.GRAVITY = 9.80665;
-    this.WINDOW  = 100;   // 10 s at 10 Hz
+    this.WINDOW  = 20;   // 2.0 s at 10.0 Hz canonical timeline
 
-    // Rolling IMU buffer — keeps last 100 samples
-    this.imuBuffer = [];   // [{ax,ay,az,gx,gy,gz}]
+    // Rolling IMU buffer — keeps last 20 samples
+    this.imuBuffer = []; // [[ax,ay,az,gyaw,gpit,grol,gx,gy,gz]]
 
     // ONNX session (loaded async)
     this.onnxSession = null;
     this.onnxReady   = false;
     this.onnxLoading = false;
+    this.normStats   = null;
 
-    // Personalization (calibrated online while GNSS active)
+    // Personalization state
     this.personalization = {
       mountPitch:      0.0,
       mountRoll:       0.0,
       accelScale:      1.0,
       suspensionGain:  0.85,
-      dragCoeff:       0.005,
     };
 
-    // Online adapter state (GNSS-supervised calibration)
+    // Online calibration metrics
     this.calibrationSamples = 0;
-    this.calibrationScore   = 0.0;   // 0 → 1
-    this.speedBuffer        = [];    // recent speed estimates for convergence check
+    this.calibrationScore   = 0.0;
 
     this.reset();
     this._loadONNX();
   }
 
-  // ── Load ONNX model ──────────────────────────────────────────────────────────
+  // ── Load ONNX model & Normalization Stats ───────────────────────────────────
 
   async _loadONNX() {
     if (this.onnxLoading) return;
     this.onnxLoading = true;
 
     try {
-      // onnxruntime-web must be loaded via <script> in index.html
       if (typeof ort === 'undefined') {
         console.warn('IDREngine: onnxruntime-web not loaded. Using physics fallback.');
         return;
       }
 
+      // 1. Fetch Train-Set Normalization Statistics
+      try {
+        const normRes = await fetch('models/imu_norm_stats.json');
+        if (normRes.ok) {
+          this.normStats = await normRes.json();
+          console.log('IDREngine: Normalization statistics loaded:', this.normStats);
+        }
+      } catch (e) {
+        console.warn('IDREngine: Could not load imu_norm_stats.json, using identity.');
+      }
+
+      // 2. Load ONNX Session
       const modelPath = 'models/universal_motion_net.onnx';
       this.onnxSession = await ort.InferenceSession.create(modelPath, {
-        executionProviders: ['wasm'],   // runs in browser via WebAssembly
+        executionProviders: ['wasm'],
         graphOptimizationLevel: 'all',
       });
 
       this.onnxReady = true;
-      console.log('IDREngine: ONNX model loaded —', modelPath);
+      console.log('IDREngine: Universal MotionNet ONNX loaded —', modelPath);
       this._dispatchEvent('idr-model-ready', { model: modelPath });
 
     } catch (err) {
@@ -73,7 +78,7 @@ class IDREngine {
     }
   }
 
-  // ── Reset state ──────────────────────────────────────────────────────────────
+  // ── Reset state ────────────────────────────────────────────────────────────
 
   reset(initPos = [0, 0, 0], initSpeed = 0, initHeadingDeg = 0) {
     const headRad = (90 - initHeadingDeg) * Math.PI / 180;
@@ -83,6 +88,7 @@ class IDREngine {
     this.b5_speed        = initSpeed;
     this.b5_heading_rad  = headRad;
     this.b5_filtered_accel = 0.0;
+    this.b5_uncertainty  = 0.5; // metres
 
     // B2: Classical EKF+NHC (comparison baseline)
     this.b2_pos   = [...initPos];
@@ -101,61 +107,40 @@ class IDREngine {
     this.imuBuffer = [];
   }
 
-  // ── Online calibration (call while GNSS active) ───────────────────────────
+  // ── Online calibration (call while GNSS active) ─────────────────────────
 
   calibrate(accel, gyro, gnssSpeedMs, gnssHeadingDeg) {
     this.calibrationSamples++;
 
-    // Estimate mount pitch/roll from gravity vector during near-steady motion
     const [ax, ay, az] = accel;
-    const norm = Math.sqrt(ax*ax + ay*ay + az*az);
-    if (Math.abs(norm - this.GRAVITY) < 0.4) {
-      const estPitch = Math.atan2(-ay, Math.sqrt(ax*ax + az*az));
-      const estRoll  = Math.atan2(ax, az);
-      const alpha = Math.min(0.05, 1.0 / Math.max(1, this.calibrationSamples));
-      this.personalization.mountPitch = (1-alpha)*this.personalization.mountPitch + alpha*estPitch;
-      this.personalization.mountRoll  = (1-alpha)*this.personalization.mountRoll  + alpha*estRoll;
+    if (Math.abs(ax) < 3.0 && Math.abs(ay) < 3.0) {
+      const pitch = Math.atan2(ay, az);
+      const roll  = Math.atan2(ax, az);
+      this.personalization.mountPitch = 0.98 * this.personalization.mountPitch + 0.02 * pitch;
+      this.personalization.mountRoll  = 0.98 * this.personalization.mountRoll  + 0.02 * roll;
     }
 
-    // Online accel scale estimation (regression against GNSS speed derivative)
-    this.speedBuffer.push({ gnssSpd: gnssSpeedMs, ay });
-    if (this.speedBuffer.length > 50) this.speedBuffer.shift();
-    if (this.speedBuffer.length >= 50) {
-      const spdArr = this.speedBuffer.map(s => s.gnssSpd);
-      const ayArr  = this.speedBuffer.map(s => s.ay);
-      // dv/dt from GPS speed differences
-      const dv = spdArr.slice(1).map((v,i) => (v - spdArr[i]) / 0.1);
-      const ay50 = ayArr.slice(1);
-      // Linear regression: ay * scale ≈ dv  →  scale = Σ(ay·dv) / Σ(ay²)
-      let num = 0, den = 0;
-      for (let i = 0; i < dv.length; i++) {
-        if (Math.abs(spdArr[i]) > 1.0 && Math.abs(dv[i]) > 0.2) {
-          num += ay50[i] * dv[i];
-          den += ay50[i] * ay50[i];
-        }
-      }
-      if (den > 0.01) {
-        const scale = num / den;
-        if (scale > 0.3 && scale < 3.0) {
-          this.personalization.accelScale = 0.95 * this.personalization.accelScale + 0.05 * scale;
-        }
+    if (gnssSpeedMs > 3.0 && this.b5_speed > 1.0) {
+      const scale = gnssSpeedMs / Math.max(0.1, this.b5_speed);
+      if (scale > 0.7 && scale < 1.4) {
+        this.personalization.accelScale = 0.98 * this.personalization.accelScale + 0.02 * scale;
       }
     }
 
-    // Convergence score (0 → 1 over ~300 samples = 30 seconds at 10 Hz)
     this.calibrationScore = Math.min(1.0, this.calibrationSamples / 300.0);
     return this.calibrationScore;
   }
 
-  // ── Main step ────────────────────────────────────────────────────────────────
+  // ── Main Step ──────────────────────────────────────────────────────────────
 
-  step(accel, gyro, dt = 0.1, isBlackout = false) {
+  step(accel, gyro, dt = 0.1, isBlackout = false, gravity = null) {
     const [ax, ay, az] = accel.map(v => isFinite(v) ? v : 0);
     const [gx, gy, gz] = gyro.map(v => isFinite(v) ? v : 0);
-    const wz = gx;   // gyro_yaw is index 0 in IO-VNBD convention
+    const [gravX, gravY, gravZ] = gravity ? gravity : [0, 0, this.GRAVITY];
+    const wz = gx; // gyro_yaw
 
-    // Push to rolling buffer
-    this.imuBuffer.push([ax, ay, az, gx, gy, gz]);
+    // 9-channel frame: [ax, ay, az, gyaw, gpit, grol, gx, gy, gz]
+    this.imuBuffer.push([ax, ay, az, gx, gy, gz, gravX, gravY, gravZ]);
     if (this.imuBuffer.length > this.WINDOW) this.imuBuffer.shift();
 
     // ── B1: Raw Strapdown INS ─────────────────────────────────────────────
@@ -167,28 +152,25 @@ class IDREngine {
     this.b1_pos[0] += this.b1_vel[0] * dt;
     this.b1_pos[1] += this.b1_vel[1] * dt;
 
-    // ── B2: EKF + NHC ────────────────────────────────────────────────────
+    // ── B2: Classical EKF + NHC ───────────────────────────────────────────
     this.b2_yaw  += wz * dt;
-    const s2new   = Math.max(0, this.b2_speed + ay * dt);
-    this.b2_speed = s2new;
-    this.b2_pos[0]+= s2new * Math.cos(this.b2_yaw) * dt;
-    this.b2_pos[1]+= s2new * Math.sin(this.b2_yaw) * dt;
+    this.b2_speed = Math.max(0, this.b2_speed + ay * dt);
+    this.b2_pos[0]+= this.b2_speed * Math.cos(this.b2_yaw) * dt;
+    this.b2_pos[1]+= this.b2_speed * Math.sin(this.b2_yaw) * dt;
 
-    // ── B5: Our system — ONNX or physics fallback ─────────────────────────
+    // ── B5: Universal MotionNet Pseudo-GNSS ────────────────────────────────
     let speed5, yawRate5;
 
     if (this.onnxReady && this.imuBuffer.length === this.WINDOW) {
-      // Run neural network (async result applied next tick via promise)
-      this._runONNX().then(result => {
-        if (result) {
-          this._applyNNStep(result.speed, result.yawRate, dt);
+      this._runONNX(isBlackout).then(packet => {
+        if (packet) {
+          this._applyNNStep(packet.speed, packet.yawRate, packet.uncertainty);
         }
       });
-      // Use last physics estimate this tick (NN result arrives async)
       speed5   = this.b5_speed;
       yawRate5 = wz;
     } else {
-      // Physics fallback (used until ONNX loads or buffer fills)
+      // Physics fallback
       const p = this.personalization;
       const body_ay = ay * Math.cos(p.mountPitch) - (az - this.GRAVITY) * Math.sin(p.mountPitch);
       this.b5_filtered_accel = p.suspensionGain * this.b5_filtered_accel + (1 - p.suspensionGain) * body_ay;
@@ -202,47 +184,72 @@ class IDREngine {
       yawRate5 = wz;
     }
 
-    // Propagate B5 position
+    // Propagate B5 ENU position
     this.b5_heading_rad += yawRate5 * dt;
     this.b5_pos[0] += speed5 * Math.cos(this.b5_heading_rad) * dt;
     this.b5_pos[1] += speed5 * Math.sin(this.b5_heading_rad) * dt;
+
+    // Emit PseudoGNSS Packet
+    const pseudoGNSSPacket = {
+      pos:          [...this.b5_pos],
+      speed:        this.b5_speed,
+      heading_deg:  (90 - this.b5_heading_rad * 180 / Math.PI + 360) % 360,
+      accuracy_m:   this.b5_uncertainty,
+      confidence:   Math.max(0.1, Math.min(1.0, 1.0 / (1.0 + this.b5_uncertainty))),
+      source:       isBlackout ? "PSEUDO_GNSS" : "REAL_GNSS"
+    };
 
     return {
       b1_pos:      [...this.b1_pos],
       b2_pos:      [...this.b2_pos],
       b5_pos:      [...this.b5_pos],
       b5_speed:    this.b5_speed,
-      b5_heading:  (90 - this.b5_heading_rad * 180 / Math.PI + 360) % 360,
+      b5_heading:  pseudoGNSSPacket.heading_deg,
+      packet:      pseudoGNSSPacket,
       onnx_active: this.onnxReady,
       calib_score: this.calibrationScore,
     };
   }
 
-  // ── ONNX inference (async) ───────────────────────────────────────────────────
+  // ── ONNX Inference (async) ──────────────────────────────────────────────────
 
-  async _runONNX() {
+  async _runONNX(isBlackout) {
     if (!this.onnxReady || this.imuBuffer.length < this.WINDOW) return null;
 
     try {
-      // Build Float32Array: shape [1, 6, 100]
-      const W    = this.WINDOW;
-      const data = new Float32Array(6 * W);
+      const W = this.WINDOW; // 20
+      const C = 9;          // 9 channels
+      const data = new Float32Array(C * W);
+
+      const means = this.normStats ? this.normStats.mean : [0, 0, 9.8, 0, 0, 0, 0, 0, 9.8];
+      const stds  = this.normStats ? this.normStats.std  : [1.7, 1.6, 0.8, 0.1, 0.25, 0.15, 1, 1, 1];
 
       for (let t = 0; t < W; t++) {
         const s = this.imuBuffer[t];
-        for (let c = 0; c < 6; c++) {
-          data[c * W + t] = s[c];
+        for (let c = 0; c < C; c++) {
+          const raw = s[c] || 0.0;
+          const norm = (raw - means[c]) / (stds[c] + 1e-6);
+          data[c * W + t] = norm;
         }
       }
 
-      const tensor = new ort.Tensor('float32', data, [1, 6, W]);
+      const tensor = new ort.Tensor('float32', data, [1, C, W]);
       const feeds  = { imu_window: tensor };
       const output = await this.onnxSession.run(feeds);
 
-      const speed   = output['speed'].data[0];      // m/s
-      const yawRate = output['yaw_rate'].data[0];   // rad/s
+      const speed     = output['speed'] ? output['speed'].data[0] : 0;
+      const delta_psi = output['delta_psi'] ? output['delta_psi'].data[0] : 0;
+      const p_stop    = output['p_stop'] ? output['p_stop'].data[0] : 0;
+      const log_var   = output['log_var'] ? output['log_var'].data[0] : 0;
 
-      return { speed: Math.max(0, speed), yawRate };
+      const uncertainty = Math.sqrt(Math.exp(Math.min(2.0, Math.max(-2.0, log_var))));
+
+      return {
+        speed: p_stop > 0.85 ? 0.0 : Math.max(0, speed * this.personalization.accelScale),
+        yawRate: delta_psi / (W * 0.1),
+        uncertainty: uncertainty,
+        source: isBlackout ? "PSEUDO_GNSS" : "REAL_GNSS"
+      };
 
     } catch (err) {
       console.warn('IDREngine ONNX inference error:', err.message);
@@ -250,12 +257,10 @@ class IDREngine {
     }
   }
 
-  _applyNNStep(speed, yawRate, dt) {
-    // Smooth neural network output into state
-    this.b5_speed = 0.7 * this.b5_speed + 0.3 * speed;
+  _applyNNStep(speed, yawRate, uncertainty) {
+    this.b5_speed = 0.6 * this.b5_speed + 0.4 * speed;
+    this.b5_uncertainty = uncertainty;
   }
-
-  // ── Utility ─────────────────────────────────────────────────────────────────
 
   _dispatchEvent(name, detail) {
     window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -263,10 +268,10 @@ class IDREngine {
 
   getCalibrationStatus() {
     return {
-      score:    this.calibrationScore,
-      pct:      Math.round(this.calibrationScore * 100),
-      ready:    this.calibrationScore >= 0.8,
-      onnx:     this.onnxReady,
+      score:      this.calibrationScore,
+      pct:        Math.round(this.calibrationScore * 100),
+      ready:      this.calibrationScore >= 0.8,
+      onnx:       this.onnxReady,
       mountPitch: (this.personalization.mountPitch * 180 / Math.PI).toFixed(2),
       mountRoll:  (this.personalization.mountRoll  * 180 / Math.PI).toFixed(2),
       accelScale: this.personalization.accelScale.toFixed(3),
