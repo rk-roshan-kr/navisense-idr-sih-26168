@@ -25,7 +25,7 @@ export const App: React.FC = () => {
   const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
   const [scenariosList, setScenariosList] = useState<{ id: string; name: string; metrics: Record<string, string> }[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // Option 2: Choose 2 Points on Map state
   const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(null);

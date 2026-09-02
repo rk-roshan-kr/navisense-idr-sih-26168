@@ -117,10 +117,15 @@ async def websocket_telemetry_stream(websocket: WebSocket):
     active_connections.add(websocket)
     print(f"[WS] Client connected! Total active connections: {len(active_connections)}")
 
-    # Send scenario info upon connection
+    # Send scenario info and initial stationary frame upon connection
     await websocket.send_text(json.dumps({
         "type": "scenario_info",
         "data": runtime.get_scenario_info().model_dump()
+    }))
+    init_pkt = runtime.get_initial_packet()
+    await websocket.send_text(json.dumps({
+        "type": "telemetry",
+        "data": init_pkt.model_dump()
     }))
 
     try:

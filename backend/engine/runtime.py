@@ -178,8 +178,14 @@ class NaviSenseRuntime:
         self.current_step = adapt_samples
         self.blackout_active = False
         self.blackout_start_step = None
-        self.is_playing = True
-        print(f"[RUNTIME] Ready at t={self.current_step * self.dt:.1f}s. User can simulate GNSS loss anytime!")
+        self.is_playing = False
+        print(f"[RUNTIME] Ready at t={self.current_step * self.dt:.1f}s (PAUSED). User can click Play to begin!")
+
+    def get_initial_packet(self) -> TelemetryPacket:
+        prev_step = self.current_step
+        pkt = self.step()
+        self.current_step = prev_step
+        return pkt
 
     def toggle_blackout(self, force_state: Optional[bool] = None) -> bool:
         if force_state is not None:
