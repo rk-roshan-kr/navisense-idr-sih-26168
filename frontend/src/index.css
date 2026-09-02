@@ -788,3 +788,59 @@ html, body, #root {
   color: var(--text-muted);
   text-transform: uppercase;
 }
+
+/* ── 10. Turn-by-Turn Maneuver Guidance Card ── */
+.turn-guidance-card {
+  position: absolute;
+  top: 84px;
+  left: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  gap: 20px;
+  min-width: 290px;
+  border-radius: 12px;
+}
+
+.maneuver-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.speed-limit-sign {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3.5px solid #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.speed-limit-sign.overspeed {
+  animation: pulseOverspeed 0.8s infinite;
+}
+
+@keyframes pulseOverspeed {
+  0%, 100% { transform: scale(1); border-color: #dc2626; }
+  50% { transform: scale(1.1); border-color: #ef4444; box-shadow: 0 0 14px rgba(239, 68, 68, 0.8); }
+}
+
+.speed-limit-num {
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1;
+}

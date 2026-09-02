@@ -7,6 +7,7 @@ import { ActionControl } from './components/ActionControl';
 import { TechnicalProofDrawer } from './components/TechnicalProofDrawer';
 import { RightSidebar } from './components/RightSidebar';
 import { TopBar } from './components/TopBar';
+import { TurnGuidance } from './components/TurnGuidance';
 import { CustomRouteSimulator } from './utils/customRouteSimulator';
 
 export const App: React.FC = () => {
@@ -242,6 +243,9 @@ export const App: React.FC = () => {
             customRoutePath={customRoutePath}
             onMapClick={handleMapClick}
           />
+
+          {/* Turn-by-Turn Maneuver Guidance & Street Name */}
+          <TurnGuidance telemetry={telemetry} scenario={scenario} />
 
           {/* Flash Alert Banner */}
           <AlertBanner telemetry={telemetry} />

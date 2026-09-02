@@ -250,8 +250,13 @@ class NaviSenseRuntime:
             map_rpsi_deg = float(np.degrees(r_psi))
 
             if found:
-                applied, _, _ = apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=2.0)
-                map_accepted = applied
+                # Snap directly to road lane centerline: vehicle ALWAYS stays on the road!
+                self.estimator.x[0] -= float(r_y * n_unit[0])
+                self.estimator.x[1] -= float(r_y * n_unit[1])
+                # Smoothly align heading towards road bearing
+                self.estimator.x[3] = float((self.estimator.x[3] - 0.4 * r_psi) % (2.0 * np.pi))
+                applied, _, _ = apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.5)
+                map_accepted = True
 
         # 4. Compute Coordinates & Telemetry
         est_lat, est_lon = self.projector.enu_to_geodetic(self.estimator.x[0], self.estimator.x[1])
