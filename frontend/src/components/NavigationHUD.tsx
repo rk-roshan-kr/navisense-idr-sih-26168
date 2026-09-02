@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryPacket } from '../types';
+import { SpeedDial } from './SpeedDial';
 
 interface NavigationHUDProps {
   telemetry: TelemetryPacket | null;
@@ -35,20 +36,18 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         </div>
       </div>
 
-      {/* 1. SPEED */}
-      <div className="hud-metric-row">
-        <span className="metric-label">SPEED</span>
-        <div className="metric-value-wrap">
-          <span className="metric-large-digit mono">{Math.round(speedKmh)}</span>
-          <span className="metric-unit">km/h</span>
-        </div>
+      {/* 1. VEHICLE SPEED DIAL GAUGE */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 -8px' }}>
+        <SpeedDial speedKmh={speedKmh} isBlackout={isBlackout} maxSpeed={140} />
       </div>
 
       {/* 2. HEADING */}
       <div className="hud-metric-row">
         <span className="metric-label">HEADING</span>
         <div className="metric-value-wrap">
-          <span className="metric-large-digit mono">{String(Math.round(headingDeg)).padStart(3, '0')}°</span>
+          <span className="metric-large-digit mono" style={{ fontSize: '28px' }}>
+            {String(Math.round(headingDeg)).padStart(3, '0')}°
+          </span>
           <span className="heading-cardinal">{getCardinalDirection(headingDeg)}</span>
         </div>
       </div>

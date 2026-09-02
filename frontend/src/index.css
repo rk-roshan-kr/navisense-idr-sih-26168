@@ -717,3 +717,74 @@ html, body, #root {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
+
+/* ── 9. Vehicle Speed Dial Gauge ── */
+.speed-dial-wrap {
+  position: relative;
+  width: 200px;
+  height: 175px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speed-dial-svg {
+  display: block;
+}
+
+.speed-dial-center-val {
+  position: absolute;
+  top: 68px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.speed-dial-digit {
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 16px rgba(0, 210, 255, 0.4);
+}
+
+.speed-dial-unit {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.speed-source-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  padding: 2px 8px;
+}
+
+.dot-source {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.source-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
