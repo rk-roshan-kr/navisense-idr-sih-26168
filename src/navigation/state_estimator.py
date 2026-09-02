@@ -73,8 +73,9 @@ class NavigationStateEstimator:
       x = [E, N, v, psi, b_ax, b_ay, b_az, b_gx, b_gy, b_gz]
     Integrates learned motion increments from UniversalMotionNet.
     """
-    def __init__(self, init_lat: float, init_lon: float, init_speed: float = 0.0, init_heading_deg: float = 0.0):
+    def __init__(self, init_lat: float, init_lon: float, init_speed: float = 0.0, init_heading_deg: float = 0.0, enable_zupt: bool = True):
         self.projector = WGS84LocalProjector(init_lat, init_lon)
+        self.enable_zupt = bool(enable_zupt)
 
         # State vector: [E, N, v, psi (rad), b_ax, b_ay, b_az, b_gx, b_gy, b_gz]
         self.x = np.zeros(10, dtype=np.float64)
@@ -108,10 +109,11 @@ class NavigationStateEstimator:
         self.blend_total_s = 3.0   # smooth blend over 3.0 seconds
         self.blend_offset_enu = np.zeros(2, dtype=np.float64)
 
-        # Stationary tracking
+        # Robust Multi-Signal Stationary Tracking
         self.is_stationary = False
         self.stationary_ticks = 0
-        self.zupt_threshold = 0.70  # p_stop threshold
+        self.zupt_candidate_ticks = 0
+        self.zupt_min_ticks = 5     # Requires 0.5s of persistent physical evidence
 
     def predict(self, motion_pred: dict, imu_raw: np.ndarray, dt: float = 0.1):
         """
@@ -130,28 +132,40 @@ class NavigationStateEstimator:
         p_stop = float(motion_pred.get("p_stop", 0.0))
         log_var = float(motion_pred.get("log_var", 0.0))
 
-        # Check physical IMU variance over the last 10 samples (1.0s)
+        # Multi-signal physical sensor statistics
         recent_accel = imu_raw[:3, -10:]
         recent_gyro  = imu_raw[3:6, -10:]
         accel_var = np.var(recent_accel, axis=1).sum()
-        gyro_var  = np.var(recent_gyro[0])  # yaw variance
+        gyro_var  = np.var(recent_gyro[0])  # yaw rate variance
+        mean_accel_norm = np.linalg.norm(np.mean(recent_accel, axis=1))
+        grav_err = abs(mean_accel_norm - 9.80665)
 
-        # ── 1. Zero-Velocity Update (ZUPT) Gate ──────────────────────────────
-        # Standstill if model predicts stop OR physical vibration variance is negligible
-        is_still = (p_stop > self.zupt_threshold) or (accel_var < 0.04 and v_t < 0.6)
+        cond_model = p_stop > 0.70
+        cond_accel = accel_var < 0.035
+        cond_gyro  = gyro_var < 0.001
+        cond_grav  = grav_err < 0.35
+        cond_speed = v_t < 0.6
 
-        if is_still:
-            self.stationary_ticks += 1
-            self.is_stationary = True
-            v_t = 0.0
-            delta_s = 0.0
-            delta_psi = 0.0
+        # Robust multi-condition evidence
+        is_candidate_stop = (cond_model or cond_speed) and cond_accel and cond_gyro and cond_grav
 
-            # Estimate and update stationary gyro Z bias
-            wz_current = float(imu_raw[3, -1])
-            self.x[9] = 0.95 * self.x[9] + 0.05 * wz_current
+        is_still = False
+        if self.enable_zupt:
+            if is_candidate_stop:
+                self.zupt_candidate_ticks += 1
+                if self.zupt_candidate_ticks >= self.zupt_min_ticks:
+                    is_still = True
+                    self.is_stationary = True
+                    self.stationary_ticks += 1
+                    # Recursive gyro bias state update with covariance reduction
+                    alpha = 0.02
+                    wz_current = float(imu_raw[3, -1])
+                    self.x[9] = (1.0 - alpha) * self.x[9] + alpha * wz_current
+                    self.P[9, 9] = max(1e-8, (1.0 - alpha) * self.P[9, 9])
+            else:
+                self.zupt_candidate_ticks = 0
+                self.is_stationary = False
         else:
-            self.stationary_ticks = 0
             self.is_stationary = False
 
         # ── 2. De-bias & Scale Window Heading Increment ──────────────────────

@@ -1,0 +1,43 @@
+{
+  "test_file": "S-Y1.csv",
+  "blackout_duration_s": 60.0,
+  "distance_travelled_m": 1001.4544677734375,
+  "ablation_results": [
+    {
+      "config": "A. Base + Estimator",
+      "e_30_m": 153.45854139687856,
+      "drift_30s_pct": 31.280944747375845,
+      "e_60_m": 346.60206780861097,
+      "drift_60s_pct": 34.609867843439886,
+      "throughput_hz": 20064.190420161467,
+      "zupt_triggers": 0
+    },
+    {
+      "config": "B. Personalized + Estimator",
+      "e_30_m": 99.27618764370187,
+      "drift_30s_pct": 20.236429410477385,
+      "e_60_m": 230.71452121206818,
+      "drift_60s_pct": 23.037944173839715,
+      "throughput_hz": 20526.03885663213,
+      "zupt_triggers": 0
+    },
+    {
+      "config": "C. Personalized + ZUPT",
+      "e_30_m": 99.17895389661709,
+      "drift_30s_pct": 20.21660931156042,
+      "e_60_m": 229.2959709683519,
+      "drift_60s_pct": 22.896295173374405,
+      "throughput_hz": 20702.741538620932,
+      "zupt_triggers": 6
+    },
+    {
+      "config": "D. Personalized + ZUPT + Map",
+      "e_30_m": 50.57356316315937,
+      "drift_30s_pct": 10.30890050553347,
+      "e_60_m": 150.17778663729996,
+      "drift_60s_pct": 14.995967512251909,
+      "throughput_hz": 20157.499140814212,
+      "zupt_triggers": 6
+    }
+  ]
+}
