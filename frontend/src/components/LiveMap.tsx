@@ -26,10 +26,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
   // Layer refs
   const roadPolylineRef = useRef<L.Polyline | null>(null);
+  const roadCorridorGlowRef = useRef<L.Polyline | null>(null);
   const customPreviewPolylineRef = useRef<L.Polyline | null>(null);
+
+  // Seamless unified trails:
+  // GNSS trail: emerald green, records up to the blackout point
   const gnssTrailRef = useRef<L.Polyline | null>(null);
+  // IDR trail: electric cyan, seamlessly starts from the exact blackout point and carries forward
   const idrTrailRef = useRef<L.Polyline | null>(null);
-  const gtTrailRef = useRef<L.Polyline | null>(null);
+  const idrGlowTrailRef = useRef<L.Polyline | null>(null);
 
   // Marker refs for custom 2-point mode
   const originMarkerRef = useRef<L.CircleMarker | null>(null);
@@ -38,11 +43,19 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   // Accumulated point history
   const gnssPointsRef = useRef<[number, number][]>([]);
   const idrPointsRef = useRef<[number, number][]>([]);
-  const gtPointsRef = useRef<[number, number][]>([]);
+  const lastGnssPtRef = useRef<[number, number] | null>(null);
 
   // Vehicle marker & uncertainty circle
   const vehicleMarkerRef = useRef<L.Marker | null>(null);
   const uncertaintyCircleRef = useRef<L.Circle | null>(null);
+
+  // 60 FPS LERP animation refs
+  const animPosRef = useRef<[number, number]>([52.4069, -1.5021]);
+  const targetPosRef = useRef<[number, number]>([52.4069, -1.5021]);
+  const animHeadingRef = useRef<number>(0);
+  const targetHeadingRef = useRef<number>(0);
+  const isInitializedRef = useRef<boolean>(false);
+  const prevBlackoutStateRef = useRef<boolean>(false);
 
   // Initialize Map
   useEffect(() => {
@@ -58,21 +71,31 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       attributionControl: false
     });
 
-    // Standard OpenStreetMap tiles (Clean, reliable, ZERO API KEY / ZERO WATERMARK)
+    // Standard OpenStreetMap tiles with dark cockpit styling
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       subdomains: 'abc'
     }).addTo(map);
 
-    // Polylines
+    // Active Road Corridor Lane Glow (Holding the car visually on the road)
+    roadCorridorGlowRef.current = L.polyline([], {
+      color: '#00d2ff',
+      weight: 14,
+      opacity: 0.15,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(map);
+
+    // Road Centerline Polyline
     roadPolylineRef.current = L.polyline([], {
       color: '#334155',
-      weight: 8,
+      weight: 6,
       opacity: 0.6,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
 
+    // Custom route dashed preview
     customPreviewPolylineRef.current = L.polyline([], {
       color: '#00d2ff',
       weight: 4,
@@ -81,28 +104,34 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       lineCap: 'round'
     }).addTo(map);
 
-    gtTrailRef.current = L.polyline([], {
-      color: '#475569',
-      weight: 2,
-      opacity: 0.4,
-      dashArray: '4, 6'
-    }).addTo(map);
-
+    // GNSS Trail (Solid Emerald Green, stops at blackout)
     gnssTrailRef.current = L.polyline([], {
-      color: '#00f59b', // Emerald green GNSS
-      weight: 5,
-      opacity: 0.9,
-      lineCap: 'round'
-    }).addTo(map);
-
-    idrTrailRef.current = L.polyline([], {
-      color: '#00d2ff', // Electric blue IDR
-      weight: 5,
+      color: '#00f59b',
+      weight: 5.5,
       opacity: 0.95,
-      lineCap: 'round'
+      lineCap: 'round',
+      lineJoin: 'round'
     }).addTo(map);
 
-    // Vehicle marker matching nav-car-puck design
+    // IDR Trail Glow (Soft Neon Aura)
+    idrGlowTrailRef.current = L.polyline([], {
+      color: '#00d2ff',
+      weight: 12,
+      opacity: 0.3,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(map);
+
+    // IDR Trail (Electric Cyan, seamless continuation)
+    idrTrailRef.current = L.polyline([], {
+      color: '#00d2ff',
+      weight: 5.5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(map);
+
+    // Vehicle Navigation Marker Puck
     const carIcon = L.divIcon({
       className: 'nav-car-marker-container',
       html: `
@@ -121,31 +150,74 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     uncertaintyCircleRef.current = L.circle([initialLat, initialLon], {
       radius: 4,
-      color: '#00d2ff',
-      fillColor: '#00d2ff',
-      fillOpacity: 0.12,
+      color: '#00f59b',
+      fillColor: '#00f59b',
+      fillOpacity: 0.1,
       weight: 1.5,
       dashArray: '3, 6'
     }).addTo(map);
 
-    // Click handler for Option 2: Choose 2 points
     map.on('click', (e: L.LeafletMouseEvent) => {
       onMapClick(e.latlng.lat, e.latlng.lng);
     });
 
     mapInstanceRef.current = map;
 
+    // ── 60 FPS Smooth Liquid LERP Animation Loop ─────────────────────────────
+    let animFrameId: number;
+
+    const animateLoop = () => {
+      const curPos = animPosRef.current;
+      const tgtPos = targetPosRef.current;
+
+      // Smooth position interpolation (alpha = 0.22)
+      const newLat = curPos[0] + (tgtPos[0] - curPos[0]) * 0.22;
+      const newLon = curPos[1] + (tgtPos[1] - curPos[1]) * 0.22;
+      animPosRef.current = [newLat, newLon];
+
+      // Smooth heading angle interpolation
+      let dHead = targetHeadingRef.current - animHeadingRef.current;
+      while (dHead > 180) dHead -= 360;
+      while (dHead < -180) dHead += 360;
+      animHeadingRef.current += dHead * 0.2;
+
+      // Update vehicle marker on map
+      if (vehicleMarkerRef.current) {
+        vehicleMarkerRef.current.setLatLng([newLat, newLon]);
+      }
+
+      // Rotate directional arrow smoothly
+      const arrowElem = document.getElementById('nav-car-arrow');
+      if (arrowElem) {
+        arrowElem.style.transform = `rotate(${animHeadingRef.current}deg)`;
+      }
+
+      // Smooth lookahead camera pan (anticipatory navigation view)
+      if (mapInstanceRef.current) {
+        const rad = (animHeadingRef.current * Math.PI) / 180;
+        // 20m lookahead in driving direction
+        const lookaheadLat = newLat + (20 * Math.cos(rad)) / 111320;
+        const lookaheadLon = newLon + (20 * Math.sin(rad)) / (111320 * Math.cos((newLat * Math.PI) / 180));
+        mapInstanceRef.current.panTo([lookaheadLat, lookaheadLon], { animate: false });
+      }
+
+      animFrameId = requestAnimationFrame(animateLoop);
+    };
+
+    animFrameId = requestAnimationFrame(animateLoop);
+
     setTimeout(() => {
       map.invalidateSize();
     }, 150);
 
     return () => {
+      cancelAnimationFrame(animFrameId);
       map.remove();
       mapInstanceRef.current = null;
     };
   }, []);
 
-  // Update Custom Origin & Destination Markers
+  // Update Custom Origin & Destination Markers (Option 2)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -196,56 +268,74 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     }
   }, [customOrigin, customDestination, customRoutePath]);
 
-  // Handle Scenario Switch in Dataset mode
+  // Scenario Switch Reset
   useEffect(() => {
     if (!mapInstanceRef.current || appMode !== 'CANONICAL_DATASET' || !scenario) return;
 
     gnssPointsRef.current = [];
     idrPointsRef.current = [];
-    gtPointsRef.current = [];
+    lastGnssPtRef.current = null;
 
     gnssTrailRef.current?.setLatLngs([]);
     idrTrailRef.current?.setLatLngs([]);
-    gtTrailRef.current?.setLatLngs([]);
+    idrGlowTrailRef.current?.setLatLngs([]);
 
     if (scenario.road_polyline && scenario.road_polyline.length > 0) {
       roadPolylineRef.current?.setLatLngs(scenario.road_polyline);
+      roadCorridorGlowRef.current?.setLatLngs(scenario.road_polyline);
       const startPt = scenario.road_polyline[0];
+      animPosRef.current = startPt;
+      targetPosRef.current = startPt;
       mapInstanceRef.current.setView(startPt, 17, { animate: false });
     }
   }, [scenario?.id, appMode]);
 
-  // Update Telemetry on Every 10 Hz Packet
+  // Update Target Telemetry on 10 Hz Packets
   useEffect(() => {
-    if (!mapInstanceRef.current || !telemetry) return;
+    if (!telemetry) return;
 
-    const map = mapInstanceRef.current;
-    const { idr_position, gnss_position, ground_truth, heading_deg, technical_proof, blackout_active } = telemetry;
+    const { idr_position, heading_deg, technical_proof, blackout_active } = telemetry;
+    const currPt: [number, number] = [idr_position.lat, idr_position.lon];
 
-    const idrPt: [number, number] = [idr_position.lat, idr_position.lon];
-    const gtPt: [number, number] = [ground_truth.lat, ground_truth.lon];
-
-    // Append IDR points continuously
-    idrPointsRef.current.push(idrPt);
-    if (idrPointsRef.current.length > 1000) idrPointsRef.current.shift();
-    idrTrailRef.current?.setLatLngs(idrPointsRef.current);
-
-    // Append GT points
-    gtPointsRef.current.push(gtPt);
-    if (gtPointsRef.current.length > 1000) gtPointsRef.current.shift();
-    gtTrailRef.current?.setLatLngs(gtPointsRef.current);
-
-    // Only append GNSS points when GNSS is available!
-    if (gnss_position) {
-      const gnssPt: [number, number] = [gnss_position.lat, gnss_position.lon];
-      gnssPointsRef.current.push(gnssPt);
-      if (gnssPointsRef.current.length > 1000) gnssPointsRef.current.shift();
-      gnssTrailRef.current?.setLatLngs(gnssPointsRef.current);
+    // First packet initialization
+    if (!isInitializedRef.current) {
+      animPosRef.current = currPt;
+      targetPosRef.current = currPt;
+      animHeadingRef.current = heading_deg;
+      targetHeadingRef.current = heading_deg;
+      isInitializedRef.current = true;
+    } else {
+      targetPosRef.current = currPt;
+      targetHeadingRef.current = heading_deg;
     }
 
-    // Update Vehicle Position & Heading
-    vehicleMarkerRef.current?.setLatLng(idrPt);
+    // ── Seamless Single-Ribbon Trail Logic ────────────────────────────────────
+    // Before blackout: GNSS is active. Add to single emerald green trail.
+    // When blackout hits: Emerald trail stops. Electric cyan trail starts from the exact transition point!
+    if (!blackout_active) {
+      if (prevBlackoutStateRef.current) {
+        // Reconvergence: connect last IDR point back to GNSS seamlessly
+        gnssPointsRef.current.push(currPt);
+      } else {
+        gnssPointsRef.current.push(currPt);
+      }
+      lastGnssPtRef.current = currPt;
+      if (gnssPointsRef.current.length > 1000) gnssPointsRef.current.shift();
+      gnssTrailRef.current?.setLatLngs(gnssPointsRef.current);
+    } else {
+      // Outage active: start IDR trail from last known GNSS point if just begun
+      if (!prevBlackoutStateRef.current && lastGnssPtRef.current) {
+        idrPointsRef.current = [lastGnssPtRef.current, currPt];
+      } else {
+        idrPointsRef.current.push(currPt);
+      }
+      if (idrPointsRef.current.length > 1000) idrPointsRef.current.shift();
+      idrTrailRef.current?.setLatLngs(idrPointsRef.current);
+      idrGlowTrailRef.current?.setLatLngs(idrPointsRef.current);
+    }
+    prevBlackoutStateRef.current = blackout_active;
 
+    // Vehicle marker state
     const puckWrap = document.getElementById('nav-car-puck-wrap');
     if (puckWrap) {
       if (blackout_active) {
@@ -255,23 +345,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       }
     }
 
-    const arrowElem = document.getElementById('nav-car-arrow');
-    if (arrowElem) {
-      arrowElem.style.transform = `rotate(${heading_deg}deg)`;
-    }
-
-    // Update Uncertainty Radius
+    // Uncertainty Circle
     if (uncertaintyCircleRef.current) {
-      uncertaintyCircleRef.current.setLatLng(idrPt);
+      uncertaintyCircleRef.current.setLatLng(currPt);
       uncertaintyCircleRef.current.setRadius(Math.max(2, technical_proof.uncertainty_m));
       uncertaintyCircleRef.current.setStyle({
         color: blackout_active ? '#00d2ff' : '#00f59b',
         fillColor: blackout_active ? '#00d2ff' : '#00f59b'
       });
     }
-
-    // Follow vehicle dynamically at street-level zoom (Zoom 17)
-    map.panTo(idrPt, { animate: true, duration: 0.1, easeLinearity: 0.8 });
   }, [telemetry]);
 
   return (
