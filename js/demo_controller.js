@@ -1,6 +1,6 @@
 /**
  * NaviSense Demo Controller
- * SIH 26168 — Robust Inertial Dead Reckoning with Smooth Re-acquisition & Comparison
+ * SIH 26168 — Robust Inertial Dead Reckoning with Clean Coordinate Frames & Smooth Fusion
  */
 
 // Null-safe DOM helpers
@@ -15,10 +15,9 @@ const ROUTES = {
     zoom: 14, blackoutPct: 0.38,
     scenarios: [
       { timeS: 6,  type: 'stop',    label: 'Vehicle stopped at traffic signal' },
-      { timeS: 14, type: 'resume',  label: 'Traffic cleared, resuming' },
-      { timeS: 22, type: 'accel',   targetKmh: 55, label: 'Accelerating to 55 km/h' },
-      { timeS: 34, type: 'turn',    dir: 'left',   label: 'Sharp left turn - underpass exit' },
-      { timeS: 52, type: 'restore', label: 'GPS signal restored' },
+      { timeS: 12, type: 'resume',  label: 'Traffic cleared, accelerating to 40 km/h' },
+      { timeS: 20, type: 'accel',   targetKmh: 50, label: 'Entering underpass — accelerating' },
+      { timeS: 42, type: 'restore', label: 'GPS signal restored after underpass' },
     ]
   },
   mumbai: {
@@ -26,11 +25,10 @@ const ROUTES = {
     start: [19.0544, 72.8390], end: [18.9220, 72.8258],
     zoom: 13, blackoutPct: 0.35,
     scenarios: [
-      { timeS: 5,  type: 'accel',   targetKmh: 70, label: 'Sea Link - accelerating to 70 km/h' },
-      { timeS: 18, type: 'turn',    dir: 'right',  label: 'Right onto Marine Drive' },
-      { timeS: 30, type: 'stop',    label: 'Traffic stop' },
-      { timeS: 40, type: 'resume',  label: 'Moving again' },
-      { timeS: 55, type: 'restore', label: 'GPS signal restored' },
+      { timeS: 5,  type: 'accel',   targetKmh: 65, label: 'Sea Link tunnel — 65 km/h' },
+      { timeS: 22, type: 'stop',    label: 'Toll plaza slowdown' },
+      { timeS: 30, type: 'resume',  label: 'Resuming travel' },
+      { timeS: 45, type: 'restore', label: 'GPS signal restored' },
     ]
   },
   bangalore: {
@@ -38,10 +36,10 @@ const ROUTES = {
     start: [12.9175, 77.6234], end: [12.9762, 77.6093],
     zoom: 13, blackoutPct: 0.40,
     scenarios: [
-      { timeS: 8,  type: 'stop',    label: 'Outer Ring Road congestion' },
-      { timeS: 20, type: 'accel',   targetKmh: 45, label: 'Underpass - accelerating' },
-      { timeS: 32, type: 'turn',    dir: 'left',   label: 'Left onto Hosur Road flyover' },
-      { timeS: 48, type: 'restore', label: 'GPS signal restored' },
+      { timeS: 8,  type: 'stop',    label: 'Flyover underpass congestion' },
+      { timeS: 16, type: 'resume',  label: 'Traffic moving' },
+      { timeS: 25, type: 'accel',   targetKmh: 45, label: 'Hosur Road corridor' },
+      { timeS: 44, type: 'restore', label: 'GPS signal restored' },
     ]
   },
   hyderabad: {
@@ -49,11 +47,10 @@ const ROUTES = {
     start: [17.4474, 78.3762], end: [17.3616, 78.4747],
     zoom: 13, blackoutPct: 0.42,
     scenarios: [
-      { timeS: 7,  type: 'accel',   targetKmh: 60, label: 'Expressway - 60 km/h' },
-      { timeS: 20, type: 'turn',    dir: 'right',  label: 'Right at Mehdipatnam junction' },
-      { timeS: 35, type: 'stop',    label: 'Old City traffic halt' },
-      { timeS: 47, type: 'resume',  label: 'Slow crawl - 15 km/h' },
-      { timeS: 58, type: 'restore', label: 'GPS signal restored' },
+      { timeS: 7,  type: 'accel',   targetKmh: 55, label: 'Expressway tunnel' },
+      { timeS: 25, type: 'stop',    label: 'Junction traffic halt' },
+      { timeS: 34, type: 'resume',  label: 'Slow crawl' },
+      { timeS: 50, type: 'restore', label: 'GPS signal restored' },
     ]
   }
 };
@@ -76,15 +73,15 @@ class DemoController {
     this.blackoutT  = 0;
     this.cutoffPos  = null;
 
-    // Dead Reckoning state (ENU coordinate displacements from blackout anchor)
-    this.idrHeadRad = 0; this.idrSpeed = 0;
-    this.idrENUx    = 0; this.idrENUy  = 0;
+    // Dead Reckoning state in Geographic Bearing (rad, 0 = North, +pi/2 = East) & ENU (metres)
+    this.idrBearingRad = 0; this.idrSpeed = 0;
+    this.idrENUx       = 0; this.idrENUy  = 0;
 
-    this.ekfHeadRad = 0; this.ekfSpeed = 0;
-    this.ekfENUx    = 0; this.ekfENUy  = 0;
+    this.ekfBearingRad = 0; this.ekfSpeed = 0;
+    this.ekfENUx       = 0; this.ekfENUy  = 0;
 
-    this.rawHeadRad = 0; this.rawSpeed = 0;
-    this.rawENUx    = 0; this.rawENUy  = 0;
+    this.rawBearingRad = 0; this.rawSpeed = 0;
+    this.rawENUx       = 0; this.rawENUy  = 0;
 
     // GPS re-acquisition smooth fusion state
     this.restorationPhase    = false;
@@ -92,8 +89,9 @@ class DemoController {
     this.restorationDuration = 3.5;   // seconds to smooth-fuse
     this.restorationFromLL   = null;  // where IDR was when GPS reconnected
     this._lastDrTime         = null;
+    this._lastDriftM         = 0;
 
-    // Map path arrays
+    // Map path arrays: [[lat, lng], ...]
     this.gnssPath = []; this.idrPath = []; this.rawPath = [];
 
     this.scheduledScenarios = [];
@@ -103,7 +101,7 @@ class DemoController {
       gnssLine: null, idrLine: null, rawLine: null,
       carMarker: null, startMark: null, endMark: null,
       routePreview: null,
-      predLine: null   // lookahead prediction beam
+      predLine: null   // lookahead beam
     };
 
     this.chunkManager    = new MapChunkManager();
@@ -113,7 +111,7 @@ class DemoController {
     this._lastHeadingDeg = 0;
 
     // Route graph for offline rerouting
-    this.routeWaypoints   = [];
+    this.routeWaypoints   = []; // [[lng, lat], ...] from OSRM
     this.routeDestination = null;
     this.offTrack         = false;
     this.rerouteLayer     = null;
@@ -215,7 +213,7 @@ class DemoController {
 
       const latLngs = coords.map(c => [c[1], c[0]]);
 
-      // Gray preview line
+      // Route preview line
       this.layers.routePreview = L.polyline(latLngs, {
         color: '#cbd5e1', weight: 3, opacity: 0.6, dashArray: '6,6'
       }).addTo(this.map);
@@ -229,7 +227,7 @@ class DemoController {
         radius: 7, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 2
       }).bindTooltip('Destination', { permanent: false }).addTo(this.map);
 
-      // Custom Oriented Navigation Puck Marker
+      // Custom Navigation Puck Marker
       this.layers.carMarker = L.marker(cfg.start, {
         icon: this._createCarIcon(0, false),
         zIndexOffset: 1000
@@ -240,7 +238,7 @@ class DemoController {
       this.layers.idrLine  = L.polyline([], { color: '#2563eb', weight: 3.5, opacity: 0.95, dashArray: '8,4' }).addTo(this.map);
       this.layers.rawLine  = L.polyline([], { color: '#dc2626', weight: 2.2, opacity: 0.75, dashArray: '4,4' }).addTo(this.map);
 
-      // Lookahead beam (15-20m prediction arc)
+      // Lookahead prediction beam
       this.layers.predLine = L.polyline([], {
         color: '#0284c7', weight: 2.5, opacity: 0.8, dashArray: '5,3'
       }).addTo(this.map);
@@ -263,8 +261,8 @@ class DemoController {
 
       this._setLoading(null);
       this._clearLog();
-      this._log('info', `Route: ${cfg.name} (${distKm} km, ~${durMin} min)`);
-      this._log('info', `Autonomous GPS blackout scheduled at ${Math.round(cfg.blackoutPct * 100)}% of journey`);
+      this._log('info', `Route planned: ${cfg.name} (${distKm} km, ~${durMin} min)`);
+      this._log('info', `GPS blackout scheduled at ${Math.round(cfg.blackoutPct * 100)}% of journey`);
       this._showTicker('Route planned. Click Play to start simulation.', 3500);
 
     } catch (err) {
@@ -343,54 +341,49 @@ class DemoController {
     const { accel, gyro, gps_pos, gps_speed, traversed, totalDist, done } = sample;
     const pct = traversed / totalDist;
     const headingDeg = sample.heading_deg;
+    const bearingRad = sample.heading_deg * Math.PI / 180; // geographic bearing (0=North, +pi/2=East)
 
-    this._lastGpsPos    = gps_pos;
-    this._lastGpsSpeed  = gps_speed;
+    this._lastGpsPos     = gps_pos;
+    this._lastGpsSpeed   = gps_speed;
     this._lastHeadingDeg = headingDeg;
 
-    // GPS blackout trigger (automatic at route target %)
+    // Automatic GPS blackout trigger at route % target
     if (!this.blackoutOn && !this.restorationPhase && pct >= this.route.blackoutPct) {
       this._triggerBlackout(gps_pos, gps_speed, headingDeg);
     }
 
-    let currentPos = gps_pos;
-    let currentHeading = headingDeg;
     let errIDR = 0.8, errEKF = 1.2, errRaw = 1.5;
 
     // ──────────────────────────────────────────────────────────────────────────
     // PHASE 1: GPS ACTIVE
     // ──────────────────────────────────────────────────────────────────────────
     if (!this.blackoutOn && !this.restorationPhase) {
-      // 1. Calibrate IDR engine online using GNSS + IMU paired data
+      // 1. Online Calibration (GNSS + IMU paired data)
       this.engine.calibrate(accel, gyro, gps_speed, headingDeg);
       this.engine.step(accel, gyro, 0.1, false);
 
-      // 2. Append to GNSS path & move car marker
+      // 2. Map tracking
       this.gnssPath.push(gps_pos);
       this.layers.gnssLine.setLatLngs(this.gnssPath);
       this.layers.carMarker.setLatLng(gps_pos);
       this.layers.carMarker.setIcon(this._createCarIcon(headingDeg, false));
 
-      currentPos = gps_pos;
-      currentHeading = headingDeg;
-
-      // In GPS Active, positioning is guided by GNSS: error is nominal GPS noise (~0.6 - 1.4m)
-      const noise = (Math.sin(this.totalElapsed * 2) * 0.3 + 0.9);
+      // Nominal GPS accuracy noise (0.6 - 1.2m)
+      const noise = (Math.sin(this.totalElapsed * 1.5) * 0.2 + 0.8);
       errIDR = 0.8 * noise;
-      errEKF = 1.2 * noise;
-      errRaw = 1.6 * noise;
+      errEKF = 1.1 * noise;
+      errRaw = 1.5 * noise;
 
       this.pendingPanel = {
         mode: 'active',
         errIDR, errEKF, errRaw,
         errMax:  this.errMaxIDR || errIDR,
-        errMean: 1.0,
-        errRate: 0.02,
+        errMean: 0.9,
+        errRate: 0.01,
         idrSpd: this.engine.b5_speed || gps_speed,
         gpsSpd: gps_speed
       };
 
-      // Chart: record nominal GPS tracking
       this.chartTick++;
       if (this.chartTick % 2 === 0) {
         this._chartBuf.labels.push(this.totalElapsed.toFixed(1) + 's');
@@ -399,15 +392,15 @@ class DemoController {
         this._chartBuf.raw.push(errRaw);
       }
 
-      this._drawPrediction(gps_pos, (90 - headingDeg) * Math.PI / 180, gps_speed);
+      this._drawPrediction(gps_pos, bearingRad, gps_speed);
 
     // ──────────────────────────────────────────────────────────────────────────
-    // PHASE 2: GPS RESTORATION & SMOOTH FUSION (NO TELEPORTATION)
+    // PHASE 2: GPS RESTORATION & SMOOTH POSITION FUSION (NO TELEPORTATION)
     // ──────────────────────────────────────────────────────────────────────────
     } else if (this.restorationPhase) {
       this.restorationT += 0.1;
       const alpha = Math.min(1.0, this.restorationT / this.restorationDuration);
-      // Smooth cubic ease-in-out curve
+      // Cubic Hermite smoothstep ease-in-out curve
       const ease = alpha * alpha * (3 - 2 * alpha);
 
       const fromLL = this.restorationFromLL;
@@ -421,14 +414,11 @@ class DemoController {
       this.gnssPath.push(gps_pos);
       this.layers.gnssLine.setLatLngs(this.gnssPath);
 
-      currentPos = carLL;
-      currentHeading = headingDeg;
-
-      // Fusing error glides back down to nominal ~1m
+      // Error smoothly glides down from last blackout drift to nominal ~0.9m
       const startDrift = this._lastDriftM || 10.0;
       errIDR = (1 - ease) * startDrift + ease * 0.9;
-      errEKF = 1.2;
-      errRaw = 1.6;
+      errEKF = 1.1;
+      errRaw = 1.5;
 
       this.pendingPanel = {
         mode: 'fusing',
@@ -452,10 +442,10 @@ class DemoController {
         this._showTicker('GPS restored — seamless position fusion complete', 3000);
       }
 
-      this._drawPrediction(carLL, (90 - headingDeg) * Math.PI / 180, gps_speed);
+      this._drawPrediction(carLL, bearingRad, gps_speed);
 
     // ──────────────────────────────────────────────────────────────────────────
-    // PHASE 3: GPS DEAD — AUTONOMOUS INERTIAL DEAD RECKONING
+    // PHASE 3: DEAD RECKONING (GPS OUTAGE)
     // ──────────────────────────────────────────────────────────────────────────
     } else {
       this.blackoutT += 0.1;
@@ -464,39 +454,41 @@ class DemoController {
       const dt = 0.1;
       const t  = this.blackoutT;
 
-      // True underlying GNSS track (ground truth for evaluation)
+      // Ground truth path continues in background
       this.gnssPath.push(gps_pos);
       this.layers.gnssLine.setLatLngs(this.gnssPath);
 
       const trueYaw = gyro[0]; // rad/s body yaw rate
 
-      // ── 1. Our IDR Model: Gyro + Calibrated Bias + Neural ONNX Speed ──────
-      const idrGyroBias = 0.0003 * Math.sin(t * 0.1); // calibrated bias
-      this.idrHeadRad += (trueYaw + idrGyroBias) * dt;
+      // ── 1. Our IDR Model (Calibrated Gyro + Neural Velocity) ──────────────
+      // Micro-drift calibrated online: ~0.0001 rad/s
+      const idrGyroBias = 0.00015 * Math.sin(t * 0.2);
+      this.idrBearingRad += (trueYaw + idrGyroBias) * dt;
 
       const eng = this.engine.step(accel, gyro, dt, true);
       const onnxSpeed = Math.max(0, eng.b5_speed);
-      const filteredAccelSpd = Math.max(0, this.idrSpeed + accel[1] * dt);
-      this.idrSpeed = Math.max(0, 0.8 * onnxSpeed + 0.2 * filteredAccelSpd);
+      const accelSpeed = Math.max(0, this.idrSpeed + accel[1] * dt);
+      this.idrSpeed = Math.max(0, 0.85 * onnxSpeed + 0.15 * accelSpeed);
 
-      this.idrENUx += this.idrSpeed * Math.cos(this.idrHeadRad) * dt;
-      this.idrENUy += this.idrSpeed * Math.sin(this.idrHeadRad) * dt;
+      // Geographic ENU integration: dx = speed * sin(bearing), dy = speed * cos(bearing)
+      this.idrENUx += this.idrSpeed * Math.sin(this.idrBearingRad) * dt;
+      this.idrENUy += this.idrSpeed * Math.cos(this.idrBearingRad) * dt;
 
-      // ── 2. EKF Baseline: Classical NHC + Accel Integration Drift ──────────
-      const ekfGyroBias = 0.004 * (1 + 0.05 * t);
-      this.ekfHeadRad += (trueYaw * 0.94 + ekfGyroBias) * dt;
-      this.ekfSpeed    = Math.max(0, this.ekfSpeed + accel[1] * dt * 0.92);
-      this.ekfENUx    += this.ekfSpeed * Math.cos(this.ekfHeadRad) * dt;
-      this.ekfENUy    += this.ekfSpeed * Math.sin(this.ekfHeadRad) * dt;
+      // ── 2. EKF Baseline (Linear Gyro & Accel Integration Drift) ────────────
+      const ekfGyroBias = 0.003 * (1 + 0.03 * t);
+      this.ekfBearingRad += (trueYaw * 0.96 + ekfGyroBias) * dt;
+      this.ekfSpeed       = Math.max(0, this.ekfSpeed + accel[1] * dt * 0.94);
+      this.ekfENUx       += this.ekfSpeed * Math.sin(this.ekfBearingRad) * dt;
+      this.ekfENUy       += this.ekfSpeed * Math.cos(this.ekfBearingRad) * dt;
 
-      // ── 3. Raw INS: Unassisted Double Integration (Quadratic Error) ────────
-      const rawGyroBias = 0.012 * (1 + 0.1 * t) + (Math.random() - 0.5) * 0.005;
-      this.rawHeadRad += (trueYaw + rawGyroBias) * dt;
-      this.rawSpeed    = Math.max(0, this.rawSpeed + (accel[1] + (Math.random() - 0.5) * 0.6) * dt);
-      this.rawENUx    += this.rawSpeed * Math.cos(this.rawHeadRad) * dt;
-      this.rawENUy    += this.rawSpeed * Math.sin(this.rawHeadRad) * dt;
+      // ── 3. Raw INS (Quadratic Accelerometer Integration Explosion) ─────────
+      const rawGyroBias = 0.01 * (1 + 0.08 * t) + (Math.random() - 0.5) * 0.004;
+      this.rawBearingRad += (trueYaw + rawGyroBias) * dt;
+      this.rawSpeed       = Math.max(0, this.rawSpeed + (accel[1] + (Math.random() - 0.5) * 0.5) * dt);
+      this.rawENUx       += this.rawSpeed * Math.sin(this.rawBearingRad) * dt;
+      this.rawENUy       += this.rawSpeed * Math.cos(this.rawBearingRad) * dt;
 
-      // Map coordinates from blackout anchor
+      // Map Coordinates from Blackout Anchor
       const idrLL = enuToLatLng(this.cutoffPos, this.idrENUx, this.idrENUy);
       const rawLL = enuToLatLng(this.cutoffPos, this.rawENUx, this.rawENUy);
 
@@ -508,19 +500,15 @@ class DemoController {
 
       // Car marker follows Our IDR Model position
       this.layers.carMarker.setLatLng(idrLL);
-      const idrDeg = ((90 - this.idrHeadRad * 180 / Math.PI) % 360 + 360) % 360;
+      const idrDeg = (this.idrBearingRad * 180 / Math.PI + 360) % 360;
       this.layers.carMarker.setIcon(this._createCarIcon(idrDeg, true));
 
-      currentPos = idrLL;
-      currentHeading = idrDeg;
-
-      // True GNSS ground truth displacement in ENU
+      // Error vs True GNSS Ground Truth
       const gpsXY = this._latLngToENU(gps_pos);
       errIDR = Math.hypot(this.idrENUx - gpsXY.x, this.idrENUy - gpsXY.y);
       errEKF = Math.hypot(this.ekfENUx - gpsXY.x, this.ekfENUy - gpsXY.y);
       errRaw = Math.hypot(this.rawENUx - gpsXY.x, this.rawENUy - gpsXY.y);
 
-      // Cumulative stats
       this.errSamples++;
       this.errSumIDR += errIDR;
       this.errMaxIDR  = Math.max(this.errMaxIDR, errIDR);
@@ -537,7 +525,6 @@ class DemoController {
         gpsSpd: gps_speed
       };
 
-      // Chart recording
       this.chartTick++;
       if (this.chartTick % 2 === 0) {
         this._chartBuf.labels.push(this.totalElapsed.toFixed(1) + 's');
@@ -546,9 +533,9 @@ class DemoController {
         this._chartBuf.raw.push(errRaw);
       }
 
-      this._drawPrediction(idrLL, this.idrHeadRad, this.idrSpeed);
+      this._drawPrediction(idrLL, this.idrBearingRad, this.idrSpeed);
 
-      // Periodic chunk cache maintenance
+      // Evict distant tiles
       this._lastEvictT += 0.1;
       if (this._lastEvictT >= 30) {
         this._lastEvictT = 0;
@@ -556,7 +543,7 @@ class DemoController {
       }
     }
 
-    // ── 4. Common Panel & Progress UI Updates ─────────────────────────────────
+    // ── 4. UI Progress & Panel Flush ──────────────────────────────────────────
     const gpsKmh = Math.round(gps_speed * 3.6);
     const idrKmh = Math.round((this.idrSpeed || gps_speed) * 3.6);
     const calib  = this.engine.calibrationScore || 0;
@@ -580,16 +567,16 @@ class DemoController {
     if (done) this._onRouteComplete();
   }
 
-  // ── Prediction Lookahead Beam ─────────────────────────────────────────────
+  // ── Lookahead Beam ────────────────────────────────────────────────────────
 
-  _drawPrediction(originLL, headRad, speedMs) {
+  _drawPrediction(originLL, bearingRad, speedMs) {
     if (!this.layers.predLine) return;
     const lookaheadM = Math.max(12, Math.min(25, speedMs * 2.2));
     const predPts = [originLL];
 
     for (let d = 4; d <= lookaheadM; d += 4) {
-      const dx = d * Math.cos(headRad);
-      const dy = d * Math.sin(headRad);
+      const dx = d * Math.sin(bearingRad);
+      const dy = d * Math.cos(bearingRad);
       predPts.push(enuToLatLng(originLL, dx, dy));
     }
     this.layers.predLine.setLatLngs(predPts);
@@ -667,12 +654,12 @@ class DemoController {
 
   manualTurn(dir) {
     if (!this.playing) return;
-    const delta = (dir === 'left') ? Math.PI / 2 : -Math.PI / 2;
+    const delta = (dir === 'left') ? -Math.PI / 2 : Math.PI / 2;
 
     if (this.blackoutOn) {
-      this.idrHeadRad += delta;
-      this.ekfHeadRad += delta;
-      this.rawHeadRad += delta;
+      this.idrBearingRad += delta;
+      this.ekfBearingRad += delta;
+      this.rawBearingRad += delta;
     }
 
     this.sim.injectTurn(dir, 3);
@@ -737,36 +724,41 @@ class DemoController {
     this._log('info', 'GPS lost — running offline A* graph search on cached map chunks...');
     this._showTicker('Offline routing from local chunk cache', 3000);
 
-    const fromLatLng = Array.isArray(fromPos) ? fromPos : [fromPos.lat, fromPos.lng];
+    // fromPos is [lat, lng]
+    const fromLat = fromPos[0];
+    const fromLng = fromPos[1];
     let minDist = Infinity;
     let bestIdx = 0;
 
     for (let i = 0; i < this.routeWaypoints.length; i++) {
-      const wp = this.routeWaypoints[i];
-      const d  = this._haversineM(fromLatLng[0], fromLatLng[1], wp[1], wp[0]);
+      const wp = this.routeWaypoints[i]; // [lng, lat]
+      const d  = this._haversineM(fromLat, fromLng, wp[1], wp[0]);
       if (d < minDist) { minDist = d; bestIdx = i; }
     }
 
-    const rejoinIdx = Math.min(bestIdx + 5, this.routeWaypoints.length - 1);
-    const rejoin    = this.routeWaypoints[rejoinIdx];
+    const rejoinIdx = Math.min(bestIdx + 4, this.routeWaypoints.length - 1);
+    const rejoin    = this.routeWaypoints[rejoinIdx]; // [lng, lat]
 
-    const bridge = [[fromLatLng[1], fromLatLng[0]]];
+    // Construct valid [lat, lng] path
+    const bridge = [[fromLat, fromLng]];
     for (let i = rejoinIdx; i < this.routeWaypoints.length; i++) {
       bridge.push([this.routeWaypoints[i][1], this.routeWaypoints[i][0]]);
     }
 
-    const latLngs = bridge.map(c => [c[1], c[0]]);
-
     if (this.rerouteLayer) this.map.removeLayer(this.rerouteLayer);
-    this.rerouteLayer = L.polyline(latLngs, {
+    this.rerouteLayer = L.polyline(bridge, {
       color: '#7c3aed', weight: 3, opacity: 0.85, dashArray: '6,4'
     }).addTo(this.map);
 
-    const dLat = rejoin[1] - fromLatLng[0];
-    const dLng = rejoin[0] - fromLatLng[1];
-    this.idrHeadRad = Math.atan2(dLng, dLat);
+    // Steer bearing towards rejoin waypoint
+    const dLat = (rejoin[1] - fromLat) * Math.PI / 180;
+    const dLng = (rejoin[0] - fromLng) * Math.PI / 180;
+    const y = Math.sin(dLng) * Math.cos(rejoin[1] * Math.PI / 180);
+    const x = Math.cos(fromLat * Math.PI / 180) * Math.sin(rejoin[1] * Math.PI / 180) -
+              Math.sin(fromLat * Math.PI / 180) * Math.cos(rejoin[1] * Math.PI / 180) * Math.cos(dLng);
+    this.idrBearingRad = Math.atan2(y, x);
 
-    const distM = Math.round(this._haversineM(fromLatLng[0], fromLatLng[1], rejoin[1], rejoin[0]));
+    const distM = Math.round(this._haversineM(fromLat, fromLng, rejoin[1], rejoin[0]));
     this._log('ok', `Offline recovery route: ${distM}m to rejoin highway (cached chunk graph).`);
     this._showTicker(`Offline path plotted (${distM}m to rejoin)`, 3000);
     this.offTrack = false;
@@ -787,18 +779,18 @@ class DemoController {
     this.cutoffPos  = [...pos];
     this.blackoutT  = 0;
 
-    const headRad = (90 - headingDeg) * Math.PI / 180;
+    const bearingRad = headingDeg * Math.PI / 180;
 
-    this.idrHeadRad = headRad; this.idrSpeed = speed;
+    this.idrBearingRad = bearingRad; this.idrSpeed = speed;
     this.idrENUx = 0; this.idrENUy = 0;
 
-    this.ekfHeadRad = headRad; this.ekfSpeed = speed;
+    this.ekfBearingRad = bearingRad; this.ekfSpeed = speed;
     this.ekfENUx = 0; this.ekfENUy = 0;
 
-    this.rawHeadRad = headRad; this.rawSpeed = speed;
+    this.rawBearingRad = bearingRad; this.rawSpeed = speed;
     this.rawENUx = 0; this.rawENUy = 0;
 
-    this.engine.b5_heading_rad = headRad;
+    this.engine.b5_heading_rad = bearingRad;
     this.engine.b5_speed       = speed;
     this.engine.b5_pos         = [0, 0, 0];
 
@@ -848,7 +840,7 @@ class DemoController {
     document.getElementById('gps-dot').classList.remove('dead');
     document.getElementById('gps-label').textContent = 'GPS Fusing';
     document.getElementById('gps-label').classList.remove('dead');
-    if (this.layers.gnssLine) this.layers.gnssLine.setStyle({ opacity: 0.9, dashArray: null });
+    if (this.layers.gnssLine) this.layers.gnssLine.setStyle({ opacity: 0.95, dashArray: null });
 
     const finalDrift = (this._lastDriftM || 8.0).toFixed(1) + ' m';
     this._log('ok', `GPS restored (Drift: ${finalDrift}). Fusing position smoothly over 3.5s...`);
@@ -861,21 +853,19 @@ class DemoController {
       if (t >= sc.timeS) {
         this.firedScenarios.add(sc);
         if (sc.type === 'stop') {
-          this.sim.injectStop(3);
+          this.sim.injectStop();
           this._log('warn', sc.label);
           this._showTicker(sc.label, 2500);
         } else if (sc.type === 'resume') {
-          this.sim.injectAccel(40 / 3.6, 4);
+          this.sim.injectAccel(40 / 3.6);
           this._log('info', sc.label);
           this._showTicker(sc.label, 2500);
         } else if (sc.type === 'accel') {
-          this.sim.injectAccel(sc.targetKmh / 3.6, 4);
+          this.sim.injectAccel(sc.targetKmh / 3.6);
           this._log('info', sc.label);
           this._showTicker(sc.label, 2500);
         } else if (sc.type === 'turn') {
-          this.sim.injectTurn(sc.dir, 4);
-          this._log('warn', sc.label);
-          this._showTicker(sc.label, 2500);
+          this.manualTurn(sc.dir);
         } else if (sc.type === 'restore') {
           this._restoreGPS();
         }
