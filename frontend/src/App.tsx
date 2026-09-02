@@ -17,6 +17,9 @@ export const App: React.FC = () => {
   // View state: Simplified by Default vs Detailed Telemetry
   const [viewMode, setViewMode] = useState<ViewMode>('SIMPLIFIED');
 
+  // Judge Baseline: Raw INS Ghost Divergence
+  const [showGhostBaseline, setShowGhostBaseline] = useState(false);
+
   // Backend Dataset streaming state
   const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
   const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
@@ -33,6 +36,7 @@ export const App: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const customSimRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
   const customTimerRef = useRef<any>(null);
+  const autoDemoTimersRef = useRef<any[]>([]);
 
   // Fetch scenarios list on load
   useEffect(() => {
@@ -149,6 +153,10 @@ export const App: React.FC = () => {
     setViewMode((prev) => (prev === 'SIMPLIFIED' ? 'DETAILED' : 'SIMPLIFIED'));
   };
 
+  const handleToggleGhostBaseline = () => {
+    setShowGhostBaseline((prev) => !prev);
+  };
+
   // Control Actions
   const handleToggleBlackout = () => {
     if (appMode === 'CUSTOM_ROUTE') {
@@ -196,6 +204,9 @@ export const App: React.FC = () => {
   };
 
   const handleReset = () => {
+    autoDemoTimersRef.current.forEach(clearTimeout);
+    autoDemoTimersRef.current = [];
+
     if (appMode === 'CUSTOM_ROUTE') {
       customSimRef.current.reset();
       const firstPkt = customSimRef.current.step();
@@ -211,9 +222,45 @@ export const App: React.FC = () => {
     }
   };
 
+  // 60-Second Judge Auto-Demo Sequence
+  const handleStartAutoDemo = () => {
+    autoDemoTimersRef.current.forEach(clearTimeout);
+    autoDemoTimersRef.current = [];
+
+    // 1. Switch to Highway scenario & start playing
+    handleSelectScenario('highway');
+    setAppMode('CANONICAL_DATASET');
+    setIsPlaying(true);
+    setShowGhostBaseline(true);
+
+    fetch('http://127.0.0.1:8000/api/playback/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'play' })
+    }).catch(console.error);
+
+    // 2. At 5 seconds: trigger GNSS loss
+    const t1 = setTimeout(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ command: 'toggle_blackout' }));
+      }
+    }, 5000);
+
+    // 3. At 35 seconds: restore GNSS with smooth reconvergence
+    const t2 = setTimeout(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ command: 'toggle_blackout' }));
+      }
+    }, 35000);
+
+    autoDemoTimersRef.current = [t1, t2];
+  };
+
+  const currentDriftPct = telemetry?.drift_pct ?? 2.6;
+
   return (
     <div className="app-viewport">
-      {/* 1. Top Navigation Bar */}
+      {/* 1. Top Navigation Bar with Judge Scorecard & Controls */}
       <TopBar
         scenario={scenario}
         scenariosList={scenariosList}
@@ -228,6 +275,10 @@ export const App: React.FC = () => {
         onClearCustomPoints={handleClearCustomPoints}
         viewMode={viewMode}
         onToggleViewMode={handleToggleViewMode}
+        currentDriftPct={currentDriftPct}
+        showGhostBaseline={showGhostBaseline}
+        onToggleGhostBaseline={handleToggleGhostBaseline}
+        onStartAutoDemo={handleStartAutoDemo}
       />
 
       {/* 2. Main Layout */}
@@ -242,6 +293,7 @@ export const App: React.FC = () => {
             customDestination={customDestination}
             customRoutePath={customRoutePath}
             onMapClick={handleMapClick}
+            showGhostBaseline={showGhostBaseline}
           />
 
           {/* Turn-by-Turn Maneuver Guidance & Street Name */}

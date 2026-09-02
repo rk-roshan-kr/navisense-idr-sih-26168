@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ScenarioInfo, AppMode, ViewMode } from '../types';
+import { JudgeScorecard } from './JudgeScorecard';
 
 interface TopBarProps {
   scenario: ScenarioInfo | null;
@@ -15,6 +16,10 @@ interface TopBarProps {
   onClearCustomPoints: () => void;
   viewMode: ViewMode;
   onToggleViewMode: () => void;
+  currentDriftPct: number;
+  showGhostBaseline: boolean;
+  onToggleGhostBaseline: () => void;
+  onStartAutoDemo: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -30,7 +35,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   customStatusMsg,
   onClearCustomPoints,
   viewMode,
-  onToggleViewMode
+  onToggleViewMode,
+  currentDriftPct,
+  showGhostBaseline,
+  onToggleGhostBaseline,
+  onStartAutoDemo
 }) => {
   return (
     <header className="top-bar-container glass-panel">
@@ -88,7 +97,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       </div>
 
-      {/* Mode 1: Scenario Selector */}
+      {/* Mode 1: Scenario Selector with Benchmark Badges */}
       {appMode === 'CANONICAL_DATASET' ? (
         <div className="scenario-select-box">
           <span className="scenario-label">Scenario:</span>
@@ -97,11 +106,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             onChange={(e) => onSelectScenario(e.target.value)}
             className="scenario-select"
           >
-            {scenariosList.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
+            {scenariosList.map((s) => {
+              let label = s.name;
+              if (s.id === 'highway') label = '🏆 Highway Cruising (Driver D) — 2.6% Drift';
+              else if (s.id === 'urban') label = '🚦 Urban Stop-and-Go (Driver A) — 17.9% Drift';
+              else if (s.id === 'winding') label = '⛰️ Winding Mountain Route (Driver E) — 54.7% Drift';
+              return (
+                <option key={s.id} value={s.id}>
+                  {label}
+                </option>
+              );
+            })}
           </select>
         </div>
       ) : (
@@ -116,9 +131,41 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       )}
 
-      {/* Right Controls: View Mode Toggle & Playback */}
+      {/* Right Controls: Scorecard, Ghost Toggle, View Toggle & Playback */}
       <div className="top-bar-controls">
-        {/* Toggle between Simplified (Default) and Detailed */}
+        {/* Judge Scorecard Modal Button */}
+        <JudgeScorecard currentDriftPct={currentDriftPct} currentScenarioId={scenario?.id} />
+
+        {/* Raw INS Divergence Ghost Toggle */}
+        <button
+          onClick={onToggleGhostBaseline}
+          className="btn-control"
+          style={{
+            background: showGhostBaseline ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+            borderColor: showGhostBaseline ? '#ef4444' : 'rgba(255, 255, 255, 0.12)',
+            color: showGhostBaseline ? '#fca5a5' : '#cbd5e1'
+          }}
+          title="Toggle Raw INS unconstrained quadratic divergence ghost vehicle"
+        >
+          {showGhostBaseline ? '👁️ RAW INS GHOST: ON' : '👁️ RAW INS GHOST: OFF'}
+        </button>
+
+        {/* 60s Judge Auto-Demo Tour */}
+        <button
+          onClick={onStartAutoDemo}
+          className="btn-control"
+          style={{
+            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.3), rgba(0, 210, 255, 0.3))',
+            borderColor: 'var(--idr-blue)',
+            color: '#ffffff',
+            fontWeight: 800
+          }}
+          title="Run automated 60-second judge demo sequence"
+        >
+          🚀 60s TOUR
+        </button>
+
+        {/* Detailed Telemetry Toggle */}
         <button
           onClick={onToggleViewMode}
           className="btn-control"
@@ -128,7 +175,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             color: viewMode === 'DETAILED' ? '#ffffff' : '#cbd5e1'
           }}
         >
-          {viewMode === 'SIMPLIFIED' ? '📊 SHOW DETAILS' : '✕ HIDE DETAILS'}
+          {viewMode === 'SIMPLIFIED' ? '📊 DETAILS' : '✕ SIMPLE'}
         </button>
 
         <button onClick={onTogglePlay} className="btn-control">
