@@ -1,0 +1,60 @@
+{
+  "outage_minutes": 108.51333333333334,
+  "total_distance_km": 53.87193298339844,
+  "speed_diagnostics": {
+    "gt_mean_speed_ms": 8.274242401123047,
+    "gt_max_speed_ms": 23.423534393310547,
+    "base_mean_speed_ms": 9.587915420532227,
+    "pers_mean_speed_ms": 12.77498722076416,
+    "base_speed_bias_ms": 1.3136742115020752,
+    "pers_speed_bias_ms": 4.5007452964782715,
+    "base_speed_rmse_ms": 4.59898567199707,
+    "pers_speed_rmse_ms": 6.035876750946045,
+    "base_speed_mae_ms": 3.434169292449951,
+    "pers_speed_mae_ms": 4.977931499481201
+  },
+  "heading_diagnostics": {
+    "base_heading_bias_deg": -23.036132165154967,
+    "pers_heading_bias_deg": -23.036132165154967,
+    "base_heading_rmse_deg": 111.30089558877337,
+    "pers_heading_rmse_deg": 111.30089558877337,
+    "base_heading_max_err_deg": 179.9999270825356,
+    "pers_heading_max_err_deg": 179.9999270825356
+  },
+  "regime_breakdown": {
+    "stationary_fraction": 0.11973950973766664,
+    "cruise_fraction": 0.08023591570928304,
+    "turn_fraction": 0.1881028445045156,
+    "speed_bias_at_stop": {
+      "base_ms": 2.8371124267578125,
+      "pers_ms": 5.9981279373168945,
+      "comment": "False positive speed creep during vehicle standstill"
+    },
+    "speed_bias_at_cruise": {
+      "base_ms": -4.243119716644287,
+      "pers_ms": -1.5177336931228638,
+      "comment": "Scale under/over-estimation during high-speed driving"
+    },
+    "heading_rmse_at_turns": {
+      "base_deg": 99.27084224749461,
+      "pers_deg": 99.27084224749461,
+      "comment": "Angular error during vehicle cornering"
+    }
+  },
+  "position_error_profile": {
+    "at_30s_base_m": 137.40003026881905,
+    "at_30s_pers_m": 81.02849200184785,
+    "at_60s_base_m": 316.1305214300703,
+    "at_60s_pers_m": 201.09051294603265,
+    "at_5min_base_m": 702.2275387508045,
+    "at_5min_pers_m": 1186.151044487441,
+    "at_15min_base_m": 4951.34632579344,
+    "at_15min_pers_m": 5144.743083076745,
+    "at_30min_base_m": 4769.867028205014,
+    "at_30min_pers_m": 5175.264787893955,
+    "at_60min_base_m": 5708.488448175997,
+    "at_60min_pers_m": 7465.721306783626,
+    "final_outage_base_m": 6994.376382897902,
+    "final_outage_pers_m": 8151.045933134619
+  }
+}
