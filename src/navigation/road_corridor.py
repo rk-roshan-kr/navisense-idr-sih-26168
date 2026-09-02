@@ -73,25 +73,42 @@ class RoadCorridorNetwork:
         valid_mask = (dists < self.max_width) & (heading_diffs < self.max_heading_diff)
         
         if not np.any(valid_mask):
-            return False, 0.0, 0.0, 0.0, np.zeros(2)
+            return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
             
         valid_indices = np.where(valid_mask)[0]
-        # Score combines distance and angular alignment
-        scores = dists[valid_indices] + 15.0 * heading_diffs[valid_indices]
-        best_idx = valid_indices[np.argmin(scores)]
         
+        # Probabilistic Multi-Hypothesis Scoring
+        # S_i = M_p + M_psi + M_motion
+        # M_p = d_perp^2 / sigma_p^2, M_psi = d_psi^2 / sigma_psi^2
+        sigma_p_sq = 4.0 ** 2 # 4m tolerance
+        sigma_psi_sq = np.radians(6.0) ** 2 # 6 deg tolerance
+        
+        scores = (dists[valid_indices] ** 2) / sigma_p_sq + (heading_diffs[valid_indices] ** 2) / sigma_psi_sq
+        
+        # Softmax probability distribution over candidates: P(e_i) propto exp(-0.5 * S_i)
+        min_s = np.min(scores)
+        exp_neg = np.exp(-0.5 * (scores - min_s))
+        probs = exp_neg / np.sum(exp_neg)
+        
+        best_local_idx = int(np.argmax(probs))
+        best_prob = float(probs[best_local_idx])
+        best_score = float(scores[best_local_idx])
+        best_idx = valid_indices[best_local_idx]
+        
+        # ── Ambiguity Rejection Gating ───────────────────────────────────────
+        # Reject if hypotheses are ambiguous (prob < 0.55) or outlier (score > 12.0)
+        # Prevents snapping to side-branches or orthogonal crossroads
+        if best_prob < 0.55 or best_score > 12.0:
+            return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
+            
         best_psi_road = self.seg_bearings[best_idx]
         best_d_vec = dist_vecs[best_idx]
         
-        # Unit lateral normal (perpendicular to road bearing: 90 deg right)
-        # road_dir = [sin(psi), cos(psi)], right_normal = [cos(psi), -sin(psi)]
         normal_unit = np.array([np.cos(best_psi_road), -np.sin(best_psi_road)], dtype=np.float64)
-        
-        # Signed lateral error (positive if vehicle is to the right of road)
         r_y = float(np.dot(best_d_vec, normal_unit))
         r_psi = float(wrap_angle(vehicle_psi - best_psi_road))
         
-        return True, r_y, r_psi, best_psi_road, normal_unit
+        return True, r_y, r_psi, best_psi_road, normal_unit, best_prob
 
 def apply_road_corridor_constraint(
     estimator,
@@ -101,45 +118,41 @@ def apply_road_corridor_constraint(
 ):
     """
     Applies uncertainty-aware Kalman road-corridor constraint update to NavigationStateEstimator.
-    x_corrected = x_inertial + K [r_y, r_psi]^T
+    x_corrected = x_inertial + K_eff [r_y, r_psi]^T
+    K_eff = confidence * K_kalman (soft weighting).
     """
     pos_enu = estimator.x[:2]
     veh_psi = estimator.x[3]
     
-    found, r_y, r_psi, psi_road, n_unit = road_network.query_candidate(pos_enu, veh_psi)
+    res = road_network.query_candidate(pos_enu, veh_psi)
+    found, r_y, r_psi, psi_road, n_unit, confidence = res
     if not found:
         return False, 0.0, 0.0
         
-    # Observation vector y = [ -r_y, -r_psi ] (driving residual to zero)
-    # y = z_map - h(x) = 0 - [r_y, r_psi]
     y = np.array([-r_y, -r_psi], dtype=np.float64)
     
-    # Observation matrix H (2 x 10)
     H = np.zeros((2, 10), dtype=np.float64)
-    # Row 0: Lateral position constraint
     H[0, 0] = n_unit[0] # East
     H[0, 1] = n_unit[1] # North
-    # Row 1: Heading constraint
     H[1, 3] = 1.0       # Heading psi
     
-    # Measurement noise R_map
     R_map = np.diag([
         sigma_lane ** 2,
         sigma_psi_road ** 2
     ])
     
-    # Kalman update
     P = estimator.P
     S = H @ P @ H.T + R_map
     K = P @ H.T @ np.linalg.inv(S)
     
-    # State correction
-    dx = K @ y
+    # Scale correction by confidence score (gentle guidance when confidence is moderate)
+    K_eff = confidence * K
+    dx = K_eff @ y
     estimator.x += dx
     estimator.x[3] = estimator.x[3] % (2.0 * np.pi)
     
-    # Covariance update: P = (I - K H) P
-    estimator.P = (np.eye(10) - K @ H) @ P
+    # Covariance update
+    estimator.P = (np.eye(10) - K_eff @ H) @ P
     
     return True, r_y, r_psi
 

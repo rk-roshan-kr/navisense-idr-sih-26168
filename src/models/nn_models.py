@@ -236,12 +236,13 @@ class PersonalizationAdapter(nn.Module):
         x_norm = (x_calibrated - mean) / (std + 1e-6)
 
         # 3. Frozen base model inference
-        with torch.no_grad():
-            base_out = self.base_model(x_norm)
-            base_feat = base_out["features"]
-            base_v_seq = base_out["v_seq"]
-            base_yaw = base_out["delta_psi"]
-            base_stop = base_out["p_stop"]
+        # Base model parameters have requires_grad=False, so their weights remain frozen,
+        # but gradients flow back through x_norm into R, mount_euler, and physical biases.
+        base_out = self.base_model(x_norm)
+        base_feat = base_out["features"]
+        base_v_seq = base_out["v_seq"]
+        base_yaw = base_out["delta_psi"]
+        base_stop = base_out["p_stop"]
 
         # 4. Personalized motion state adaptation
         z_expanded = self.z_vehicle.unsqueeze(0).expand(B, -1)
