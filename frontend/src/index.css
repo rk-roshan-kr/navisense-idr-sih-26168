@@ -1,0 +1,107 @@
+:root {
+  --bg-dark: #070a0f;
+  --panel-bg: rgba(11, 17, 27, 0.85);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-hover: rgba(255, 255, 255, 0.15);
+  
+  --gnss-emerald: #00f59b;
+  --gnss-glow: rgba(0, 245, 155, 0.35);
+  
+  --idr-blue: #00d2ff;
+  --idr-glow: rgba(0, 210, 255, 0.4);
+  
+  --alert-amber: #f59e0b;
+  --alert-red: #ef4444;
+  --text-muted: #8e9bb0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: #ffffff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+}
+
+/* Glassmorphic Panel Styles */
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+}
+
+.glass-panel-subtle {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+/* Monospace Telemetry Typography */
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Leaflet Dark Customization */
+.leaflet-container {
+  background-color: #06080d !important;
+  font-family: 'Inter', sans-serif !important;
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-tile {
+  filter: brightness(0.55) invert(1) contrast(3.5) hue-rotate(200deg) saturate(0.25) !important;
+}
+
+.leaflet-control-attribution, .leaflet-control-zoom {
+  display: none !important;
+}
+
+/* Glowing Animations */
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 210, 255, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgba(0, 210, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 210, 255, 0);
+  }
+}
+
+.pulse-idr {
+  animation: pulseGlow 1.8s infinite;
+}
+
+@keyframes flashBlackout {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+.flash-alert {
+  animation: flashBlackout 1.2s infinite ease-in-out;
+}
+
+/* Custom Scrollbar for Drawer */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
