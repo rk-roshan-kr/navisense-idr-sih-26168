@@ -1,0 +1,58 @@
+{
+  "city": "Chandigarh, India",
+  "routes": {
+    "sector17_to_airport": {
+      "id": "sector17_to_airport",
+      "title": "Sector 17 Plaza → Chandigarh Airport (IXC)",
+      "description": "Via Jan Marg, Dakshin Marg & Airport Road Underpass Tunnel",
+      "distance_km": 11.4,
+      "duration_min": 18,
+      "tunnel_segment": {
+        "start_meter": 420.0,
+        "end_meter": 1050.0,
+        "name": "Aerocity Underpass Tunnel (630m GPS Blackout)"
+      },
+      "waypoints": [
+        {"name": "Sector 17 Plaza", "x": 0.0, "y": 0.0, "instruction": "Head South on Jan Marg"},
+        {"name": "Sector 17/22 Roundabout", "x": 0.0, "y": -450.0, "instruction": "Continue straight through roundabout"},
+        {"name": "Jan Marg Junction", "x": 0.0, "y": -900.0, "instruction": "Turn left onto Dakshin Marg"},
+        {"name": "Dakshin Marg Corridor", "x": 650.0, "y": -900.0, "instruction": "Continue on Dakshin Marg for 800m"},
+        {"name": "Tribune Chowk Flyover", "x": 1450.0, "y": -900.0, "instruction": "Take exit towards Aerocity"},
+        {"name": "Aerocity Tunnel Entrance", "x": 1950.0, "y": -1400.0, "instruction": "Entering Aerocity Underpass Tunnel (GPS Signal Lost)"},
+        {"name": "Aerocity Tunnel Exit", "x": 2580.0, "y": -1400.0, "instruction": "Exiting Tunnel. GPS Signal Restored"},
+        {"name": "Chandigarh Airport Terminal", "x": 3100.0, "y": -1400.0, "instruction": "Arrive at Departure Terminal"}
+      ]
+    },
+    "sector35_to_itpark": {
+      "id": "sector35_to_itpark",
+      "title": "Sector 35 Market → Rajiv Gandhi IT Park",
+      "description": "Via Himalaya Marg & Madhya Marg Urban Canyon",
+      "distance_km": 9.2,
+      "duration_min": 15,
+      "tunnel_segment": {
+        "start_meter": 350.0,
+        "end_meter": 850.0,
+        "name": "Madhya Marg Dense Canopy Urban Canyon (500m Blackout)"
+      },
+      "waypoints": [
+        {"name": "Sector 35 Market", "x": 0.0, "y": 0.0, "instruction": "Head North on Himalaya Marg"},
+        {"name": "Aroma Chowk", "x": 0.0, "y": 550.0, "instruction": "Turn right onto Madhya Marg"},
+        {"name": "Madhya Marg Urban Canyon", "x": 800.0, "y": 550.0, "instruction": "Entering Dense Building Shadow (GPS Degraded)"},
+        {"name": "Transport Chowk", "x": 1600.0, "y": 550.0, "instruction": "Continue towards IT Park"},
+        {"name": "Rajiv Gandhi IT Park", "x": 2400.0, "y": 950.0, "instruction": "Arrive at Tech Hub"}
+      ]
+    },
+    "iovnbd_benchmark": {
+      "id": "iovnbd_benchmark",
+      "title": "IO-VNBD Dataset Route: Driver A — Held-Out Test (S2)",
+      "description": "Actual real-world vehicle GPS & 10 Hz IMU telemetry",
+      "distance_km": 75.6,
+      "duration_min": 153,
+      "tunnel_segment": {
+        "start_meter": 280.0,
+        "end_meter": 880.0,
+        "name": "Simulated Highway Tunnel Outage (600m Blackout)"
+      }
+    }
+  }
+}

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NaviSense — Dead Reckoning Demo | SIH 26168</title>
+  <meta name="description" content="AI-ML based intelligent dead reckoning for seamless GNSS-independent navigation.">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      background: #f5f6f7;
+      color: #1a1a2e;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    #top-bar {
+      flex-shrink: 0;
+      height: 52px;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e4e8;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+
+    #brand {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      color: #1a1a2e;
+      margin-right: 8px;
+    }
+
+    #route-select {
+      height: 32px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: #f9fafb;
+      color: #1a1a2e;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 0 10px;
+      outline: none;
+      cursor: pointer;
+      width: 240px;
+    }
+
+    .btn {
+      height: 32px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #374151;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 0 14px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #btn-plan { background: #2563eb; color: #fff; border-color: #2563eb; }
+    #btn-plan:hover { background: #1d4ed8; border-color: #1d4ed8; }
+
+    #btn-play { background: #16a34a; color: #fff; border-color: #16a34a; min-width: 80px; }
+    #btn-play:hover:not(:disabled) { background: #15803d; border-color: #15803d; }
+
+    .sep { width: 1px; height: 24px; background: #e2e4e8; margin: 0 4px; }
+    .spacer { flex: 1; }
+
+    /* GPS status */
+    #gps-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    #gps-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #16a34a;
+      transition: background 0.3s;
+    }
+    #gps-dot.dead { background: #dc2626; }
+    #gps-label { color: #374151; }
+    #gps-label.dead { color: #dc2626; }
+
+    /* ── MAIN CONTENT ── */
+    #content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── MAP ── */
+    #map {
+      flex: 1;
+      z-index: 0;
+    }
+
+    /* ── RIGHT PANEL ── */
+    #right-panel {
+      width: 280px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border-left: 1px solid #e2e4e8;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .section {
+      padding: 14px 16px;
+      border-bottom: 1px solid #f0f0f2;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+
+    /* Speed row */
+    #speed-row {
+      display: flex;
+      gap: 8px;
+    }
+    .speed-col {
+      flex: 1;
+      background: #f9fafb;
+      border: 1px solid #e2e4e8;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .speed-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 600;
+      line-height: 1;
+      color: #1a1a2e;
+    }
+    .speed-col.gps .speed-val  { color: #16a34a; }
+    .speed-col.idr .speed-val  { color: #2563eb; }
+    .speed-unit {
+      font-size: 10px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    /* Chart */
+    #chart-section { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 14px 16px; }
+    #chart-wrap { flex: 1; min-height: 0; position: relative; }
+
+    /* Drift numbers */
+    #drift-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+    .drift-col {
+      background: #f9fafb;
+      border: 1px solid #e2e4e8;
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .drift-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .drift-val.good { color: #16a34a; }
+    .drift-val.warn { color: #d97706; }
+    .drift-val.bad  { color: #dc2626; }
+    .drift-lbl { font-size: 9px; color: #9ca3af; margin-top: 1px; }
+
+    /* Event log */
+    #event-section { flex: 0 0 auto; max-height: 160px; overflow-y: auto; padding: 10px 16px; }
+    .evt {
+      padding: 6px 8px;
+      font-size: 11px;
+      color: #374151;
+      border-left: 2px solid #e2e4e8;
+      margin-bottom: 4px;
+      background: #fafafa;
+      border-radius: 0 4px 4px 0;
+    }
+    .evt.cut   { border-color: #dc2626; }
+    .evt.warn  { border-color: #d97706; }
+    .evt.ok    { border-color: #16a34a; }
+    .evt.info  { border-color: #2563eb; }
+    .evt-time  { font-size: 9px; color: #9ca3af; float: right; }
+
+    /* ── BOTTOM BAR (under map only) ── */
+    #bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 280px;
+      height: 48px;
+      background: rgba(255,255,255,0.95);
+      border-top: 1px solid #e2e4e8;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 20px;
+      z-index: 500;
+      font-size: 12px;
+    }
+    #progress-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+    #progress-bar-track {
+      flex: 1; height: 3px; background: #e2e4e8; border-radius: 2px; overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%; background: #2563eb; border-radius: 2px; width: 0%;
+      transition: width 0.2s linear;
+    }
+    #time-text { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #374151; min-width: 36px; }
+    #pct-text { color: #6b7280; font-size: 11px; min-width: 120px; }
+
+    /* Calibration */
+    #calib-wrap { display: flex; align-items: center; gap: 6px; }
+    #calib-label { color: #6b7280; font-size: 11px; }
+    #calib-track { width: 80px; height: 3px; background: #e2e4e8; border-radius: 2px; overflow: hidden; }
+    #calib-fill { height: 100%; background: #2563eb; width: 0%; transition: width 0.5s; }
+    #calib-pct { font-size: 11px; color: #2563eb; font-weight: 600; min-width: 30px; }
+
+    /* Legend */
+    #legend { display: flex; align-items: center; gap: 12px; }
+    .leg { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6b7280; }
+    .leg-dot { width: 10px; height: 3px; border-radius: 2px; }
+
+    /* Status notification */
+    #status-bar {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 600;
+      pointer-events: none;
+    }
+    #status-msg {
+      background: #1a1a2e;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 18px;
+      border-radius: 6px;
+      opacity: 0;
+      transition: opacity 0.25s;
+      white-space: nowrap;
+    }
+    #status-msg.show { opacity: 1; }
+
+    /* Loading */
+    #loading {
+      position: fixed; inset: 0;
+      background: #f5f6f7;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; z-index: 9999;
+      transition: opacity 0.3s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 2px solid #e2e4e8;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-msg { font-size: 13px; color: #6b7280; }
+
+    /* Mode banner */
+    .mode-banner {
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e4e8;
+    }
+    .mode-banner.gps-active  { background: #f0fdf4; color: #16a34a; }
+    .mode-banner.gps-dead    { background: #fef2f2; color: #dc2626; }
+    .mode-banner.gps-fusing  { background: #eff6ff; color: #2563eb; }
+
+    /* Stat cells */
+    .stat-cell {
+      background: #f9fafb;
+      border: 1px solid #e2e4e8;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a2e;
+      line-height: 1.2;
+    }
+    .stat-lbl {
+      font-size: 9px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-top: 1px;
+    }
+
+    /* Keep old IDs working */
+    #gps-spd, #idr-spd { display: none; }
+    #drift-idr, #drift-ekf, #drift-raw { display: none; }
+    #calib-fill, #calib-pct, #calib-wrap { display: none; }
+
+    .leaflet-control-zoom a { font-family: 'Inter', sans-serif; }
+    .leaflet-control-attribution { font-size: 9px; }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="loading-msg">Starting up...</div>
+</div>
+
+<!-- Top bar -->
+<div id="top-bar">
+  <span id="brand">NaviSense</span>
+  <div class="sep"></div>
+
+  <select id="route-select">
+    <option value="delhi">India Gate to Connaught Place, Delhi</option>
+    <option value="mumbai">Bandra to Nariman Point, Mumbai</option>
+    <option value="bangalore">Silk Board to MG Road, Bengaluru</option>
+    <option value="hyderabad">HITEC City to Charminar, Hyderabad</option>
+  </select>
+
+  <button class="btn btn-primary" id="btn-plan">Plan Route</button>
+  <button class="btn" id="btn-play" disabled>Play</button>
+  <button class="btn" id="btn-blackout" disabled style="border-color:#dc2626;color:#dc2626;">Blackout GPS</button>
+  <div class="sep"></div>
+  <button class="btn" id="btn-turn-left"  disabled style="border-color:#7c3aed;color:#7c3aed;font-weight:600;">Turn Left</button>
+  <button class="btn" id="btn-turn-right" disabled style="border-color:#7c3aed;color:#7c3aed;font-weight:600;">Turn Right</button>
+  <button class="btn" id="btn-reset">Reset</button>
+
+  <div class="spacer"></div>
+
+  <div id="gps-status">
+    <div id="gps-dot"></div>
+    <span id="gps-label">GPS Active</span>
+  </div>
+</div>
+
+<!-- Content -->
+<div id="content" style="position:relative;">
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Status notification over map -->
+  <div id="status-bar"><div id="status-msg"></div></div>
+
+  <!-- Bottom bar over map -->
+  <div id="bottom-bar">
+    <span id="time-text">0:00</span>
+    <div id="progress-wrap">
+      <div id="progress-bar-track">
+        <div id="progress-bar-fill"></div>
+      </div>
+    </div>
+    <span id="pct-text">0%</span>
+
+    <div class="sep"></div>
+
+    <div id="calib-wrap">
+      <span id="calib-label">Calibration</span>
+      <div id="calib-track"><div id="calib-fill"></div></div>
+      <span id="calib-pct">0%</span>
+    </div>
+
+    <div class="sep"></div>
+
+    <div id="legend">
+      <div class="leg"><div class="leg-dot" style="background:#16a34a"></div> GPS Truth</div>
+      <div class="leg"><div class="leg-dot" style="background:#2563eb"></div> IDR Model</div>
+      <div class="leg"><div class="leg-dot" style="background:#dc2626; opacity:0.7"></div> Raw INS</div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right-panel">
+
+    <!-- Mode status -->
+    <div id="mode-banner" class="mode-banner gps-active">
+      <span id="mode-label">GPS ACTIVE</span>
+      <span id="dr-timer" style="font-family:'JetBrains Mono',monospace;font-size:11px;opacity:0.8;"></span>
+    </div>
+
+    <!-- Primary metric -->
+    <div class="section">
+      <div class="section-title">Position Error vs GNSS Truth</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:6px;">
+        <div id="primary-error" style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;color:#16a34a;line-height:1;">0.0</div>
+        <div style="font-size:13px;color:#6b7280;padding-bottom:6px;">metres</div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:#6b7280;">
+        <span>Max: <b id="stat-max" style="color:#1a1a2e;">0 m</b></span>
+        <span>Mean: <b id="stat-mean" style="color:#1a1a2e;">0 m</b></span>
+        <span>Rate: <b id="stat-rate" style="color:#1a1a2e;">0 m/s</b></span>
+      </div>
+    </div>
+
+    <!-- Model comparison -->
+    <div class="section">
+      <div class="section-title">Model Comparison</div>
+      <table id="model-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="color:#9ca3af;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">
+            <th style="text-align:left;padding:3px 0;font-weight:600;">System</th>
+            <th style="text-align:right;padding:3px 0;font-weight:600;">Error</th>
+            <th style="text-align:right;padding:3px 0;font-weight:600;">vs IDR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top:1px solid #f0f0f2;">
+            <td style="padding:5px 0;display:flex;align-items:center;gap:6px;">
+              <span style="width:10px;height:3px;background:#2563eb;border-radius:2px;display:inline-block;"></span>
+              <b>Our IDR Model</b>
+            </td>
+            <td style="text-align:right;font-family:'JetBrains Mono',monospace;" id="tbl-idr">0 m</td>
+            <td style="text-align:right;color:#16a34a;font-weight:600;" id="tbl-idr-vs">—</td>
+          </tr>
+          <tr style="border-top:1px solid #f0f0f2;">
+            <td style="padding:5px 0;display:flex;align-items:center;gap:6px;">
+              <span style="width:10px;height:3px;background:#d97706;border-radius:2px;display:inline-block;"></span>
+              EKF Baseline
+            </td>
+            <td style="text-align:right;font-family:'JetBrains Mono',monospace;" id="tbl-ekf">0 m</td>
+            <td style="text-align:right;color:#d97706;font-weight:600;" id="tbl-ekf-vs">—</td>
+          </tr>
+          <tr style="border-top:1px solid #f0f0f2;">
+            <td style="padding:5px 0;display:flex;align-items:center;gap:6px;">
+              <span style="width:10px;height:3px;background:#dc2626;border-radius:2px;display:inline-block;"></span>
+              Raw INS
+            </td>
+            <td style="text-align:right;font-family:'JetBrains Mono',monospace;" id="tbl-raw">0 m</td>
+            <td style="text-align:right;color:#dc2626;font-weight:600;" id="tbl-raw-vs">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- System stats grid -->
+    <div class="section">
+      <div class="section-title">System Metrics</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div class="stat-cell">
+          <div class="stat-val" id="stat-spd-gps">0</div>
+          <div class="stat-lbl">GPS km/h</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="stat-spd-idr">0</div>
+          <div class="stat-lbl">IDR km/h</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="stat-spd-err">0%</div>
+          <div class="stat-lbl">Speed error</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="stat-calib">0%</div>
+          <div class="stat-lbl">Calibration</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="stat-dr-time">—</div>
+          <div class="stat-lbl">DR duration</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="stat-tiles">—</div>
+          <div class="stat-lbl">Tiles cached</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div id="chart-section">
+      <div class="section-title" style="padding:10px 16px 0;">Error over time (m)</div>
+      <div id="chart-wrap">
+        <canvas id="error-chart"></canvas>
+      </div>
+      <div style="display:flex;gap:12px;padding:4px 16px 8px;font-size:10px;color:#9ca3af;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#2563eb;display:inline-block;border-radius:1px;"></span>IDR</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#d97706;display:inline-block;border-radius:1px;"></span>EKF</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:#dc2626;display:inline-block;border-radius:1px;border-top:1px dashed #dc2626;"></span>Raw INS</span>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="section-title" style="padding:8px 16px 4px;">Event Log</div>
+    <div id="event-section">
+      <div class="evt info">Select a route and click Plan Route.</div>
+    </div>
+
+  </div>
+</div>
+
+  <!-- Hidden legacy elements — referenced by JS, hidden by CSS -->
+  <span id="gps-spd"   style="display:none">0</span>
+  <span id="idr-spd"   style="display:none">0</span>
+  <span id="drift-idr" style="display:none">0 m</span>
+  <span id="drift-ekf" style="display:none">0 m</span>
+  <span id="drift-raw" style="display:none">0 m</span>
+
+  <script src="js/idr_engine.js"></script>
+  <script src="js/imu_simulator.js"></script>
+  <script src="js/map_chunk_manager.js"></script>
+  <script src="js/demo_controller.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const demo = new DemoController();
+    demo.init();
+    window._demo = demo;
+  });
+</script>
+</body>
+</html>

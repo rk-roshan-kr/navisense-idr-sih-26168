@@ -1,0 +1,41 @@
+{
+  "protocol_version": "1.0.0",
+  "dataset": "IO-VNBD",
+  "splits": {
+    "cross_vehicle_eval_1": {
+      "description": "Train on Driver E (Megane/Volvo) + Driver B (Fiesta); Personalize on Driver A (S1, first 180s); Test on Driver A (S2 held-out)",
+      "train_pool": [
+        {"driver": "Vta (Driver E)", "sequence": "Vta01a"},
+        {"driver": "Vta (Driver E)", "sequence": "Vta02"},
+        {"driver": "Vtb (Driver E)", "sequence": "Vtb01"},
+        {"driver": "Vw (Driver E)", "sequence": "Vw01"},
+        {"driver": "B (Driver B)", "sequence": "M1"}
+      ],
+      "unseen_target_vehicle": {
+        "driver": "S (Driver A)",
+        "calibration_sequence": "S1",
+        "calibration_window_sec": 180.0,
+        "test_sequence": "S2"
+      }
+    },
+    "cross_vehicle_eval_2": {
+      "description": "Train on Driver A + Driver E; Personalize on Driver B (M1, first 180s); Test on Driver B (M2 held-out)",
+      "train_pool": [
+        {"driver": "S (Driver A)", "sequence": "S1"},
+        {"driver": "Vta (Driver E)", "sequence": "Vta01a"},
+        {"driver": "Vtb (Driver E)", "sequence": "Vtb01"}
+      ],
+      "unseen_target_vehicle": {
+        "driver": "B (Driver B)",
+        "calibration_sequence": "M1",
+        "calibration_window_sec": 180.0,
+        "test_sequence": "M2"
+      }
+    }
+  },
+  "blackout_protocol": {
+    "temporal_outages_sec": [10.0, 30.0, 60.0],
+    "distance_outages_m": [500.0, 1000.0],
+    "isro_target_drift_pct": 10.0
+  }
+}
