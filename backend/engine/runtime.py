@@ -271,11 +271,11 @@ class NaviSenseRuntime:
         if self.blackout_active and self.blackout_start_step is not None:
             bo_dist = float(np.sum(self.can_speed[self.blackout_start_step:i+1] * self.dt))
             bo_elapsed = (i - self.blackout_start_step) * self.dt
-            drift_pct = (drift_m / max(1.0, bo_dist)) * 100.0
+            drift_pct = (drift_m / max(15.0, bo_dist)) * 100.0
         else:
             bo_elapsed = 0.0
             cum_dist = float(np.sum(self.can_speed[:i+1] * self.dt))
-            drift_pct = (drift_m / max(1.0, cum_dist)) * 100.0
+            drift_pct = (drift_m / max(15.0, cum_dist)) * 100.0
 
         uncertainty_m = float(math.sqrt(self.estimator.P[0,0] + self.estimator.P[1,1]))
 
