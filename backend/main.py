@@ -97,6 +97,7 @@ async def control_playback(req: PlaybackControlRequest):
     elif req.action == "pause":
         runtime.is_playing = False
     elif req.action == "reset":
+        runtime.is_playing = False
         runtime.load_scenario(runtime.current_scenario_id)
     elif req.action == "step":
         runtime.is_playing = False
@@ -116,6 +117,10 @@ async def websocket_telemetry_stream(websocket: WebSocket):
     await websocket.accept()
     active_connections.add(websocket)
     print(f"[WS] Client connected! Total active connections: {len(active_connections)}")
+
+    # Ensure engine is PAUSED at the starting point when user opens the site
+    runtime.is_playing = False
+    runtime.load_scenario(runtime.current_scenario_id)
 
     # Send scenario info and initial stationary frame upon connection
     await websocket.send_text(json.dumps({
@@ -143,10 +148,16 @@ async def websocket_telemetry_stream(websocket: WebSocket):
                     elif cmd == "set_speed":
                         runtime.playback_speed = float(data.get("speed", 1.0))
                     elif cmd == "select_scenario":
+                        runtime.is_playing = False
                         runtime.load_scenario(data.get("scenario_id", "highway"))
                         await websocket.send_text(json.dumps({
                             "type": "scenario_info",
                             "data": runtime.get_scenario_info().model_dump()
+                        }))
+                        init_pkt = runtime.get_initial_packet()
+                        await websocket.send_text(json.dumps({
+                            "type": "telemetry",
+                            "data": init_pkt.model_dump()
                         }))
                 except Exception as e:
                     print(f"[WS] Command error: {e}")
