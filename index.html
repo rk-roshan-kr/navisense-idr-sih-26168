@@ -337,6 +337,56 @@
     #drift-idr, #drift-ekf, #drift-raw { display: none; }
     #calib-fill, #calib-pct, #calib-wrap { display: none; }
 
+    /* Sleek Nav Vehicle Marker */
+    .nav-car-wrap {
+      width: 28px;
+      height: 28px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-car-halo {
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: rgba(37, 99, 235, 0.25);
+      animation: pulse-halo 1.8s infinite ease-out;
+    }
+    @keyframes pulse-halo {
+      0% { transform: scale(0.7); opacity: 0.8; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+    .nav-car-puck {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0f172a;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .nav-car-arrow {
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 7px solid #38bdf8;
+      margin-top: -1px;
+    }
+    .nav-car-wrap.blackout .nav-car-puck {
+      background: #2563eb;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.7);
+    }
+    .nav-car-wrap.blackout .nav-car-arrow {
+      border-bottom-color: #ffffff;
+    }
+
     .leaflet-control-zoom a { font-family: 'Inter', sans-serif; }
     .leaflet-control-attribution { font-size: 9px; }
   </style>
