@@ -1,21 +1,39 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import type { TelemetryPacket, ScenarioInfo } from '../types';
+import type { TelemetryPacket, ScenarioInfo, AppMode } from '../types';
 
 interface LiveMapProps {
   telemetry: TelemetryPacket | null;
   scenario: ScenarioInfo | null;
+  appMode: AppMode;
+  customOrigin: [number, number] | null;
+  customDestination: [number, number] | null;
+  customRoutePath: [number, number][];
+  onMapClick: (lat: number, lon: number) => void;
 }
 
-export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
+export const LiveMap: React.FC<LiveMapProps> = ({
+  telemetry,
+  scenario,
+  appMode,
+  customOrigin,
+  customDestination,
+  customRoutePath,
+  onMapClick
+}) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
   // Layer refs
   const roadPolylineRef = useRef<L.Polyline | null>(null);
+  const customPreviewPolylineRef = useRef<L.Polyline | null>(null);
   const gnssTrailRef = useRef<L.Polyline | null>(null);
   const idrTrailRef = useRef<L.Polyline | null>(null);
   const gtTrailRef = useRef<L.Polyline | null>(null);
+
+  // Marker refs for custom 2-point mode
+  const originMarkerRef = useRef<L.CircleMarker | null>(null);
+  const destinationMarkerRef = useRef<L.CircleMarker | null>(null);
 
   // Accumulated point history
   const gnssPointsRef = useRef<[number, number][]>([]);
@@ -36,7 +54,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
     const map = L.map(mapContainerRef.current, {
       center: [initialLat, initialLon],
       zoom: 17,
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false
     });
 
@@ -46,16 +64,21 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
       subdomains: 'abc'
     }).addTo(map);
 
-    // Reposition zoom control to bottom right
-    map.zoomControl.setPosition('bottomright');
-
     // Polylines
     roadPolylineRef.current = L.polyline([], {
-      color: '#94a3b8',
+      color: '#334155',
       weight: 8,
-      opacity: 0.5,
+      opacity: 0.6,
       lineCap: 'round',
       lineJoin: 'round'
+    }).addTo(map);
+
+    customPreviewPolylineRef.current = L.polyline([], {
+      color: '#00d2ff',
+      weight: 4,
+      opacity: 0.75,
+      dashArray: '6, 8',
+      lineCap: 'round'
     }).addTo(map);
 
     gtTrailRef.current = L.polyline([], {
@@ -66,20 +89,20 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
     }).addTo(map);
 
     gnssTrailRef.current = L.polyline([], {
-      color: '#16a34a', // Emerald green GNSS
+      color: '#00f59b', // Emerald green GNSS
       weight: 5,
       opacity: 0.9,
       lineCap: 'round'
     }).addTo(map);
 
     idrTrailRef.current = L.polyline([], {
-      color: '#2563eb', // Electric blue IDR
+      color: '#00d2ff', // Electric blue IDR
       weight: 5,
       opacity: 0.95,
       lineCap: 'round'
     }).addTo(map);
 
-    // Vehicle marker matching legacy nav-car-puck design
+    // Vehicle marker matching nav-car-puck design
     const carIcon = L.divIcon({
       className: 'nav-car-marker-container',
       html: `
@@ -98,12 +121,17 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
 
     uncertaintyCircleRef.current = L.circle([initialLat, initialLon], {
       radius: 4,
-      color: '#2563eb',
-      fillColor: '#2563eb',
+      color: '#00d2ff',
+      fillColor: '#00d2ff',
       fillOpacity: 0.12,
       weight: 1.5,
       dashArray: '3, 6'
     }).addTo(map);
+
+    // Click handler for Option 2: Choose 2 points
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    });
 
     mapInstanceRef.current = map;
 
@@ -117,9 +145,60 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
     };
   }, []);
 
-  // Handle Scenario Switch
+  // Update Custom Origin & Destination Markers
   useEffect(() => {
-    if (!mapInstanceRef.current || !scenario) return;
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (customOrigin) {
+      if (!originMarkerRef.current) {
+        originMarkerRef.current = L.circleMarker(customOrigin, {
+          radius: 8,
+          color: '#00f59b',
+          fillColor: '#00f59b',
+          fillOpacity: 0.9,
+          weight: 3
+        }).addTo(map);
+      } else {
+        originMarkerRef.current.setLatLng(customOrigin);
+      }
+    } else {
+      if (originMarkerRef.current) {
+        originMarkerRef.current.remove();
+        originMarkerRef.current = null;
+      }
+    }
+
+    if (customDestination) {
+      if (!destinationMarkerRef.current) {
+        destinationMarkerRef.current = L.circleMarker(customDestination, {
+          radius: 8,
+          color: '#ef4444',
+          fillColor: '#ef4444',
+          fillOpacity: 0.9,
+          weight: 3
+        }).addTo(map);
+      } else {
+        destinationMarkerRef.current.setLatLng(customDestination);
+      }
+    } else {
+      if (destinationMarkerRef.current) {
+        destinationMarkerRef.current.remove();
+        destinationMarkerRef.current = null;
+      }
+    }
+
+    if (customRoutePath.length > 0) {
+      customPreviewPolylineRef.current?.setLatLngs(customRoutePath);
+      map.fitBounds(L.latLngBounds(customRoutePath).pad(0.15));
+    } else {
+      customPreviewPolylineRef.current?.setLatLngs([]);
+    }
+  }, [customOrigin, customDestination, customRoutePath]);
+
+  // Handle Scenario Switch in Dataset mode
+  useEffect(() => {
+    if (!mapInstanceRef.current || appMode !== 'CANONICAL_DATASET' || !scenario) return;
 
     gnssPointsRef.current = [];
     idrPointsRef.current = [];
@@ -134,7 +213,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
       const startPt = scenario.road_polyline[0];
       mapInstanceRef.current.setView(startPt, 17, { animate: false });
     }
-  }, [scenario?.id]);
+  }, [scenario?.id, appMode]);
 
   // Update Telemetry on Every 10 Hz Packet
   useEffect(() => {
@@ -186,8 +265,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
       uncertaintyCircleRef.current.setLatLng(idrPt);
       uncertaintyCircleRef.current.setRadius(Math.max(2, technical_proof.uncertainty_m));
       uncertaintyCircleRef.current.setStyle({
-        color: blackout_active ? '#2563eb' : '#16a34a',
-        fillColor: blackout_active ? '#2563eb' : '#16a34a'
+        color: blackout_active ? '#00d2ff' : '#00f59b',
+        fillColor: blackout_active ? '#00d2ff' : '#00f59b'
       });
     }
 
@@ -196,7 +275,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
   }, [telemetry]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', cursor: appMode === 'CUSTOM_ROUTE' ? 'crosshair' : 'default' }}>
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );

@@ -1,9 +1,9 @@
-export interface LatLon {
-  lat: float;
-  lon: float;
-}
+export type AppMode = 'CANONICAL_DATASET' | 'CUSTOM_ROUTE';
 
-export type float = number;
+export interface LatLon {
+  lat: number;
+  lon: number;
+}
 
 export interface GroundTruthTelemetry {
   lat: number;
