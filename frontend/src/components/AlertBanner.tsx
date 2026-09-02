@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { TelemetryPacket } from '../types';
+import { IconAlertTriangle, IconCheckCircle } from './Icons';
 
 interface AlertBannerProps {
   telemetry: TelemetryPacket | null;
@@ -25,8 +26,9 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({ telemetry }) => {
     return (
       <div className="alert-banner-wrap">
         <div className="banner-pill-loss">
+          <IconAlertTriangle size={17} color="#ffffff" />
           <span className="banner-title">
-            ⚠️ GNSS SIGNAL LOST — NAVISENSE IDR ACTIVE
+            GNSS SIGNAL LOST — NAVISENSE IDR ACTIVE
           </span>
           <span className="banner-elapsed-badge mono">
             {elapsed.toFixed(1)}s outage
@@ -40,7 +42,8 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({ telemetry }) => {
     return (
       <div className="alert-banner-wrap">
         <div className="banner-pill-restore">
-          <span>✓ GNSS RESTORED — SMOOTH RECONVERGENCE ENGAGED</span>
+          <IconCheckCircle size={17} color="#030712" />
+          <span>GNSS RESTORED — SMOOTH RECONVERGENCE ENGAGED</span>
         </div>
       </div>
     );

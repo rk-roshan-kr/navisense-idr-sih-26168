@@ -31,7 +31,7 @@ export const App: React.FC = () => {
   const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(null);
   const [customDestination, setCustomDestination] = useState<[number, number] | null>(null);
   const [customRoutePath, setCustomRoutePath] = useState<[number, number][]>([]);
-  const [customStatusMsg, setCustomStatusMsg] = useState('📍 Click on the map to choose Origin (Point A)');
+  const [customStatusMsg, setCustomStatusMsg] = useState('Click on the map to choose Origin (Point A)');
 
   const wsRef = useRef<WebSocket | null>(null);
   const customSimRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
@@ -105,20 +105,20 @@ export const App: React.FC = () => {
     if (!customOrigin) {
       const originPt: [number, number] = [lat, lon];
       setCustomOrigin(originPt);
-      setCustomStatusMsg('📍 Origin set! Now click on the map to set Destination (Point B)');
+      setCustomStatusMsg('Origin set. Click on the map to set Destination (Point B)');
     } else if (!customDestination) {
       const destPt: [number, number] = [lat, lon];
       setCustomDestination(destPt);
-      setCustomStatusMsg('⏳ Planning route with vector road network...');
+      setCustomStatusMsg('Planning route with vector road network...');
 
       try {
         const path = await customSimRef.current.fetchRoute(customOrigin, destPt);
         setCustomRoutePath(path);
-        setCustomStatusMsg('✓ Route planned! Click ▶ PLAY to start navigation');
+        setCustomStatusMsg('Route planned. Click PLAY to start navigation');
         const firstPkt = customSimRef.current.step();
         if (firstPkt) setTelemetry(firstPkt);
       } catch (err: any) {
-        setCustomStatusMsg(`⚠️ Routing error: ${err.message}`);
+        setCustomStatusMsg(`Routing error: ${err.message}`);
       }
     }
   };
@@ -129,7 +129,7 @@ export const App: React.FC = () => {
     setCustomOrigin(null);
     setCustomDestination(null);
     setCustomRoutePath([]);
-    setCustomStatusMsg('📍 Click on the map to choose Origin (Point A)');
+    setCustomStatusMsg('Click on the map to choose Origin (Point A)');
     setIsPlaying(false);
   };
 
@@ -138,7 +138,7 @@ export const App: React.FC = () => {
     setAppMode(mode);
     if (mode === 'CUSTOM_ROUTE') {
       if (customRoutePath.length === 0) {
-        setCustomStatusMsg('📍 Click on the map to choose Origin (Point A)');
+        setCustomStatusMsg('Click on the map to choose Origin (Point A)');
       }
       setIsPlaying(false);
       if (customTimerRef.current) clearInterval(customTimerRef.current);

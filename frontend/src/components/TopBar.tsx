@@ -1,6 +1,15 @@
 import React from 'react';
 import type { ScenarioInfo, AppMode, ViewMode } from '../types';
 import { JudgeScorecard } from './JudgeScorecard';
+import {
+  IconEye,
+  IconZap,
+  IconActivity,
+  IconPlay,
+  IconPause,
+  IconRotateCcw,
+  IconMapPin
+} from './Icons';
 
 interface TopBarProps {
   scenario: ScenarioInfo | null;
@@ -59,45 +68,47 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Mode Switcher Segmented Control (Dataset vs Option 2 Map Click) */}
-      <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0, 0, 0, 0.4)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+      {/* Mode Switcher Segmented Control (Clean Light Segmented Control) */}
+      <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
         <button
           onClick={() => onToggleMode('CANONICAL_DATASET')}
           style={{
-            padding: '5px 12px',
+            padding: '5px 14px',
             fontSize: '11px',
-            fontWeight: 800,
-            borderRadius: '7px',
+            fontWeight: 700,
+            borderRadius: '6px',
             border: 'none',
             cursor: 'pointer',
-            background: appMode === 'CANONICAL_DATASET' ? 'var(--idr-blue)' : 'transparent',
-            color: appMode === 'CANONICAL_DATASET' ? '#030712' : '#94a3b8',
-            transition: 'all 0.2s',
-            letterSpacing: '0.04em'
+            background: appMode === 'CANONICAL_DATASET' ? '#ffffff' : 'transparent',
+            color: appMode === 'CANONICAL_DATASET' ? '#0f172a' : '#64748b',
+            boxShadow: appMode === 'CANONICAL_DATASET' ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
+            transition: 'all 0.15s',
+            letterSpacing: '0.02em'
           }}
         >
-          1. DATASET SCENARIOS
+          Dataset Scenarios
         </button>
         <button
           onClick={() => onToggleMode('CUSTOM_ROUTE')}
           style={{
-            padding: '5px 12px',
+            padding: '5px 14px',
             fontSize: '11px',
-            fontWeight: 800,
-            borderRadius: '7px',
+            fontWeight: 700,
+            borderRadius: '6px',
             border: 'none',
             cursor: 'pointer',
-            background: appMode === 'CUSTOM_ROUTE' ? 'var(--gnss-emerald)' : 'transparent',
-            color: appMode === 'CUSTOM_ROUTE' ? '#030712' : '#94a3b8',
-            transition: 'all 0.2s',
-            letterSpacing: '0.04em'
+            background: appMode === 'CUSTOM_ROUTE' ? '#ffffff' : 'transparent',
+            color: appMode === 'CUSTOM_ROUTE' ? '#0f172a' : '#64748b',
+            boxShadow: appMode === 'CUSTOM_ROUTE' ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
+            transition: 'all 0.15s',
+            letterSpacing: '0.02em'
           }}
         >
-          2. CHOOSE 2 POINTS ON MAP
+          Custom 2-Point Route
         </button>
       </div>
 
-      {/* Mode 1: Scenario Selector with Benchmark Badges */}
+      {/* Mode 1: Scenario Selector */}
       {appMode === 'CANONICAL_DATASET' ? (
         <div className="scenario-select-box">
           <span className="scenario-label">Scenario:</span>
@@ -108,9 +119,9 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             {scenariosList.map((s) => {
               let label = s.name;
-              if (s.id === 'highway') label = '🏆 Highway Cruising (Driver D) — 2.6% Drift';
-              else if (s.id === 'urban') label = '🚦 Urban Stop-and-Go (Driver A) — 17.9% Drift';
-              else if (s.id === 'winding') label = '⛰️ Winding Mountain Route (Driver E) — 54.7% Drift';
+              if (s.id === 'highway') label = 'Highway Cruising (Driver D) — 2.6% Drift';
+              else if (s.id === 'urban') label = 'Urban Stop-and-Go (Driver A) — 17.9% Drift';
+              else if (s.id === 'winding') label = 'Winding Mountain Route (Driver E) — 54.7% Drift';
               return (
                 <option key={s.id} value={s.id}>
                   {label}
@@ -121,12 +132,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       ) : (
         /* Mode 2: Interactive Prompt & Clear Button */
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--gnss-emerald)', letterSpacing: '0.04em' }}>
-            {customStatusMsg}
-          </span>
-          <button onClick={onClearCustomPoints} className="btn-control">
-            ↺ CLEAR POINTS
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#059669' }}>
+            <IconMapPin size={13} color="#059669" />
+            <span>{customStatusMsg}</span>
+          </div>
+          <button onClick={onClearCustomPoints} className="btn-control" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <IconRotateCcw size={12} />
+            <span>Clear</span>
           </button>
         </div>
       )}
@@ -141,13 +154,17 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onToggleGhostBaseline}
           className="btn-control"
           style={{
-            background: showGhostBaseline ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-            borderColor: showGhostBaseline ? '#ef4444' : 'rgba(255, 255, 255, 0.12)',
-            color: showGhostBaseline ? '#fca5a5' : '#cbd5e1'
+            background: showGhostBaseline ? '#fef2f2' : '#f8fafc',
+            borderColor: showGhostBaseline ? '#fca5a5' : '#cbd5e1',
+            color: showGhostBaseline ? '#b91c1c' : '#475569',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
           }}
           title="Toggle Raw INS unconstrained quadratic divergence ghost vehicle"
         >
-          {showGhostBaseline ? '👁️ RAW INS GHOST: ON' : '👁️ RAW INS GHOST: OFF'}
+          <IconEye size={13} color={showGhostBaseline ? '#b91c1c' : '#475569'} />
+          <span>{showGhostBaseline ? 'Raw INS: On' : 'Raw INS: Off'}</span>
         </button>
 
         {/* 60s Judge Auto-Demo Tour */}
@@ -155,14 +172,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onStartAutoDemo}
           className="btn-control"
           style={{
-            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.3), rgba(0, 210, 255, 0.3))',
-            borderColor: 'var(--idr-blue)',
-            color: '#ffffff',
-            fontWeight: 800
+            background: '#eff6ff',
+            borderColor: '#bfdbfe',
+            color: '#1d4ed8',
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
           }}
           title="Run automated 60-second judge demo sequence"
         >
-          🚀 60s TOUR
+          <IconZap size={13} color="#2563eb" />
+          <span>60s Tour</span>
         </button>
 
         {/* Detailed Telemetry Toggle */}
@@ -170,19 +191,36 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onToggleViewMode}
           className="btn-control"
           style={{
-            background: viewMode === 'DETAILED' ? 'rgba(37, 99, 235, 0.25)' : 'rgba(255, 255, 255, 0.06)',
-            borderColor: viewMode === 'DETAILED' ? 'var(--idr-blue)' : 'rgba(255, 255, 255, 0.12)',
-            color: viewMode === 'DETAILED' ? '#ffffff' : '#cbd5e1'
+            background: viewMode === 'DETAILED' ? '#eff6ff' : '#f8fafc',
+            borderColor: viewMode === 'DETAILED' ? '#bfdbfe' : '#cbd5e1',
+            color: viewMode === 'DETAILED' ? '#1d4ed8' : '#475569',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
           }}
         >
-          {viewMode === 'SIMPLIFIED' ? '📊 DETAILS' : '✕ SIMPLE'}
+          <IconActivity size={13} />
+          <span>{viewMode === 'SIMPLIFIED' ? 'Details' : 'Simple'}</span>
         </button>
 
-        <button onClick={onTogglePlay} className="btn-control">
-          {isPlaying ? '⏸ PAUSE' : '▶ PLAY'}
+        {/* Play / Pause */}
+        <button onClick={onTogglePlay} className="btn-control" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          {isPlaying ? (
+            <>
+              <IconPause size={11} />
+              <span>Pause</span>
+            </>
+          ) : (
+            <>
+              <IconPlay size={11} />
+              <span>Play</span>
+            </>
+          )}
         </button>
-        <button onClick={onReset} className="btn-control">
-          ↺ REWIND
+
+        <button onClick={onReset} className="btn-control" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <IconRotateCcw size={11} />
+          <span>Rewind</span>
         </button>
       </div>
     </header>

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryPacket } from '../types';
+import { IconAlertTriangle, IconCheckCircle } from './Icons';
 
 interface ActionControlProps {
   telemetry: TelemetryPacket | null;
@@ -17,12 +18,12 @@ export const ActionControl: React.FC<ActionControlProps> = ({ telemetry, onToggl
       >
         {!isBlackout ? (
           <>
-            <span>⚠️</span>
+            <IconAlertTriangle size={18} color="#ffffff" />
             <span>SIMULATE GNSS LOSS</span>
           </>
         ) : (
           <>
-            <span>✓</span>
+            <IconCheckCircle size={18} color="#030712" />
             <span>RESTORE GNSS SIGNAL</span>
           </>
         )}

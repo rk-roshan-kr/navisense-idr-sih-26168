@@ -10,35 +10,29 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
   const clampedSpeed = Math.max(0, Math.min(maxSpeed, speedKmh));
   const pct = clampedSpeed / maxSpeed;
 
-  // Arc geometry: 240-degree sweep from -120 deg (left) to +120 deg (right)
-  // Total arc length for radius 70: 2 * PI * 70 * (240 / 360) = 293.2
   const r = 70;
   const cx = 100;
   const cy = 100;
   const arcLength = 2 * Math.PI * r * (240 / 360);
   const strokeOffset = arcLength * (1 - pct);
 
-  // Needle angle: -120 deg (at 0 km/h) to +120 deg (at max km/h)
   const needleAngle = -120 + pct * 240;
-
-  // Major ticks (0, 20, 40, 60, 80, 100, 120, 140)
   const majorTicks = [0, 20, 40, 60, 80, 100, 120, 140];
 
   return (
     <div className="speed-dial-wrap">
       <svg width="200" height="175" viewBox="0 0 200 175" className="speed-dial-svg">
         <defs>
-          {/* Glowing Arc Gradient */}
-          <linearGradient id="speedArcGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00d2ff" />
-            <stop offset="70%" stopColor="#00f59b" />
+          {/* Active Gradient for Speed Arc */}
+          <linearGradient id="speedArcGradLight" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#2563eb" />
+            <stop offset="70%" stopColor="#059669" />
             <stop offset="100%" stopColor="#f59e0b" />
           </linearGradient>
 
-          {/* Needle Glow Filter */}
-          <filter id="needleGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          {/* Needle Shadow */}
+          <filter id="needleShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#0f172a" floodOpacity="0.25" />
           </filter>
         </defs>
 
@@ -47,8 +41,8 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
           cx={cx}
           cy={cy}
           r="92"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.05)"
+          fill="#ffffff"
+          stroke="#e2e8f0"
           strokeWidth="1.5"
         />
 
@@ -56,8 +50,8 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
         <path
           d={describeArc(cx, cy, r, -120, 120)}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.1)"
-          strokeWidth="9"
+          stroke="#f1f5f9"
+          strokeWidth="10"
           strokeLinecap="round"
         />
 
@@ -65,14 +59,13 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
         <path
           d={describeArc(cx, cy, r, -120, 120)}
           fill="none"
-          stroke={isBlackout ? 'url(#speedArcGrad)' : '#00f59b'}
-          strokeWidth="9"
+          stroke={isBlackout ? 'url(#speedArcGradLight)' : '#059669'}
+          strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={arcLength}
           strokeDashoffset={strokeOffset}
           style={{
-            transition: 'stroke-dashoffset 0.12s linear, stroke 0.3s ease',
-            filter: `drop-shadow(0 0 8px ${isBlackout ? 'rgba(0, 210, 255, 0.6)' : 'rgba(0, 245, 155, 0.6)'})`
+            transition: 'stroke-dashoffset 0.12s linear, stroke 0.3s ease'
           }}
         />
 
@@ -82,13 +75,11 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
           const angle = -120 + tickPct * 240;
           const rad = (angle - 90) * (Math.PI / 180);
 
-          // Inner and outer tick positions
           const x1 = cx + 80 * Math.cos(rad);
           const y1 = cy + 80 * Math.sin(rad);
           const x2 = cx + 86 * Math.cos(rad);
           const y2 = cy + 86 * Math.sin(rad);
 
-          // Text label position
           const tx = cx + 55 * Math.cos(rad);
           const ty = cy + 55 * Math.sin(rad) + 3;
 
@@ -101,16 +92,16 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
                 y1={y1}
                 x2={x2}
                 y2={y2}
-                stroke={isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.25)'}
+                stroke={isActive ? '#0f172a' : '#cbd5e1'}
                 strokeWidth={val % 40 === 0 ? 2 : 1}
               />
               <text
                 x={tx}
                 y={ty}
-                fill={isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.35)'}
+                fill={isActive ? '#0f172a' : '#94a3b8'}
                 fontSize="8.5"
                 fontFamily="'JetBrains Mono', monospace"
-                fontWeight="700"
+                fontWeight={isActive ? '800' : '600'}
                 textAnchor="middle"
               >
                 {val}
@@ -124,11 +115,10 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
           transform={`rotate(${needleAngle}, ${cx}, ${cy})`}
           style={{ transition: 'transform 0.12s linear' }}
         >
-          {/* Tapered Pointer */}
           <polygon
-            points={`${cx - 2},${cy} ${cx + 2},${cy} ${cx},${cy - 68}`}
-            fill={isBlackout ? '#00d2ff' : '#00f59b'}
-            filter="url(#needleGlow)"
+            points={`${cx - 2.5},${cy} ${cx + 2.5},${cy} ${cx},${cy - 68}`}
+            fill={isBlackout ? '#2563eb' : '#059669'}
+            filter="url(#needleShadow)"
           />
           <line
             x1={cx}
@@ -136,13 +126,13 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
             x2={cx}
             y2={cy - 68}
             stroke="#ffffff"
-            strokeWidth="1.5"
+            strokeWidth="1"
           />
         </g>
 
         {/* Center Hub */}
-        <circle cx={cx} cy={cy} r="8" fill="#0b111c" stroke="#ffffff" strokeWidth="2" />
-        <circle cx={cx} cy={cy} r="3.5" fill={isBlackout ? '#00d2ff' : '#00f59b'} />
+        <circle cx={cx} cy={cy} r="8" fill="#0f172a" stroke="#ffffff" strokeWidth="2.5" />
+        <circle cx={cx} cy={cy} r="3" fill={isBlackout ? '#2563eb' : '#059669'} />
       </svg>
 
       {/* Central Digital Readout */}
@@ -162,7 +152,6 @@ export const SpeedDial: React.FC<SpeedDialProps> = ({ speedKmh, isBlackout, maxS
   );
 };
 
-// SVG arc helper
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
   const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
   return {

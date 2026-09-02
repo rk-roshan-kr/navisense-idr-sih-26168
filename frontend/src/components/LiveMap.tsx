@@ -81,54 +81,54 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       subdomains: 'abc'
     }).addTo(map);
 
-    // Active Road Corridor Lane Glow
+    // Active Road Corridor Lane Glow (Soft Sky-Blue Guideway)
     roadCorridorGlowRef.current = L.polyline([], {
-      color: '#00d2ff',
+      color: '#bfdbfe',
       weight: 14,
-      opacity: 0.15,
+      opacity: 0.45,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
 
     // Road Centerline Polyline
     roadPolylineRef.current = L.polyline([], {
-      color: '#334155',
-      weight: 6,
-      opacity: 0.6,
+      color: '#94a3b8',
+      weight: 5,
+      opacity: 0.5,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
 
     // Custom route dashed preview
     customPreviewPolylineRef.current = L.polyline([], {
-      color: '#00d2ff',
+      color: '#2563eb',
       weight: 4,
       opacity: 0.75,
       dashArray: '6, 8',
       lineCap: 'round'
     }).addTo(map);
 
-    // GNSS Trail
+    // GNSS Trail (Clean Emerald Green)
     gnssTrailRef.current = L.polyline([], {
-      color: '#00f59b',
+      color: '#059669',
       weight: 5.5,
-      opacity: 0.95,
+      opacity: 0.92,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
 
-    // IDR Trail Glow
+    // IDR Trail Glow (Soft Blue Aura)
     idrGlowTrailRef.current = L.polyline([], {
-      color: '#00d2ff',
+      color: '#bfdbfe',
       weight: 12,
-      opacity: 0.3,
+      opacity: 0.5,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
 
-    // IDR Trail
+    // IDR Trail (Clean Electric Blue)
     idrTrailRef.current = L.polyline([], {
-      color: '#00d2ff',
+      color: '#2563eb',
       weight: 5.5,
       opacity: 0.95,
       lineCap: 'round',

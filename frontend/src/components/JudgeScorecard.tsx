@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { IconTrophy, IconShieldCheck } from './Icons';
 
 interface JudgeScorecardProps {
   currentDriftPct: number;
@@ -23,10 +24,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
           fontWeight: 800,
           display: 'flex',
           alignItems: 'center',
-          gap: '6px'
+          gap: '8px'
         }}
       >
-        <span>🏆</span>
+        <IconTrophy size={14} color="var(--gnss-emerald)" />
         <span>SIH 26168 SCORECARD</span>
       </button>
 
@@ -35,8 +36,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
         <div className="scorecard-backdrop" onClick={() => setIsOpen(false)}>
           <div className="scorecard-modal glass-panel animate-scale-up" onClick={(e) => e.stopPropagation()}>
             <div className="scorecard-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div className="scorecard-trophy">🏆</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="scorecard-trophy">
+                  <IconTrophy size={20} color="var(--gnss-emerald)" />
+                </div>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.02em' }}>
                     SIH Problem Statement 26168 Compliance
@@ -74,7 +77,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
                       2.6% (26.4m / 1.0 km)
                     </td>
                     <td>
-                      <span className="verdict-pill pass">PASSED 🏆</span>
+                      <span className="verdict-pill pass">
+                        <IconShieldCheck size={12} color="var(--gnss-emerald)" />
+                        <span>PASSED</span>
+                      </span>
                     </td>
                   </tr>
 
@@ -89,7 +95,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
                       28.4 KB (0.028 MB)
                     </td>
                     <td>
-                      <span className="verdict-pill pass">PASSED 🏆</span>
+                      <span className="verdict-pill pass">
+                        <IconShieldCheck size={12} color="var(--gnss-emerald)" />
+                        <span>PASSED</span>
+                      </span>
                     </td>
                   </tr>
 
@@ -104,7 +113,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
                       Phone IMU Only
                     </td>
                     <td>
-                      <span className="verdict-pill pass">PASSED 🏆</span>
+                      <span className="verdict-pill pass">
+                        <IconShieldCheck size={12} color="var(--gnss-emerald)" />
+                        <span>PASSED</span>
+                      </span>
                     </td>
                   </tr>
 
@@ -119,7 +131,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
                       0.42 ms (2,380 Hz)
                     </td>
                     <td>
-                      <span className="verdict-pill pass">PASSED 🏆</span>
+                      <span className="verdict-pill pass">
+                        <IconShieldCheck size={12} color="var(--gnss-emerald)" />
+                        <span>PASSED</span>
+                      </span>
                     </td>
                   </tr>
 
@@ -134,7 +149,10 @@ export const JudgeScorecard: React.FC<JudgeScorecardProps> = ({ currentDriftPct,
                       Exponential (τ = 3.0s)
                     </td>
                     <td>
-                      <span className="verdict-pill pass">PASSED 🏆</span>
+                      <span className="verdict-pill pass">
+                        <IconShieldCheck size={12} color="var(--gnss-emerald)" />
+                        <span>PASSED</span>
+                      </span>
                     </td>
                   </tr>
                 </tbody>
