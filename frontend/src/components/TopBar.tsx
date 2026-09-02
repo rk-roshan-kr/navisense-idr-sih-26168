@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ScenarioInfo, AppMode } from '../types';
+import type { ScenarioInfo, AppMode, ViewMode } from '../types';
 
 interface TopBarProps {
   scenario: ScenarioInfo | null;
@@ -13,6 +13,8 @@ interface TopBarProps {
   onToggleMode: (mode: AppMode) => void;
   customStatusMsg: string;
   onClearCustomPoints: () => void;
+  viewMode: ViewMode;
+  onToggleViewMode: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -26,7 +28,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   appMode,
   onToggleMode,
   customStatusMsg,
-  onClearCustomPoints
+  onClearCustomPoints,
+  viewMode,
+  onToggleViewMode
 }) => {
   return (
     <header className="top-bar-container glass-panel">
@@ -46,12 +50,12 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Mode Switcher Segmented Control */}
+      {/* Mode Switcher Segmented Control (Dataset vs Option 2 Map Click) */}
       <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0, 0, 0, 0.4)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
         <button
           onClick={() => onToggleMode('CANONICAL_DATASET')}
           style={{
-            padding: '6px 14px',
+            padding: '5px 12px',
             fontSize: '11px',
             fontWeight: 800,
             borderRadius: '7px',
@@ -68,7 +72,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => onToggleMode('CUSTOM_ROUTE')}
           style={{
-            padding: '6px 14px',
+            padding: '5px 12px',
             fontSize: '11px',
             fontWeight: 800,
             borderRadius: '7px',
@@ -112,8 +116,21 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       )}
 
-      {/* Playback Controls */}
+      {/* Right Controls: View Mode Toggle & Playback */}
       <div className="top-bar-controls">
+        {/* Toggle between Simplified (Default) and Detailed */}
+        <button
+          onClick={onToggleViewMode}
+          className="btn-control"
+          style={{
+            background: viewMode === 'DETAILED' ? 'rgba(37, 99, 235, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+            borderColor: viewMode === 'DETAILED' ? 'var(--idr-blue)' : 'rgba(255, 255, 255, 0.12)',
+            color: viewMode === 'DETAILED' ? '#ffffff' : '#cbd5e1'
+          }}
+        >
+          {viewMode === 'SIMPLIFIED' ? '📊 SHOW DETAILS' : '✕ HIDE DETAILS'}
+        </button>
+
         <button onClick={onTogglePlay} className="btn-control">
           {isPlaying ? '⏸ PAUSE' : '▶ PLAY'}
         </button>

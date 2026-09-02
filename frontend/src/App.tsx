@@ -1,16 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { TelemetryPacket, ScenarioInfo, AppMode } from './types';
+import type { TelemetryPacket, ScenarioInfo, AppMode, ViewMode } from './types';
 import { LiveMap } from './components/LiveMap';
 import { NavigationHUD } from './components/NavigationHUD';
 import { AlertBanner } from './components/AlertBanner';
 import { ActionControl } from './components/ActionControl';
 import { TechnicalProofDrawer } from './components/TechnicalProofDrawer';
+import { RightSidebar } from './components/RightSidebar';
 import { TopBar } from './components/TopBar';
 import { CustomRouteSimulator } from './utils/customRouteSimulator';
 
 export const App: React.FC = () => {
-  // Mode state
+  // Mode state: Dataset vs 2-Point Mode
   const [appMode, setAppMode] = useState<AppMode>('CANONICAL_DATASET');
+
+  // View state: Simplified by Default vs Detailed Telemetry
+  const [viewMode, setViewMode] = useState<ViewMode>('SIMPLIFIED');
 
   // Backend Dataset streaming state
   const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
@@ -106,7 +110,6 @@ export const App: React.FC = () => {
         const path = await customSimRef.current.fetchRoute(customOrigin, destPt);
         setCustomRoutePath(path);
         setCustomStatusMsg('✓ Route planned! Click ▶ PLAY to start navigation');
-        // Produce initial step
         const firstPkt = customSimRef.current.step();
         if (firstPkt) setTelemetry(firstPkt);
       } catch (err: any) {
@@ -138,6 +141,11 @@ export const App: React.FC = () => {
       setIsPlaying(true);
       if (customTimerRef.current) clearInterval(customTimerRef.current);
     }
+  };
+
+  // View Mode Toggle (Simplified by default vs Detailed)
+  const handleToggleViewMode = () => {
+    setViewMode((prev) => (prev === 'SIMPLIFIED' ? 'DETAILED' : 'SIMPLIFIED'));
   };
 
   // Control Actions
@@ -204,7 +212,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-viewport">
-      {/* 1. Header with Mode Selector (Option 1 vs Option 2) */}
+      {/* 1. Top Navigation Bar */}
       <TopBar
         scenario={scenario}
         scenariosList={scenariosList}
@@ -217,32 +225,44 @@ export const App: React.FC = () => {
         onToggleMode={handleToggleMode}
         customStatusMsg={customStatusMsg}
         onClearCustomPoints={handleClearCustomPoints}
+        viewMode={viewMode}
+        onToggleViewMode={handleToggleViewMode}
       />
 
-      {/* 2. Full-Screen Dominant Dark Automotive Map */}
-      <div className="map-fullscreen">
-        <LiveMap
-          telemetry={telemetry}
-          scenario={scenario}
-          appMode={appMode}
-          customOrigin={customOrigin}
-          customDestination={customDestination}
-          customRoutePath={customRoutePath}
-          onMapClick={handleMapClick}
-        />
+      {/* 2. Main Layout */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', overflow: 'hidden' }}>
+        {/* Map View */}
+        <div style={{ flex: 1, position: 'relative', height: '100%' }}>
+          <LiveMap
+            telemetry={telemetry}
+            scenario={scenario}
+            appMode={appMode}
+            customOrigin={customOrigin}
+            customDestination={customDestination}
+            customRoutePath={customRoutePath}
+            onMapClick={handleMapClick}
+          />
+
+          {/* Flash Alert Banner */}
+          <AlertBanner telemetry={telemetry} />
+
+          {/* SIMPLIFIED VIEW (DEFAULT): Cockpit HUD with Vehicle Speed Dial */}
+          {viewMode === 'SIMPLIFIED' && <NavigationHUD telemetry={telemetry} />}
+
+          {/* Floating Action Button: SIMULATE GNSS LOSS */}
+          <ActionControl telemetry={telemetry} onToggleBlackout={handleToggleBlackout} />
+
+          {/* Subtle Technical Proof Drawer */}
+          {viewMode === 'SIMPLIFIED' && <TechnicalProofDrawer telemetry={telemetry} />}
+        </div>
+
+        {/* DETAILED VIEW: Slide-in Telemetry Sidebar */}
+        {viewMode === 'DETAILED' && (
+          <div style={{ zIndex: 1000, height: '100%', paddingTop: '72px' }}>
+            <RightSidebar telemetry={telemetry} onClose={() => setViewMode('SIMPLIFIED')} />
+          </div>
+        )}
       </div>
-
-      {/* 3. Flash Alert Banner */}
-      <AlertBanner telemetry={telemetry} />
-
-      {/* 4. Primary Navigation HUD (Speed, Heading, Drift) */}
-      <NavigationHUD telemetry={telemetry} />
-
-      {/* 5. Giant Floating Action Button */}
-      <ActionControl telemetry={telemetry} onToggleBlackout={handleToggleBlackout} />
-
-      {/* 6. Technical Proof Drawer */}
-      <TechnicalProofDrawer telemetry={telemetry} />
     </div>
   );
 };

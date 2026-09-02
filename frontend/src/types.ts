@@ -1,4 +1,5 @@
 export type AppMode = 'CANONICAL_DATASET' | 'CUSTOM_ROUTE';
+export type ViewMode = 'SIMPLIFIED' | 'DETAILED';
 
 export interface LatLon {
   lat: number;
