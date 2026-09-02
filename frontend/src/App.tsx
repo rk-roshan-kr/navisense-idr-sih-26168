@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { TelemetryPacket, ScenarioInfo } from './types';
 import { LiveMap } from './components/LiveMap';
-import { NavigationHUD } from './components/NavigationHUD';
-import { AlertBanner } from './components/AlertBanner';
-import { ActionControl } from './components/ActionControl';
-import { TechnicalProofDrawer } from './components/TechnicalProofDrawer';
+import { RightSidebar } from './components/RightSidebar';
 import { TopBar } from './components/TopBar';
+import { BottomBar } from './components/BottomBar';
+import { AlertBanner } from './components/AlertBanner';
 
 export const App: React.FC = () => {
   const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
@@ -107,8 +106,8 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="app-viewport">
-      {/* Top Header Bar */}
+    <div className="legacy-app-wrapper">
+      {/* 1. Header Bar */}
       <TopBar
         scenario={scenario}
         scenariosList={scenariosList}
@@ -117,24 +116,22 @@ export const App: React.FC = () => {
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
         onReset={handleReset}
+        telemetry={telemetry}
+        onToggleBlackout={handleToggleBlackout}
       />
 
-      {/* Full-Screen Dominant Live Map */}
-      <div className="map-fullscreen">
-        <LiveMap telemetry={telemetry} scenario={scenario} />
+      {/* 2. Main Content Area */}
+      <div className="legacy-main-content">
+        {/* Left: Map Area with Bottom Progress Bar */}
+        <div className="legacy-map-column">
+          <LiveMap telemetry={telemetry} scenario={scenario} />
+          <AlertBanner telemetry={telemetry} />
+          <BottomBar telemetry={telemetry} scenario={scenario} />
+        </div>
+
+        {/* Right: Telemetry & Metrics Sidebar */}
+        <RightSidebar telemetry={telemetry} />
       </div>
-
-      {/* Alert Banner for Instant Blackout Status */}
-      <AlertBanner telemetry={telemetry} />
-
-      {/* Primary Navigation HUD (Speed, Heading, Drift) */}
-      <NavigationHUD telemetry={telemetry} />
-
-      {/* Floating Action Button (Simulate GNSS Loss) */}
-      <ActionControl telemetry={telemetry} onToggleBlackout={handleToggleBlackout} />
-
-      {/* Technical Proof Drawer for Engineering Judges */}
-      <TechnicalProofDrawer telemetry={telemetry} />
     </div>
   );
 };
