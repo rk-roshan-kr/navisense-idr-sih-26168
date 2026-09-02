@@ -217,11 +217,25 @@ class PersonalizationAdapter(nn.Module):
 
         # De-bias in physical units
         accel = x_raw[:, 0:3, :] - self.accel_bias.view(1, 3, 1)
-        gyro  = x_raw[:, 3:6, :] - self.gyro_bias.view(1, 3, 1)
 
-        # 3D rotation from phone body frame to vehicle chassis frame
-        accel_rot = torch.einsum("ij,bjk->bik", R, accel)
-        gyro_rot  = torch.einsum("ij,bjk->bik", R, gyro)
+        # In IO-VNBD: ch3=gyaw(Z), ch4=gpit(Y), ch5=grol(X)
+        # Unpack into standard Cartesian XYZ: [X(roll), Y(pitch), Z(yaw)]
+        gyro_xyz = torch.stack([
+            x_raw[:, 5, :] - self.gyro_bias[0], # grol (X)
+            x_raw[:, 4, :] - self.gyro_bias[1], # gpit (Y)
+            x_raw[:, 3, :] - self.gyro_bias[2]  # gyaw (Z)
+        ], dim=1)
+
+        # 3D rotation from phone body frame to vehicle chassis frame (both in Cartesian XYZ)
+        accel_rot    = torch.einsum("ij,bjk->bik", R, accel)
+        gyro_rot_xyz = torch.einsum("ij,bjk->bik", R, gyro_xyz)
+
+        # Repack into UniversalMotionNet's canonical channel format:
+        # ch3=veh_yaw(Z), ch4=veh_pitch(Y), ch5=veh_roll(X)
+        veh_gyaw = gyro_rot_xyz[:, 2:3, :] # Z -> vehicle yaw
+        veh_gpit = gyro_rot_xyz[:, 1:2, :] # Y -> vehicle pitch
+        veh_grol = gyro_rot_xyz[:, 0:1, :] # X -> vehicle roll
+        gyro_rot = torch.cat([veh_gyaw, veh_gpit, veh_grol], dim=1)
 
         if C >= 9:
             gravity = x_raw[:, 6:9, :]
