@@ -111,6 +111,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
     }).addTo(map);
 
     mapInstanceRef.current = map;
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
 
     return () => {
       map.remove();
@@ -192,8 +195,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({ telemetry, scenario }) => {
   }, [telemetry]);
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={mapContainerRef} className="w-full h-full" />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );
 };

@@ -18,7 +18,7 @@ export const App: React.FC = () => {
 
   // Fetch scenarios list on load
   useEffect(() => {
-    fetch('http://localhost:8000/api/scenarios')
+    fetch('http://127.0.0.1:8000/api/scenarios')
       .then((res) => res.json())
       .then((data) => {
         if (data.scenarios) setScenariosList(data.scenarios);
@@ -33,7 +33,7 @@ export const App: React.FC = () => {
     let reconnectTimer: any;
 
     function connect() {
-      ws = new WebSocket('ws://localhost:8000/ws/telemetry');
+      ws = new WebSocket('ws://127.0.0.1:8000/ws/telemetry');
 
       ws.onopen = () => {
         console.log('[WS] Connected to Navisense live engine');
@@ -91,7 +91,7 @@ export const App: React.FC = () => {
   const handleTogglePlay = () => {
     const nextState = !isPlaying;
     setIsPlaying(nextState);
-    fetch('http://localhost:8000/api/playback/control', {
+    fetch('http://127.0.0.1:8000/api/playback/control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: nextState ? 'play' : 'pause' })
@@ -99,7 +99,7 @@ export const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    fetch('http://localhost:8000/api/playback/control', {
+    fetch('http://127.0.0.1:8000/api/playback/control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'reset' })
@@ -107,7 +107,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#070a0f]">
+    <div className="app-viewport">
       {/* Top Header Bar */}
       <TopBar
         scenario={scenario}
@@ -120,7 +120,7 @@ export const App: React.FC = () => {
       />
 
       {/* Full-Screen Dominant Live Map */}
-      <div className="absolute inset-0 z-0">
+      <div className="map-fullscreen">
         <LiveMap telemetry={telemetry} scenario={scenario} />
       </div>
 
