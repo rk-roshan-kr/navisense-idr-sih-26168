@@ -184,7 +184,21 @@ class NavigationStateEstimator:
         bgz = self.x[9]
         # De-bias window heading change: delta_psi_clean = delta_psi - bgz * (W * dt)
         clean_delta_psi = delta_psi - bgz * (W * dt)
-        step_dpsi = (clean_delta_psi / W) if not is_still else 0.0
+        model_step_dpsi = (clean_delta_psi / W) if not is_still else 0.0
+
+        # C011 FIX: Blend direct instantaneous gyro with model window prediction.
+        # The model produces delta_psi over a 2-second window — always 1-2s stale on sharp turns.
+        # Direct gyro (imu_raw[5] = gz = yaw rate) gives instant turn response.
+        # Blend: 70% direct gyro (immediate), 30% model window (stable on straights).
+        # Both are de-biased with the same gyro bias x[9].
+        if not is_still:
+            wz_instant = float(imu_raw[5, -1]) - bgz   # de-biased instantaneous yaw rate (rad/s)
+            gyro_step_dpsi = wz_instant * dt            # heading change this step from raw gyro
+            GYRO_WEIGHT = 0.70
+            step_dpsi = GYRO_WEIGHT * gyro_step_dpsi + (1.0 - GYRO_WEIGHT) * model_step_dpsi
+        else:
+            step_dpsi = 0.0
+
 
         # ── 3. State Kinematics Integration (ENU) ────────────────────────────
         # Per-step displacement from window delta_s: step_ds = delta_s / W
@@ -237,7 +251,6 @@ class NavigationStateEstimator:
         # Compute TRUE error of our neural model vs GPS (Innovation Error!)
         self.model_error_m = float(np.linalg.norm(self.x_model[:2] - np.array([meas_e, meas_n])))
 
-        # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
         # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
         if self.is_blackout or self.pending_reconvergence:
             self.is_blackout = False

@@ -55,6 +55,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const targetHeadingRef = useRef<number>(0);
   const isInitializedRef = useRef<boolean>(false);
   const prevBlackoutRef = useRef<boolean>(false);
+  const prevScenarioIdRef = useRef<string | null>(null); // C024: track scenario changes
 
   // Switch to Freecam automatically when entering custom 2-point mode
   useEffect(() => {
@@ -356,8 +357,11 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       return Math.sqrt(dlat * dlat + dlon * dlon);
     };
 
-    // Detect city/corridor jump (> 1000m jump, e.g. Bangalore <-> Delhi <-> Chandigarh)
-    const isCitySwitch = isInitializedRef.current && distM(animPosRef.current, currCoord) > 1000.0;
+    // Detect city/corridor jump (>1000m) OR scenario.id change (same-city reset)
+    // C024 FIX: scenario.id change resets trail even when distance < 1000m
+    const scenarioChanged = scenario?.id !== prevScenarioIdRef.current && isInitializedRef.current;
+    prevScenarioIdRef.current = scenario?.id ?? null;
+    const isCitySwitch = isInitializedRef.current && (distM(animPosRef.current, currCoord) > 1000.0 || scenarioChanged);
 
     if (!isInitializedRef.current || isCitySwitch) {
       animPosRef.current = currCoord;
