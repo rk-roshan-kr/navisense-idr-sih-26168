@@ -37,7 +37,6 @@ export const App: React.FC = () => {
 
   const wsRef = useRef<WebSocket | null>(null);
   const customSimRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
-  const customTimerRef = useRef<any>(null);
   const autoDemoTimersRef = useRef<any[]>([]);
 
   // Mode 2: Handle Map Clicks for Option 2 (Choose 2 Points)
@@ -57,8 +56,6 @@ export const App: React.FC = () => {
         const path = await customSimRef.current.fetchRoute(customOrigin, destPt);
         setCustomRoutePath(path);
         setCustomStatusMsg('Route ready! Click START SIMULATION to begin navigation');
-        const firstPkt = customSimRef.current.step();
-        if (firstPkt) setTelemetry(firstPkt);
       } catch (err: any) {
         setCustomStatusMsg(`Routing error: ${err.message}`);
       }
@@ -71,24 +68,28 @@ export const App: React.FC = () => {
   };
 
   const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string, id?: string) => {
-    if (customTimerRef.current) clearInterval(customTimerRef.current);
-    customSimRef.current.reset();
+    const targetId = id ?? 'bangalore';
+    setSelectedPresetId(targetId);
     setCustomOrigin(origin);
     setCustomDestination(dest);
-    setCustomStatusMsg(`Calculating route for ${name}...`);
+    setCustomStatusMsg(`Loading corridor: ${name}...`);
+    setIsPlaying(false);
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && id) {
-      wsRef.current.send(JSON.stringify({ command: 'select_scenario', scenario_id: id }));
+    // Notify backend Python runtime via both HTTP REST and WebSocket
+    fetch('http://127.0.0.1:8000/api/scenario/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario_id: targetId })
+    }).catch(console.error);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'select_scenario', scenario_id: targetId }));
     }
 
     try {
       const path = await customSimRef.current.fetchRoute(origin, dest);
       setCustomRoutePath(path);
       setCustomStatusMsg(`${name} loaded. Click START SIMULATION to begin navigation!`);
-      if (!isConnected) {
-        const firstPkt = customSimRef.current.step();
-        if (firstPkt) setTelemetry(firstPkt);
-      }
     } catch (err: any) {
       setCustomStatusMsg(`Routing error: ${err.message}`);
     }
@@ -101,13 +102,14 @@ export const App: React.FC = () => {
   };
 
   const handleClearCustomPoints = () => {
-    if (customTimerRef.current) clearInterval(customTimerRef.current);
-    customSimRef.current.reset();
     setCustomOrigin(null);
     setCustomDestination(null);
     setCustomRoutePath([]);
     setCustomStatusMsg('Click on the map to choose Origin (Point A)');
     setIsPlaying(false);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'pause' }));
+    }
   };
 
   // Automatically initialize with Bangalore ISRO 2-Point Road Corridor on launch
@@ -181,10 +183,8 @@ export const App: React.FC = () => {
         setCustomStatusMsg('Click on the map to choose Origin (Point A)');
       }
       setIsPlaying(false);
-      if (customTimerRef.current) clearInterval(customTimerRef.current);
     } else {
       setIsPlaying(true);
-      if (customTimerRef.current) clearInterval(customTimerRef.current);
     }
   };
 
@@ -199,22 +199,19 @@ export const App: React.FC = () => {
 
   // Control Actions
   const handleToggleBlackout = () => {
-    // 1. Notify Python runtime over WebSocket
+    // Notify Python backend via WebSocket and REST
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ command: 'toggle_blackout' }));
     }
-    // 2. Offline client fallback ONLY when disconnected
-    if (!isConnected) {
-      customSimRef.current.toggleBlackout();
-      const nextPkt = customSimRef.current.step();
-      if (nextPkt) setTelemetry(nextPkt);
-    }
+    fetch('http://127.0.0.1:8000/api/blackout/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    }).catch(console.error);
   };
 
   const handleSelectScenario = (scenarioId: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ command: 'select_scenario', scenario_id: scenarioId }));
-    }
+    handleSelectPresetById(scenarioId);
   };
 
   // Check whether 2 points are active before allowing simulation to start
@@ -240,46 +237,22 @@ export const App: React.FC = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: nextState ? 'play' : 'pause' })
     }).catch(console.error);
-
-    // CRITICAL: Only run the local client interval if the backend is DISCONNECTED.
-    // If backend is connected, the Python runtime streams the 10 Hz telemetry over WebSocket!
-    // Running both causes them to fight and makes the vehicle teleport radically back and forth.
-    if (!isConnected) {
-      if (nextState) {
-        customTimerRef.current = setInterval(() => {
-          const pkt = customSimRef.current.step();
-          if (pkt) {
-            setTelemetry(pkt);
-          } else {
-            clearInterval(customTimerRef.current);
-            setIsPlaying(false);
-          }
-        }, 100);
-      } else {
-        if (customTimerRef.current) clearInterval(customTimerRef.current);
-      }
-    } else {
-      if (customTimerRef.current) clearInterval(customTimerRef.current);
-    }
   };
 
   const handleReset = () => {
     autoDemoTimersRef.current.forEach(clearTimeout);
     autoDemoTimersRef.current = [];
+    setIsPlaying(false);
 
-    if (appMode === 'CUSTOM_ROUTE') {
-      customSimRef.current.reset();
-      const firstPkt = customSimRef.current.step();
-      if (firstPkt) setTelemetry(firstPkt);
-      setIsPlaying(false);
-      if (customTimerRef.current) clearInterval(customTimerRef.current);
-    } else {
-      fetch('http://127.0.0.1:8000/api/playback/control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset' })
-      }).catch(console.error);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'pause' }));
     }
+
+    fetch('http://127.0.0.1:8000/api/playback/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset' })
+    }).catch(console.error);
   };
 
   // 60-Second Judge Auto-Demo Sequence

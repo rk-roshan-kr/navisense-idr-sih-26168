@@ -7,7 +7,7 @@ interface RoutePlannerWidgetProps {
   customRoutePath: [number, number][];
   customStatusMsg: string;
   onSetOrigin: (pt: [number, number]) => void;
-  onSelectPreset: (origin: [number, number], destination: [number, number], name: string) => void;
+  onSelectPreset: (origin: [number, number], destination: [number, number], name: string, id?: string) => void;
   onClearPoints: () => void;
   onStartSimulation: () => void;
   telemetry: TelemetryPacket | null;
@@ -140,12 +140,16 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
       <div className="planner-preset-row">
         <span className="preset-label mono">PRESET CORRIDORS:</span>
         <select
+          value={
+            ROUTE_PRESETS.find(
+              (r) => customOrigin && Math.abs(r.origin[0] - customOrigin[0]) < 0.05
+            )?.id ?? 'bangalore'
+          }
           onChange={(e) => {
             const p = ROUTE_PRESETS.find((r) => r.id === e.target.value);
-            if (p) onSelectPreset(p.origin, p.destination, p.name);
+            if (p) onSelectPreset(p.origin, p.destination, p.name, p.id);
           }}
           className="planner-select mono"
-          defaultValue="bangalore"
         >
           {ROUTE_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>

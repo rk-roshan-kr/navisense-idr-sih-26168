@@ -349,23 +349,46 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     const { idr_position, heading_deg, blackout_active, blackout_elapsed_s } = telemetry;
     const currCoord: [number, number] = [idr_position.lon, idr_position.lat];
 
-    if (!isInitializedRef.current) {
-      animPosRef.current = currCoord;
-      targetPosRef.current = currCoord;
-      animHeadingRef.current = heading_deg;
-      targetHeadingRef.current = heading_deg;
-      isInitializedRef.current = true;
-    } else {
-      targetPosRef.current = currCoord;
-      targetHeadingRef.current = heading_deg;
-    }
-
     // Distance metric in meters to detect teleportations, resets, or scenario jumps
     const distM = (c1: [number, number], c2: [number, number]) => {
       const dlat = (c2[1] - c1[1]) * 111320;
       const dlon = (c2[0] - c1[0]) * 111320 * Math.cos((c1[1] * Math.PI) / 180);
       return Math.sqrt(dlat * dlat + dlon * dlon);
     };
+
+    // Detect city/corridor jump (> 1000m jump, e.g. Bangalore <-> Delhi <-> Chandigarh)
+    const isCitySwitch = isInitializedRef.current && distM(animPosRef.current, currCoord) > 1000.0;
+
+    if (!isInitializedRef.current || isCitySwitch) {
+      animPosRef.current = currCoord;
+      targetPosRef.current = currCoord;
+      animHeadingRef.current = heading_deg;
+      targetHeadingRef.current = heading_deg;
+      isInitializedRef.current = true;
+      isFollowingRef.current = true;
+
+      // Reset trail buffers for clean start in new city
+      gnssSegmentsRef.current = [[currCoord]];
+      idrSegmentsRef.current = [];
+      lastGnssCoordRef.current = currCoord;
+      lastIdrCoordRef.current = null;
+
+      const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
+      gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [[currCoord]] } });
+      const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
+      iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
+
+      mapRef.current.jumpTo({
+        center: currCoord,
+        zoom: is3DModeRef.current ? 17.8 : 15.5,
+        pitch: is3DModeRef.current ? 68 : 0,
+        bearing: is3DModeRef.current ? heading_deg : 0
+      });
+      return;
+    } else {
+      targetPosRef.current = currCoord;
+      targetHeadingRef.current = heading_deg;
+    }
 
     // ── Zero GPS Trail During Blackout & Zero Teleportation Jump Lines ──
     if (!blackout_active) {

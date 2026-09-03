@@ -39,6 +39,38 @@ runtime = NaviSenseRuntime(device="cpu")
 # Active WebSocket connections
 active_connections: Set[WebSocket] = set()
 
+async def broadcast_ws(message: dict):
+    payload = json.dumps(message)
+    dead = []
+    for ws in list(active_connections):
+        try:
+            await ws.send_text(payload)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        active_connections.discard(ws)
+
+# Single 10 Hz Background Engine Loop
+async def engine_loop():
+    while True:
+        try:
+            if runtime.is_playing:
+                packet = runtime.step()
+                if packet is not None:
+                    await broadcast_ws({
+                        "type": "telemetry",
+                        "data": packet.model_dump()
+                    })
+            sleep_time = max(0.01, (runtime.dt / max(0.1, runtime.playback_speed)))
+            await asyncio.sleep(sleep_time)
+        except Exception as e:
+            print(f"[ENGINE_LOOP] Error: {e}")
+            await asyncio.sleep(0.1)
+
+@app.on_event("startup")
+async def on_startup():
+    asyncio.create_task(engine_loop())
+
 class SelectScenarioRequest(BaseModel):
     scenario_id: str
 
@@ -76,15 +108,22 @@ async def list_scenarios():
 
 @app.post("/api/scenario/select")
 async def select_scenario(req: SelectScenarioRequest):
+    runtime.is_playing = False
     runtime.load_scenario(req.scenario_id)
+    sc_info = runtime.get_scenario_info()
+    init_pkt = runtime.get_initial_packet()
+    await broadcast_ws({"type": "scenario_info", "data": sc_info.model_dump()})
+    await broadcast_ws({"type": "telemetry", "data": init_pkt.model_dump()})
     return {
         "status": "scenario_loaded",
-        "active_scenario": runtime.get_scenario_info()
+        "active_scenario": sc_info
     }
 
 @app.post("/api/blackout/toggle")
 async def toggle_blackout(req: BlackoutToggleRequest):
     new_state = runtime.toggle_blackout(req.blackout_active)
+    init_pkt = runtime.get_initial_packet()
+    await broadcast_ws({"type": "telemetry", "data": init_pkt.model_dump()})
     return {
         "blackout_active": new_state,
         "timestamp_s": round(runtime.current_step * runtime.dt, 2)
@@ -94,14 +133,20 @@ async def toggle_blackout(req: BlackoutToggleRequest):
 async def control_playback(req: PlaybackControlRequest):
     if req.action == "play":
         runtime.is_playing = True
+        print(f"[PLAYBACK] Play started at step {runtime.current_step}")
     elif req.action == "pause":
         runtime.is_playing = False
+        print(f"[PLAYBACK] Play paused at step {runtime.current_step}")
     elif req.action == "reset":
         runtime.is_playing = False
         runtime.load_scenario(runtime.current_scenario_id)
+        init_pkt = runtime.get_initial_packet()
+        await broadcast_ws({"type": "telemetry", "data": init_pkt.model_dump()})
     elif req.action == "step":
         runtime.is_playing = False
-        runtime.step()
+        pkt = runtime.step()
+        if pkt:
+            await broadcast_ws({"type": "telemetry", "data": pkt.model_dump()})
 
     if req.speed is not None:
         runtime.playback_speed = max(0.2, min(10.0, float(req.speed)))
@@ -118,11 +163,7 @@ async def websocket_telemetry_stream(websocket: WebSocket):
     active_connections.add(websocket)
     print(f"[WS] Client connected! Total active connections: {len(active_connections)}")
 
-    # Ensure engine is PAUSED at the starting point when user opens the site
-    runtime.is_playing = False
-    runtime.load_scenario(runtime.current_scenario_id)
-
-    # Send scenario info and initial stationary frame upon connection
+    # Send current scenario info and initial stationary frame upon connection
     await websocket.send_text(json.dumps({
         "type": "scenario_info",
         "data": runtime.get_scenario_info().model_dump()
@@ -134,66 +175,46 @@ async def websocket_telemetry_stream(websocket: WebSocket):
     }))
 
     try:
-        # Background task to listen for client commands (e.g. blackout toggle)
-        async def receive_commands():
-            while True:
-                msg = await websocket.receive_text()
-                try:
-                    data = json.loads(msg)
-                    cmd = data.get("command")
-                    if cmd == "play":
-                        runtime.is_playing = True
-                        print(f"[WS] Playback STARTED! Step {runtime.current_step}")
-                    elif cmd == "pause":
-                        runtime.is_playing = False
-                        print(f"[WS] Playback PAUSED! Step {runtime.current_step}")
-                    elif cmd == "toggle_play":
-                        runtime.is_playing = not runtime.is_playing
-                        print(f"[WS] Playback TOGGLED: {runtime.is_playing}")
-                    elif cmd == "toggle_blackout":
-                        runtime.toggle_blackout()
-                    elif cmd == "set_blackout":
-                        runtime.toggle_blackout(data.get("active", False))
-                    elif cmd == "set_speed":
-                        runtime.playback_speed = float(data.get("speed", 1.0))
-                    elif cmd == "select_scenario":
-                        runtime.is_playing = False
-                        runtime.load_scenario(data.get("scenario_id", "bangalore"))
-                        await websocket.send_text(json.dumps({
-                            "type": "scenario_info",
-                            "data": runtime.get_scenario_info().model_dump()
-                        }))
-                        init_pkt = runtime.get_initial_packet()
-                        await websocket.send_text(json.dumps({
-                            "type": "telemetry",
-                            "data": init_pkt.model_dump()
-                        }))
-                except Exception as e:
-                    print(f"[WS] Command error: {e}")
-
-        asyncio.create_task(receive_commands())
-
-        # Streaming loop at 10 Hz scaled by playback speed
         while True:
-            if runtime.is_playing:
-                packet = runtime.step()
-                if packet is not None:
-                    payload = json.dumps({
-                        "type": "telemetry",
-                        "data": packet.model_dump()
-                    })
-                    await websocket.send_text(payload)
-
-            sleep_time = max(0.01, (runtime.dt / max(0.1, runtime.playback_speed)))
-            await asyncio.sleep(sleep_time)
-
+            msg = await websocket.receive_text()
+            try:
+                data = json.loads(msg)
+                cmd = data.get("command")
+                if cmd == "play":
+                    runtime.is_playing = True
+                    print(f"[WS] Playback STARTED! Step {runtime.current_step}")
+                elif cmd == "pause":
+                    runtime.is_playing = False
+                    print(f"[WS] Playback PAUSED! Step {runtime.current_step}")
+                elif cmd == "toggle_play":
+                    runtime.is_playing = not runtime.is_playing
+                    print(f"[WS] Playback TOGGLED: {runtime.is_playing}")
+                elif cmd == "toggle_blackout":
+                    runtime.toggle_blackout()
+                    pkt = runtime.get_initial_packet()
+                    await broadcast_ws({"type": "telemetry", "data": pkt.model_dump()})
+                elif cmd == "set_blackout":
+                    runtime.toggle_blackout(data.get("active", False))
+                    pkt = runtime.get_initial_packet()
+                    await broadcast_ws({"type": "telemetry", "data": pkt.model_dump()})
+                elif cmd == "set_speed":
+                    runtime.playback_speed = float(data.get("speed", 1.0))
+                elif cmd == "select_scenario":
+                    s_id = data.get("scenario_id", "bangalore")
+                    runtime.is_playing = False
+                    runtime.load_scenario(s_id)
+                    print(f"[WS] Switched scenario to: {s_id}")
+                    sc_info = runtime.get_scenario_info()
+                    init_pkt = runtime.get_initial_packet()
+                    await broadcast_ws({"type": "scenario_info", "data": sc_info.model_dump()})
+                    await broadcast_ws({"type": "telemetry", "data": init_pkt.model_dump()})
+            except Exception as e:
+                print(f"[WS] Command error: {e}")
     except WebSocketDisconnect:
-        active_connections.remove(websocket)
+        pass
+    finally:
+        active_connections.discard(websocket)
         print(f"[WS] Client disconnected. Remaining: {len(active_connections)}")
-    except Exception as e:
-        if websocket in active_connections:
-            active_connections.remove(websocket)
-        print(f"[WS] Stream closed: {e}")
 
 from fastapi.staticfiles import StaticFiles
 
