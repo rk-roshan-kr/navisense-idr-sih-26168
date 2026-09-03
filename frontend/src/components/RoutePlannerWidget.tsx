@@ -14,28 +14,28 @@ interface RoutePlannerWidgetProps {
   isPlaying: boolean;
 }
 
-// Curated high-fidelity Indian 2-point drivable presets
+// IO-VNBD real GPS sessions (Driver A, Coventry UK) — held-out test paths
 export const ROUTE_PRESETS = [
   {
-    id: 'bangalore',
-    name: 'Bangalore: ISRO ISTRAC to Indiranagar Flat',
-    origin: [13.0334, 77.5186] as [number, number],
-    destination: [12.9780, 77.6400] as [number, number],
-    desc: 'Outer Ring Road (17.4 km) • Underpass GPS Lockdown'
+    id: 's3b',
+    name: 'IO-VNBD S3b — Dense Urban Residential',
+    origin: [52.3696, -1.2612] as [number, number],
+    destination: [52.3793, -1.2521] as [number, number],
+    desc: 'Coventry UK • 3.77 km • 840 turns • Real phone IMU'
   },
   {
-    id: 'delhi',
-    name: 'Delhi: Connaught Place to Aerocity Gateway',
-    origin: [28.6315, 77.2167] as [number, number],
-    destination: [28.5521, 77.1215] as [number, number],
-    desc: 'NH48 Expressway (15.5 km) • Airport Tunnel Lockdown'
+    id: 's1',
+    name: 'IO-VNBD S1 — Mixed Urban-Suburban',
+    origin: [52.4017, -1.5053] as [number, number],
+    destination: [52.3984, -1.6034] as [number, number],
+    desc: 'Coventry UK • 37.95 km • 4250 turns • Real phone IMU'
   },
   {
-    id: 'chandigarh',
-    name: 'Chandigarh: Sector 1 Capitol to Sector 35 Hub',
-    origin: [30.7525, 76.8066] as [number, number],
-    destination: [30.7240, 76.7670] as [number, number],
-    desc: 'Jan Marg & Madhya Marg (5.6 km) • Canopy Canyon Lockdown'
+    id: 's4',
+    name: 'IO-VNBD S4 — Arterial Highway Circuit',
+    origin: [52.4025, -1.5054] as [number, number],
+    destination: [52.4383, -1.4305] as [number, number],
+    desc: 'Coventry UK • 88.42 km • 6248 turns • Real phone IMU'
   }
 ];
 

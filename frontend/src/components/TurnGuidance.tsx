@@ -15,16 +15,16 @@ export const TurnGuidance: React.FC<TurnGuidanceProps> = ({ telemetry, scenario 
 
   // Determine maneuver based on scenario and heading
   let ManeuverIcon = <IconArrowUp size={20} color={iconColor} />;
-  let maneuverText = isBlackout ? 'Underpass Tunnel GNSS Outage (IDR Active)' : 'Continue on Planned Road Corridor';
-  let roadName = 'Outer Ring Road (ISRO ISTRAC ➔ Indiranagar)';
+  let maneuverText = isBlackout ? 'GNSS Blackout — NaviSense IDR Active' : 'Continue on Planned Road Corridor';
+  let roadName = 'IO-VNBD S3b — Dense Urban Residential (Coventry)';
   let distanceToTurn = isBlackout ? 'GNSS DENIED • IDR TRACKING' : 'IN 400 M';
 
-  if (scenario?.id === 'delhi') {
-    roadName = 'NH48 Expressway / Sardar Patel Marg';
-    maneuverText = isBlackout ? 'Aerocity Tunnel Outage (IDR Active)' : 'Follow NH48 toward Aerocity Gateway';
-  } else if (scenario?.id === 'chandigarh') {
-    roadName = 'Jan Marg ➔ Madhya Marg Corridor';
-    maneuverText = isBlackout ? 'Canopy Canyon Outage (IDR Active)' : 'Continue on Jan Marg toward Sector 35';
+  if (scenario?.id === 's1') {
+    roadName = 'IO-VNBD S1 — Mixed Urban-Suburban (Coventry)';
+    maneuverText = isBlackout ? 'GNSS Blackout — NaviSense IDR Active' : 'Follow suburban arterial corridor';
+  } else if (scenario?.id === 's4') {
+    roadName = 'IO-VNBD S4 — Arterial Highway Circuit (Coventry)';
+    maneuverText = isBlackout ? 'GNSS Blackout — NaviSense IDR Active' : 'Follow dual carriageway ring road';
   }
 
   // Speed limit for road

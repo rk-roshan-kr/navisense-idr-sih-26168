@@ -210,7 +210,7 @@ async def websocket_telemetry_stream(websocket: WebSocket):
                 elif cmd == "set_speed":
                     runtime.playback_speed = float(data.get("speed", 1.0))
                 elif cmd == "select_scenario":
-                    s_id = data.get("scenario_id", "bangalore")
+                    s_id = data.get("scenario_id", "s3b")
                     runtime.is_playing = False
                     runtime.load_scenario(s_id)
                     print(f"[WS] Switched scenario to: {s_id}")

@@ -29,11 +29,11 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Option 2: Choose 2 Points on Map state
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('bangalore');
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('s3b');
   const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(ROUTE_PRESETS[0].origin);
   const [customDestination, setCustomDestination] = useState<[number, number] | null>(ROUTE_PRESETS[0].destination);
   const [customRoutePath, setCustomRoutePath] = useState<[number, number][]>([]);
-  const [customStatusMsg, setCustomStatusMsg] = useState('Bangalore: ISRO ISTRAC to Indiranagar Flat loaded.');
+  const [customStatusMsg, setCustomStatusMsg] = useState('IO-VNBD S3b: Dense Urban Residential (Coventry) loaded.');
 
   const wsRef = useRef<WebSocket | null>(null);
   const customSimRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
@@ -68,7 +68,7 @@ export const App: React.FC = () => {
   };
 
   const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string, id?: string) => {
-    const targetId = id ?? 'bangalore';
+    const targetId = id ?? 's3b';
     setSelectedPresetId(targetId);
     setCustomOrigin(origin);
     setCustomDestination(dest);
@@ -112,9 +112,9 @@ export const App: React.FC = () => {
     }
   };
 
-  // Automatically initialize with Bangalore ISRO 2-Point Road Corridor on launch
+  // Automatically initialize with IO-VNBD S3b session on launch
   useEffect(() => {
-    handleSelectPresetById('bangalore');
+    handleSelectPresetById('s3b');
   }, []);
 
   // Fetch scenarios list on load
