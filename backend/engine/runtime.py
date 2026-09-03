@@ -4,6 +4,7 @@ Connects real PyTorch neural model, state estimator, and road network to live st
 """
 
 import sys, json, time, math
+import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -26,47 +27,57 @@ from backend.engine.telemetry_schema import (
     TelemetryPacket, LatLon, GroundTruthTelemetry, TechnicalProof, ScenarioInfo
 )
 
+# IO-VNBD Dataset base path
+_IOVNBD_BASE = ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/S (Driver A)"
+
 SCENARIOS = {
-    "bangalore": {
-        "id": "bangalore",
-        "name": "Bangalore: ISRO Tracking Centre -> Indiranagar Flat",
-        "city": "Bengaluru, Karnataka",
-        "origin": [13.0334, 77.5186],
-        "destination": [12.9780, 77.6400],
-        "file": str(ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/Y (Driver D)/Y1/S-Y1.csv"),
-        "description": "17.4 km along Outer Ring Road • Simulated Underpass GPS Lockdown",
+    # S3b: Dense urban residential, Coventry UK — 3.77 km, 840 turns, high stop frequency
+    # Best for demo: short, lots of corners, traffic-light stops prove ZUPT works
+    "s3b": {
+        "id": "s3b",
+        "name": "IO-VNBD S3b — Dense Urban Residential",
+        "city": "Coventry, UK (Driver A)",
+        "v_file": str(_IOVNBD_BASE / "S3b/V-S3b.csv"),
+        "s_file": str(_IOVNBD_BASE / "S3b/S-S3b.csv"),
+        "description": "3.77 km • 840 turns • Dense residential corners + junction stops",
         "canonical_metrics": {
-            "distance": "17.4 km",
-            "drift": "0.65m (Sub-meter)",
-            "lockdown": "Underpass 35%-70%"
+            "distance": "3.77 km",
+            "turns": "840 heading changes",
+            "max_speed": "44.7 km/h",
+            "stop_pct": "9.4% stopped",
+            "total_yaw": "8,269°"
         }
     },
-    "delhi": {
-        "id": "delhi",
-        "name": "Delhi: Connaught Place -> Aerocity Gateway",
-        "city": "New Delhi",
-        "origin": [28.6315, 77.2167],
-        "destination": [28.5521, 77.1215],
-        "file": str(ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/S (Driver A)/S1/S-S1.csv"),
-        "description": "15.5 km along NH48 Expressway • Simulated Airport Tunnel GPS Lockdown",
+    # S1: Mixed urban-suburban, Coventry UK — 37.95 km, 4250 turns, wide speed range
+    "s1": {
+        "id": "s1",
+        "name": "IO-VNBD S1 — Mixed Urban-Suburban",
+        "city": "Coventry, UK (Driver A)",
+        "v_file": str(_IOVNBD_BASE / "S1/V-S1.csv"),
+        "s_file": str(_IOVNBD_BASE / "S1/S-S1.csv"),
+        "description": "37.95 km • 4250 turns • Urban streets → suburban arterials → dual carriageway",
         "canonical_metrics": {
-            "distance": "15.5 km",
-            "drift": "0.72m (Sub-meter)",
-            "lockdown": "Airport Tunnel 30%-65%"
+            "distance": "37.95 km",
+            "turns": "4250 heading changes",
+            "max_speed": "93.8 km/h",
+            "stop_pct": "11.3% stopped",
+            "total_yaw": "47,885°"
         }
     },
-    "chandigarh": {
-        "id": "chandigarh",
-        "name": "Chandigarh: Sector 1 Capitol -> Sector 35 Hub",
-        "city": "Chandigarh",
-        "origin": [30.7525, 76.8066],
-        "destination": [30.7240, 76.7670],
-        "file": str(ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/Vta (Driver E)/Vta01a/S-Vta1a.csv"),
-        "description": "5.6 km along Jan Marg & Madhya Marg • Canopy Canyon GPS Lockdown",
+    # S4: Arterial highway, Coventry UK — 88.42 km, 6248 turns, high speed sections
+    "s4": {
+        "id": "s4",
+        "name": "IO-VNBD S4 — Arterial Highway Circuit",
+        "city": "Coventry, UK (Driver A)",
+        "v_file": str(_IOVNBD_BASE / "S4/V-S4.csv"),
+        "s_file": str(_IOVNBD_BASE / "S4/S-S4.csv"),
+        "description": "88.42 km • 6248 turns • High-speed dual carriageways + ring road",
         "canonical_metrics": {
-            "distance": "5.6 km",
-            "drift": "0.58m (Sub-meter)",
-            "lockdown": "Canopy Canyon 40%-75%"
+            "distance": "88.42 km",
+            "turns": "6248 heading changes",
+            "max_speed": "109.6 km/h",
+            "stop_pct": "17.9% stopped",
+            "total_yaw": "68,832°"
         }
     }
 }
@@ -89,8 +100,11 @@ class NaviSenseRuntime:
         self.norm_mean = np.array(norm_info["mean"], dtype=np.float32)
         self.norm_std  = np.array(norm_info["std"],  dtype=np.float32)
 
-        # Active state (Default to Bangalore ISRO)
-        self.current_scenario_id = "bangalore"
+        # Store base model initial state so adapter can be reset per-scenario
+        self._base_model_state = {k: v.cpu().clone() for k, v in self.base_model.state_dict().items()}
+
+        # Active state
+        self.current_scenario_id = "s3b"
         self.seg_data = None
         self.adapter = None
         self.estimator = None
@@ -111,155 +125,67 @@ class NaviSenseRuntime:
         self.reconverged = False
 
         # Load default preset corridor
-        self.load_scenario("bangalore")
+        self.load_scenario("s3b")
 
     def load_scenario(self, scenario_id: str):
         if scenario_id not in SCENARIOS:
-            scenario_id = "bangalore"
+            scenario_id = "s3b"
         self.current_scenario_id = scenario_id
         cfg = SCENARIOS[scenario_id]
 
-        print(f"[RUNTIME] Loading Indian Preset Corridor '{cfg['name']}'...")
-        preset_file = ROOT_DIR / "frontend/src/utils/indianPresetRoutes.json"
-        with open(preset_file, "r", encoding="utf-8") as f:
-            all_routes = json.load(f)
-            preset_data = all_routes.get(scenario_id, all_routes["bangalore"])
+        print(f"[RUNTIME] Loading IO-VNBD session '{cfg['name']}'...")
 
-        raw_coords = preset_data["coordinates"]
+        # ── Reset adapter to base model weights (fresh calibration every session) ───────
+        # This guarantees the adapter has NOT seen this session's data before
+        self.adapter = PersonalizationAdapter(
+            self.base_model, norm_mean=self.norm_mean, norm_std=self.norm_std, latent_dim=16
+        ).to(self.device)
+        # Restore frozen base state so adapt_step starts from zero personalization
+        self.base_model.load_state_dict(self._base_model_state)
+        print(f"[RUNTIME] Adapter reset to base weights (zero prior personalization)")
 
-        # Interpolate coordinates to 10 Hz (0.1s dt) at realistic road speeds
-        interp_lat = []
-        interp_lon = []
-        interp_head = []
-        interp_spd = []
+        # ── Load real GPS ground truth from V-*.csv ──────────────────────────────
+        # col2=Latitude, col3=Longitude, col4=Velocity km/h, col5=Heading deg
+        v_df = pd.read_csv(cfg['v_file'], encoding='latin-1', usecols=[2, 3, 4, 5], header=0)
+        v_df.columns = ['lat', 'lon', 'spd_kmh', 'head_deg']
+        v_df = v_df.dropna().reset_index(drop=True)
 
-        # Pre-compute all segment bearings so heading can be interpolated between segments (C002)
-        seg_bearings = []
-        for k in range(len(raw_coords) - 1):
-            p1 = raw_coords[k]
-            p2 = raw_coords[k + 1]
-            d_lat2 = (p2[0] - p1[0]) * 111139.0
-            d_lon2 = (p2[1] - p1[1]) * 111139.0 * math.cos(math.radians((p1[0] + p2[0]) / 2.0))
-            seg_bearings.append((math.degrees(math.atan2(d_lon2, d_lat2)) + 360.0) % 360.0)
+        self.can_lat   = v_df['lat'].values.astype(np.float64)
+        self.can_lon   = v_df['lon'].values.astype(np.float64)
+        self.can_head  = v_df['head_deg'].values.astype(np.float32)
+        self.can_speed = (v_df['spd_kmh'].values / 3.6).astype(np.float32)   # km/h → m/s
+        self.total_steps = len(self.can_lat)
 
-        for k in range(len(raw_coords) - 1):
-            p1 = raw_coords[k]
-            p2 = raw_coords[k + 1]
-            d_lat = (p2[0] - p1[0]) * 111139.0
-            d_lon = (p2[1] - p1[1]) * 111139.0 * math.cos(math.radians((p1[0] + p2[0]) / 2.0))
-            dist = math.hypot(d_lat, d_lon)
-            # C001 FIX: use estimated speed at this segment start (not fixed 1.38 = 50 km/h)
-            seg_spd_est = 13.8 + math.sin(len(interp_lat) * 0.05) * 1.2
-            sub_steps = max(1, int(round(dist / (seg_spd_est * self.dt))))
-            h_curr = seg_bearings[k]
-            h_next = seg_bearings[k + 1] if k + 1 < len(seg_bearings) else h_curr
-            # C002 FIX: interpolate heading between consecutive segment bearings (eliminates staircase)
-            # Use shortest angular path to avoid wrap-around jumps
-            dh = ((h_next - h_curr + 180.0) % 360.0) - 180.0
+        # ── Load real phone sensor data from S-*.csv ──────────────────────────────
+        # col9-11=Accel(x,y,z), col15-17=Gyro(yaw,pitch,roll), col18-20=Mag(x,y,z)
+        s_df = pd.read_csv(cfg['s_file'], encoding='latin-1', usecols=[9,10,11,15,16,17,18,19,20], header=0)
+        s_df = s_df.dropna().reset_index(drop=True)
+        n_align = min(self.total_steps, len(s_df))
 
-            for s in range(sub_steps):
-                frac = s / float(sub_steps)
-                interp_lat.append(p1[0] + frac * (p2[0] - p1[0]))
-                interp_lon.append(p1[1] + frac * (p2[1] - p1[1]))
-                interp_head.append((h_curr + frac * dh + 360.0) % 360.0)
-                interp_spd.append(13.8 + math.sin(len(interp_lat) * 0.05) * 1.2)
+        # Trim both arrays to same length (V and S files should match; align to shorter)
+        self.can_lat   = self.can_lat[:n_align]
+        self.can_lon   = self.can_lon[:n_align]
+        self.can_head  = self.can_head[:n_align]
+        self.can_speed = self.can_speed[:n_align]
+        self.total_steps = n_align
 
-        interp_lat.append(raw_coords[-1][0])
-        interp_lon.append(raw_coords[-1][1])
-        interp_head.append(interp_head[-1] if interp_head else 0.0)
-        interp_spd.append(13.8)
+        imu_arr = s_df.values[:n_align].T.astype(np.float32)   # (9, N)
+        # Sanitize NaNs per row
+        for r in range(imu_arr.shape[0]):
+            mask = np.isnan(imu_arr[r])
+            if mask.any():
+                imu_arr[r, mask] = float(np.nanmean(imu_arr[r]))
 
-        # Smooth heading transitions using angular vector convolution (avoids instantaneous jump spikes)
-        rad_h = np.radians(np.array(interp_head, dtype=np.float32))
-        win = 25
-        sin_sm = np.convolve(np.sin(rad_h), np.ones(win) / win, mode='same')
-        cos_sm = np.convolve(np.cos(rad_h), np.ones(win) / win, mode='same')
-        smoothed_head = (np.degrees(np.arctan2(sin_sm, cos_sm)) + 360.0) % 360.0
+        # In IO-VNBD, phone is mounted sideways in the car:
+        #   row 3 = gx = phone 'Yaw'   → cross-axis noise
+        #   row 4 = gy = phone 'Pitch' → 0.93 corr with vehicle yaw rate  ← ACTUAL HEADING SIGNAL
+        #   row 5 = gz = phone 'Roll'  → minor axis
+        # Our heading integrator reads row 5 as wz (yaw rate). Swap rows 4↔5.
+        imu_arr[[4, 5]] = imu_arr[[5, 4]]
+        self.raw_imu = imu_arr
 
-        self.can_lat = np.array(interp_lat, dtype=np.float64)
-        self.can_lon = np.array(interp_lon, dtype=np.float64)
-        self.can_head = smoothed_head.astype(np.float32)
-        self.can_speed = np.array(interp_spd, dtype=np.float32)
-        self.total_steps = len(self.can_speed)
-
-        # ── Realistic Urban Speed Profile ────────────────────────────────────
-        # Replace the flat ~50 km/h sine with layered variation (30–65 km/h range)
-        # reflecting actual Indian urban driving: traffic lights, acceleration zones, curves
-        N = self.total_steps
-        t_norm = np.linspace(0, 1, N, dtype=np.float32)
-        speed_profile = (
-            13.8                                                          # 50 km/h base
-            + 3.0  * np.sin(2 * np.pi * t_norm * 6).astype(np.float32)  # ±11 km/h traffic-light cycle
-            + 1.5  * np.sin(2 * np.pi * t_norm * 18 + 0.8).astype(np.float32)  # ±5 km/h medium
-            + 0.7  * np.sin(2 * np.pi * t_norm * 45 + 1.5).astype(np.float32)  # ±2.5 km/h fine
-        )
-        speed_profile = np.clip(speed_profile, 3.0, 19.4)  # 11–70 km/h hard limits
-
-        # Startup: 0 → cruising in first 8 seconds (car starts from standstill)
-        RAMP = min(80, N // 8)
-        ramp_up   = np.sin(np.linspace(0, np.pi / 2, RAMP, dtype=np.float32)) ** 1.2
-        ramp_down = np.sin(np.linspace(np.pi / 2, 0, RAMP, dtype=np.float32)) ** 1.2
-        speed_profile[:RAMP]  *= ramp_up     # smooth sin-curve acceleration
-        speed_profile[-RAMP:] *= ramp_down   # smooth sin-curve deceleration to 0
-
-        self.can_speed = speed_profile
-
-
-        # ── IMU Noise calibrated from real IO-VNBD S-S1 dataset ─────────────
-        # Measured from S-S1.csv (Driver A, Session 1):
-        #   ax std=1.060 m/s², ay std=1.066 m/s², az std=0.513 m/s²
-        #   gx(yaw) std=0.100 rad/s, gy(pitch) std=0.142 rad/s, gz(roll) std=0.052 rad/s
-        #   Sample rate: 100ms ±0.8ms (matches our dt=0.1s exactly)
-        # Previous values were 50x-3x too small: neural net saw distribution it was NEVER trained on
-
-        # Deterministic physics signals from route geometry
-        ax = np.clip(np.gradient(self.can_speed) / self.dt, -3.0, 3.0)  # longitudinal accel
-        rad_head = np.radians(self.can_head)
-        d_head = np.diff(np.unwrap(rad_head), prepend=rad_head[0])
-        # Clip at +-1.5 rad/s: covers all realistic urban turns (min radius ~9m at 50 km/h)
-        gyaw = np.clip(d_head / self.dt, -1.5, 1.5)
-        ay = np.clip(self.can_speed * gyaw, -8.0, 8.0)  # lateral accel = v * omega
-        az = np.full_like(ax, 9.81)                      # gravity on z axis
-
-        rng = np.random.default_rng(42)
-
-
-        # Accelerometer noise — real phones have 1.0+ m/s² vibration from road/engine
-        noise_ax = rng.normal(0, 1.06, size=self.total_steps)
-        noise_ay = rng.normal(0, 1.07, size=self.total_steps)
-        noise_az = rng.normal(0, 0.51, size=self.total_steps)
-
-        # Gyroscope noise — measured from real dataset
-        # gx channel (phone 'Yaw'): real std=0.100 rad/s
-        # gy channel (phone 'Pitch'): real std=0.142 rad/s — NOTE: in IO-VNBD, pitch
-        #   has 0.93 correlation with vehicle yaw rate (phone mounted sideways in car)
-        # gz channel (phone 'Roll'): real std=0.052 rad/s
-        # Our row5=gz carries the actual route yaw rate; rows 3,4 add realistic cross-axis noise.
-        ay_clean = self.can_speed * gyaw  # raw lateral accel before noise (for coupling)
-        noise_gx = rng.normal(0, 0.100, size=self.total_steps) + 0.05 * ay_clean / 9.81
-        noise_gy = rng.normal(0, 0.142, size=self.total_steps) + 0.03 * ax / 9.81
-        noise_gz = rng.normal(0, 0.052, size=self.total_steps)  # on top of actual gyaw
-
-        # Magnetometer noise — measured from real dataset (mx/my/mz)
-        # Real dataset: mx std≈12.3 µT, my std≈2.9 µT, mz std≈13.0 µT
-        # These are non-zero and the model may use them, feed realistic values
-        noise_mx = rng.normal(-15.9, 12.3, size=self.total_steps)
-        noise_my = rng.normal(-27.9, 2.9,  size=self.total_steps)
-        noise_mz = rng.normal( 17.0, 13.0, size=self.total_steps)
-
-        self.raw_imu = np.stack([
-            (ax + noise_ax).astype(np.float32),           # row 0: ax (m/s²)
-            (ay + noise_ay).astype(np.float32),           # row 1: ay lateral (m/s²)
-            (az + noise_az).astype(np.float32),           # row 2: az gravity+vibration (m/s²)
-            noise_gx.astype(np.float32),                  # row 3: gx phone-Yaw (rad/s)
-            noise_gy.astype(np.float32),                  # row 4: gy phone-Pitch (rad/s, corr w/ veh yaw in real data)
-            (gyaw + noise_gz).astype(np.float32),         # row 5: gz route yaw rate + noise ← DRIVES HEADING
-            noise_mx.astype(np.float32),                  # row 6: mx (µT)
-            noise_my.astype(np.float32),                  # row 7: my (µT)
-            noise_mz.astype(np.float32)                   # row 8: mz (µT)
-        ], axis=0)
-
-
+        print(f"[RUNTIME] Real data loaded: {self.total_steps:,} samples ({self.total_steps * self.dt / 60:.1f} min | {float(np.sum(self.can_speed * self.dt)) / 1000:.2f} km)")
+        print(f"[RUNTIME] GPS bbox: lat [{self.can_lat.min():.5f}, {self.can_lat.max():.5f}]  lon [{self.can_lon.min():.5f}, {self.can_lon.max():.5f}]")
         # WGS84 projection
         self.projector = WGS84LocalProjector(self.can_lat[0], self.can_lon[0])
         gt_e, gt_n = self.projector.geodetic_to_enu(self.can_lat, self.can_lon)
