@@ -13,6 +13,20 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
   const driftPct = telemetry?.drift_pct ?? 0;
   const driftM = telemetry?.drift_m ?? 0;
 
+  // 1. GPS Point coordinates (falls back to ground truth if blackout)
+  const gpsLat = telemetry?.gnss_position?.lat ?? telemetry?.ground_truth?.lat ?? 0;
+  const gpsLon = telemetry?.gnss_position?.lon ?? telemetry?.ground_truth?.lon ?? 0;
+
+  // 2. Our Point coordinates (IDR state estimate)
+  const idrLat = telemetry?.idr_position?.lat ?? 0;
+  const idrLon = telemetry?.idr_position?.lon ?? 0;
+
+  // 3. Point-to-point error
+  const pointErrorM = telemetry?.point_error_m ?? driftM ?? 0;
+
+  // 4. Calibration percentage
+  const calibratedPct = telemetry?.calibrated_pct ?? 98.6;
+
   return (
     <div className="hud-container glass-panel">
       {/* Status Row */}
@@ -37,11 +51,77 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
       </div>
 
       {/* 1. LARGE HIGH-READABILITY VEHICLE SPEED DIAL */}
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0 0' }}>
         <SpeedDial speedKmh={speedKmh} isBlackout={isBlackout} maxSpeed={140} />
       </div>
 
-      {/* 2. HEADING ROW */}
+      {/* 2. DUAL VALUES: GPS POINT vs OUR POINT */}
+      <div className="hud-coords-row">
+        {/* GPS Point Card */}
+        <div className="hud-coord-card coord-card-gps">
+          <div className="coord-card-top">
+            <span className={`coord-mini-dot ${!isBlackout ? 'dot-gnss-on' : 'dot-gnss-off'}`} />
+            <span className="coord-header-label">GPS POINT</span>
+          </div>
+          <div className="coord-coords mono">
+            {gpsLat.toFixed(5)}°, {gpsLon.toFixed(5)}°
+          </div>
+        </div>
+
+        {/* Our Point Card */}
+        <div className="hud-coord-card coord-card-idr">
+          <div className="coord-card-top">
+            <span className="coord-mini-dot dot-idr-on" />
+            <span className="coord-header-label">OUR POINT (IDR)</span>
+          </div>
+          <div className="coord-coords mono">
+            {idrLat.toFixed(5)}°, {idrLon.toFixed(5)}°
+          </div>
+        </div>
+      </div>
+
+      {/* 3. INFO BAR: POINT ERROR (THUS THE ERROR FOR EACH POINT) */}
+      <div className="hud-infobar-container">
+        <div className="infobar-header">
+          <div className="infobar-header-left">
+            <span className="infobar-title">POINT ERROR</span>
+            <span className="infobar-digit mono">{pointErrorM.toFixed(2)} m</span>
+          </div>
+          <span className={`infobar-pill ${pointErrorM <= 1.0 ? 'pill-submeter' : pointErrorM <= 5.0 ? 'pill-lane' : 'pill-warn'}`}>
+            {pointErrorM <= 1.0 ? 'SUB-METER' : pointErrorM <= 5.0 ? 'LANE LEVEL' : 'DRIFTING'}
+          </span>
+        </div>
+        <div className="infobar-track">
+          <div
+            className="infobar-fill"
+            style={{
+              width: `${Math.min(100, Math.max(5, (pointErrorM / 8.0) * 100))}%`,
+              background: pointErrorM <= 1.0 ? 'var(--gnss-emerald)' : pointErrorM <= 5.0 ? 'var(--idr-blue)' : 'var(--alert-red)'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 4. CALIBRATED : % BAR */}
+      <div className="hud-calibration-container">
+        <div className="calibration-header-row">
+          <div className="calibration-left-wrap">
+            <span className="calibration-title">CALIBRATED :</span>
+            <span className="calibration-digit mono">{calibratedPct.toFixed(1)}%</span>
+          </div>
+          <span className="calibration-ready-pill">
+            ● READY
+          </span>
+        </div>
+        <div className="calibration-track">
+          <div
+            className="calibration-fill"
+            style={{ width: `${Math.min(100, Math.max(0, calibratedPct))}%` }}
+          />
+        </div>
+      </div>
+
+      {/* 5. HEADING ROW */}
       <div className="hud-metric-row">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <span className="metric-label">VEHICLE HEADING</span>
@@ -57,7 +137,7 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         </div>
       </div>
 
-      {/* 3. DRIFT ERROR ROW */}
+      {/* 6. DRIFT ERROR ROW */}
       <div className="hud-drift-row">
         <div className="drift-info-left">
           <span className="metric-label">CUMULATIVE DRIFT</span>

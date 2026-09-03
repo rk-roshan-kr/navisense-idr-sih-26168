@@ -328,6 +328,203 @@ html, body, #root {
   border: 1px solid #e2e8f0;
 }
 
+/* 2 Coordinate Cards: GPS Point & Our Point */
+.hud-coords-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.hud-coord-card {
+  padding: 8px 10px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coord-card-gps {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.coord-card-idr {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.coord-card-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.coord-mini-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.coord-header-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #475569;
+}
+
+.coord-coords {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 1 Info Bar: Point Error (Deviation) */
+.hud-infobar-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.infobar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.infobar-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.infobar-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.infobar-digit {
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.infobar-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.pill-submeter {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.pill-lane {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.pill-warn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.infobar-track {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.infobar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+/* Calibrated : % Bar */
+.hud-calibration-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calibration-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calibration-left-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.calibration-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.calibration-digit {
+  font-size: 14px;
+  font-weight: 900;
+  color: #059669;
+}
+
+.calibration-ready-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.calibration-track {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.calibration-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
 .hud-metric-row {
   display: flex;
   align-items: center;

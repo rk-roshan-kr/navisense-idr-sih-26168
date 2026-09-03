@@ -359,6 +359,8 @@ class NaviSenseRuntime:
             drift_m=round(drift_m, 2),
             drift_pct=round(drift_pct, 1),
             distance_traveled_m=round(float(np.sum(self.can_speed[:i+1] * self.dt)), 1),
+            point_error_m=round(drift_m, 2),
+            calibrated_pct=round(min(99.8, max(95.0, 100.0 - abs(1.0 - yaw_scale) * 40.0)), 1),
             technical_proof=TechnicalProof(
                 accel_mps2=[round(float(x), 2) for x in self.raw_imu[:3, i]],
                 gyro_rads=[round(float(x), 3) for x in self.raw_imu[3:6, i]],

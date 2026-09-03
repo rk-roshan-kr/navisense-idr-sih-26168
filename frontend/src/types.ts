@@ -51,6 +51,8 @@ export interface TelemetryPacket {
   drift_m: number;
   drift_pct: number;
   distance_traveled_m: number;
+  point_error_m?: number;
+  calibrated_pct?: number;
   
   technical_proof: TechnicalProof;
 }

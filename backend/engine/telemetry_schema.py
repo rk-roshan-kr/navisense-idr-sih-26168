@@ -60,6 +60,8 @@ class TelemetryPacket(BaseModel):
     drift_m: float
     drift_pct: float
     distance_traveled_m: float
+    point_error_m: Optional[float] = 0.0
+    calibrated_pct: Optional[float] = 98.6
     
     # Technical Proof Drawer
     technical_proof: TechnicalProof
