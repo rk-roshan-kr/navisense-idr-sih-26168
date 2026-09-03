@@ -70,18 +70,25 @@ export const App: React.FC = () => {
     setCustomStatusMsg('Origin set from vehicle. Now click on the map to set Destination (Point B)');
   };
 
-  const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string) => {
+  const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string, id?: string) => {
     if (customTimerRef.current) clearInterval(customTimerRef.current);
     customSimRef.current.reset();
     setCustomOrigin(origin);
     setCustomDestination(dest);
     setCustomStatusMsg(`Calculating route for ${name}...`);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && id) {
+      wsRef.current.send(JSON.stringify({ command: 'select_scenario', scenario_id: id }));
+    }
+
     try {
       const path = await customSimRef.current.fetchRoute(origin, dest);
       setCustomRoutePath(path);
       setCustomStatusMsg(`${name} loaded. Click START SIMULATION to begin navigation!`);
-      const firstPkt = customSimRef.current.step();
-      if (firstPkt) setTelemetry(firstPkt);
+      if (!isConnected) {
+        const firstPkt = customSimRef.current.step();
+        if (firstPkt) setTelemetry(firstPkt);
+      }
     } catch (err: any) {
       setCustomStatusMsg(`Routing error: ${err.message}`);
     }
@@ -90,7 +97,7 @@ export const App: React.FC = () => {
   const handleSelectPresetById = (presetId: string) => {
     setSelectedPresetId(presetId);
     const target = ROUTE_PRESETS.find((p) => p.id === presetId) || ROUTE_PRESETS[0];
-    handleSelectPreset(target.origin, target.destination, target.name);
+    handleSelectPreset(target.origin, target.destination, target.name, target.id);
   };
 
   const handleClearCustomPoints = () => {
@@ -192,14 +199,15 @@ export const App: React.FC = () => {
 
   // Control Actions
   const handleToggleBlackout = () => {
-    if (appMode === 'CUSTOM_ROUTE') {
+    // 1. Notify Python runtime over WebSocket
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'toggle_blackout' }));
+    }
+    // 2. Offline client fallback ONLY when disconnected
+    if (!isConnected) {
       customSimRef.current.toggleBlackout();
       const nextPkt = customSimRef.current.step();
       if (nextPkt) setTelemetry(nextPkt);
-    } else {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ command: 'toggle_blackout' }));
-      }
     }
   };
 
@@ -233,7 +241,10 @@ export const App: React.FC = () => {
       body: JSON.stringify({ action: nextState ? 'play' : 'pause' })
     }).catch(console.error);
 
-    if (appMode === 'CUSTOM_ROUTE') {
+    // CRITICAL: Only run the local client interval if the backend is DISCONNECTED.
+    // If backend is connected, the Python runtime streams the 10 Hz telemetry over WebSocket!
+    // Running both causes them to fight and makes the vehicle teleport radically back and forth.
+    if (!isConnected) {
       if (nextState) {
         customTimerRef.current = setInterval(() => {
           const pkt = customSimRef.current.step();
@@ -247,6 +258,8 @@ export const App: React.FC = () => {
       } else {
         if (customTimerRef.current) clearInterval(customTimerRef.current);
       }
+    } else {
+      if (customTimerRef.current) clearInterval(customTimerRef.current);
     }
   };
 

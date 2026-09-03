@@ -251,9 +251,13 @@ class NaviSenseRuntime:
                 float(self.can_speed[i]), float(self.can_head[i]), dt=self.dt
             )
 
-        self.current_step = adapt_samples
-        # Re-anchor model state to current vehicle location so it doesn't carry 180s open-loop drift
+        # Start navigation cleanly from Point A (start of the corridor route)
+        self.current_step = self.window
         meas_e, meas_n = self.projector.geodetic_to_enu(float(self.can_lat[self.current_step]), float(self.can_lon[self.current_step]))
+        self.estimator.x[0] = meas_e
+        self.estimator.x[1] = meas_n
+        self.estimator.x[2] = float(self.can_speed[self.current_step])
+        self.estimator.x[3] = np.radians(float(self.can_head[self.current_step]))
         self.estimator.x_model[0] = meas_e
         self.estimator.x_model[1] = meas_n
         self.estimator.x_model[2] = float(self.can_speed[self.current_step])
