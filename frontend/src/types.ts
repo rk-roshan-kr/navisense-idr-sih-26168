@@ -32,6 +32,10 @@ export interface TechnicalProof {
   off_road_prob?: number;
   road_layer?: number;
   is_on_service?: boolean;
+  // B1 vs B5 benchmark scorecard
+  b1_drift_m?: number;
+  b5_drift_m?: number;
+  improvement_factor?: number;
 }
 
 export interface TelemetryPacket {
@@ -44,6 +48,8 @@ export interface TelemetryPacket {
   gnss_position: LatLon | null;
   idr_position: LatLon;
   ground_truth: GroundTruthTelemetry;
+  b1_position?: LatLon | null;   // Raw INS position (orange trail) — present only during blackout
+  b1_drift_m?: number;           // B1 INS drift from ground truth
   
   speed_kmh: number;
   speed_mps: number;

@@ -20,6 +20,8 @@ from src.models.nn_models import UniversalMotionNet, PersonalizationAdapter
 from src.navigation.state_estimator import NavigationStateEstimator, WGS84LocalProjector
 from src.navigation.road_corridor import RoadCorridorNetwork, apply_road_corridor_constraint
 from src.navigation.chunked_road_network import SpatialChunkizer, DynamicChunkManager
+from src.core.idr_core import InertialPropagator
+from backend.engine.dataset_loader import IOVNBDLoader
 from backend.engine.telemetry_schema import (
     TelemetryPacket, LatLon, GroundTruthTelemetry, TechnicalProof, ScenarioInfo
 )
@@ -95,6 +97,9 @@ class NaviSenseRuntime:
         self.projector = None
         self.road_network = None
         self.gt_enu = None
+
+        # IO-VNBD real sensor dataset for calibration window (Phase 2)
+        self.dataset_loader = IOVNBDLoader()
 
         # Playback control
         self.current_step = 0
@@ -282,9 +287,13 @@ class NaviSenseRuntime:
         optimizer = torch.optim.Adam([p for p in self.adapter.parameters() if p.requires_grad], lr=1e-3)
 
         print(f"[RUNTIME] Calibrating personalization adapter on {adapt_samples * 0.1:.0f}s GNSS window...")
+        if self.dataset_loader.available:
+            print(f"[RUNTIME] Using real IO-VNBD sensor data for calibration ({self.dataset_loader.N:,} samples available).")
         # C008 FIX: step 5→2 so turns are included in gradient updates (was skipping 4/5 of data)
         for i in range(self.window, adapt_samples, 2):
-            win_raw = self.raw_imu[:, i-self.window:i]
+            # Phase 2: use real IO-VNBD sensor window when available; else use synthesized
+            real_win = self.dataset_loader.get_window(i, self.window)
+            win_raw = real_win if real_win is not None else self.raw_imu[:, i-self.window:i]
             t_raw = torch.from_numpy(win_raw).unsqueeze(0).to(self.device)
             gps_spd = float(self.can_speed[i])
             h_diff = np.radians(self.can_head[i] - self.can_head[i-self.window])
@@ -338,6 +347,17 @@ class NaviSenseRuntime:
         self.off_road_prob = 0.0
         self.last_valid_normal = np.array([1.0, 0.0], dtype=np.float64)
         self.last_valid_ry = 0.0
+
+        # B1 Raw Strapdown INS propagator (InertialPropagator from idr_core.py)
+        # Synced to GPS truth during GNSS active; propagates freely during blackout.
+        # Used to show judges how badly raw INS diverges vs our B5 system.
+        self.b1_propagator = InertialPropagator()
+        self.b1_propagator.reset(
+            initial_pos_enu=[meas_e, meas_n, 0.0],
+            initial_heading_deg=float(self.can_head[self.current_step])
+        )
+        self.b1_drift_m = 0.0
+
         print(f"[RUNTIME] Ready at t={self.current_step * self.dt:.1f}s (PAUSED). User can click Play to begin!")
 
     def get_initial_packet(self) -> Optional[TelemetryPacket]:
@@ -373,6 +393,8 @@ class NaviSenseRuntime:
             ground_truth=GroundTruthTelemetry(
                 lat=true_lat, lon=true_lon, speed_kmh=round(true_spd_kmh, 1), heading_deg=round(true_head, 1)
             ),
+            b1_position=None,
+            b1_drift_m=0.0,
             speed_kmh=round(float(self.estimator.x[2] * 3.6), 1),
             speed_mps=round(float(self.estimator.x[2]), 2),
             heading_deg=round(float(np.degrees(self.estimator.x[3]) % 360.0), 1),
@@ -399,7 +421,10 @@ class NaviSenseRuntime:
                 chunk_active_tiles=len(self.chunk_manager.active_chunks),
                 off_road_prob=round(self.off_road_prob, 2),
                 road_layer=self.chunk_manager.current_layer,
-                is_on_service=self.chunk_manager.is_on_service
+                is_on_service=self.chunk_manager.is_on_service,
+                b1_drift_m=0.0,
+                b5_drift_m=round(drift_m, 2),
+                improvement_factor=1.0
             )
         )
 
@@ -561,6 +586,23 @@ class NaviSenseRuntime:
         else:
             bo_dist = 0.0
             bo_elapsed = 0.0
+
+        # ── B1 Raw Strapdown INS Update ───────────────────────────────────────
+        # During GNSS active: sync B1 to GPS truth (no visible drift yet)
+        # During blackout: let B1 propagate freely using raw gyro + Kalman speed
+        if not self.blackout_active:
+            b1_e, b1_n = self.projector.geodetic_to_enu(float(self.can_lat[i]), float(self.can_lon[i]))
+            self.b1_propagator.reset([b1_e, b1_n, 0.0], float(self.can_head[i]))
+            b1_lat = float(self.can_lat[i])
+            b1_lon = float(self.can_lon[i])
+            self.b1_drift_m = 0.0
+        else:
+            raw_yaw_rate = float(self.raw_imu[5, i])           # raw gyro, no adapter correction
+            b1_speed = max(0.0, float(self.estimator.x[2]))    # use Kalman speed as proxy
+            b1_pos, _ = self.b1_propagator.propagate(b1_speed, raw_yaw_rate, self.dt)
+            b1_lat, b1_lon = self.projector.enu_to_geodetic(b1_pos[0], b1_pos[1])
+            b1_drift_vec = np.array([b1_pos[0], b1_pos[1]]) - self.gt_enu[i]
+            self.b1_drift_m = float(np.linalg.norm(b1_drift_vec))
         # C021 FIX: unified drift_pct always uses drift_m / total_distance_traveled
         # Previously switched formula at GNSS restore causing a visible spike in judge scorecard
         cum_dist = float(np.sum(self.can_speed[:i+1] * self.dt))
@@ -581,6 +623,10 @@ class NaviSenseRuntime:
         speed_scale = float(self.adapter.vehicle_scale.item())
         yaw_scale = float(self.adapter.yaw_scale.item())
 
+        b5_drift_m = round(drift_m, 2)
+        b1_drift_rounded = round(self.b1_drift_m, 1)
+        improvement = round(self.b1_drift_m / max(0.5, drift_m), 1) if self.blackout_active else 1.0
+
         packet = TelemetryPacket(
             timestamp_s=round(current_time, 2),
             mode=mode,
@@ -592,10 +638,10 @@ class NaviSenseRuntime:
             ground_truth=GroundTruthTelemetry(
                 lat=true_lat, lon=true_lon, speed_kmh=round(true_spd_kmh, 1), heading_deg=round(true_head, 1)
             ),
+            b1_position=LatLon(lat=b1_lat, lon=b1_lon) if self.blackout_active else None,
+            b1_drift_m=b1_drift_rounded,
             speed_kmh=round(float(self.estimator.x[2] * 3.6), 1),
             speed_mps=round(float(self.estimator.x[2]), 2),
-            # C020 FIX: show GPS heading during GNSS active (not Kalman estimate)
-            # During blackout: show IDR Kalman heading; during GNSS active: show GPS truth
             heading_deg=round(float(np.degrees(self.estimator.x[3]) % 360.0) if self.blackout_active else true_head, 1),
             drift_m=round(drift_m, 2),
             drift_pct=round(drift_pct, 1),
@@ -620,7 +666,10 @@ class NaviSenseRuntime:
                 chunk_active_tiles=len(self.chunk_manager.active_chunks),
                 off_road_prob=round(self.off_road_prob, 2),
                 road_layer=self.chunk_manager.current_layer,
-                is_on_service=self.chunk_manager.is_on_service
+                is_on_service=self.chunk_manager.is_on_service,
+                b1_drift_m=b1_drift_rounded,
+                b5_drift_m=b5_drift_m,
+                improvement_factor=improvement
             )
         )
 

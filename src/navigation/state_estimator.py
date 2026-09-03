@@ -13,6 +13,7 @@ Provides:
 
 from dataclasses import dataclass
 import numpy as np
+from src.core.idr_core import IMUConditioner
 
 # WGS84 Constants
 WGS84_A = 6378137.0          # semi-major axis (metres)
@@ -125,6 +126,12 @@ class NavigationStateEstimator:
         self.zupt_candidate_ticks = 0
         self.zupt_min_ticks = 2
 
+        # IMU Conditioners (Component 4 from idr_core.py — suspension damping + pothole rejection)
+        # gz (yaw rate): gain=0.80 → τ ≈ 0.4s, fast enough for turns, damps road spikes
+        # ax (fwd accel): gain=0.85 → τ ≈ 0.57s, used in ZUPT accel variance
+        self.imu_cond_gz = IMUConditioner(filter_gain=0.80)
+        self.imu_cond_ax = IMUConditioner(filter_gain=0.85)
+
     def predict(self, motion_pred: dict, imu_raw: np.ndarray, dt: float = 0.1):
         """
         Prediction step using UniversalMotionNet / Adapter outputs.
@@ -192,8 +199,9 @@ class NavigationStateEstimator:
         # Blend: 70% direct gyro (immediate), 30% model window (stable on straights).
         # Both are de-biased with the same gyro bias x[9].
         if not is_still:
-            wz_instant = float(imu_raw[5, -1]) - bgz   # de-biased instantaneous yaw rate (rad/s)
-            gyro_step_dpsi = wz_instant * dt            # heading change this step from raw gyro
+            wz_raw = float(imu_raw[5, -1]) - bgz        # de-biased raw yaw rate (rad/s)
+            wz_instant = self.imu_cond_gz.condition(wz_raw)  # pothole-damped yaw rate
+            gyro_step_dpsi = wz_instant * dt             # heading change this step from conditioned gyro
             GYRO_WEIGHT = 0.70
             step_dpsi = GYRO_WEIGHT * gyro_step_dpsi + (1.0 - GYRO_WEIGHT) * model_step_dpsi
         else:

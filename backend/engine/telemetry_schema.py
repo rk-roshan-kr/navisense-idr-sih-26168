@@ -40,6 +40,10 @@ class TechnicalProof(BaseModel):
     off_road_prob: Optional[float] = 0.0
     road_layer: Optional[int] = 0
     is_on_service: Optional[bool] = False
+    # B1 vs B5 Benchmark Scorecard (populated during blackout)
+    b1_drift_m: Optional[float] = 0.0          # Raw INS drift vs ground truth
+    b5_drift_m: Optional[float] = 0.0          # NaviSense B5 drift vs ground truth
+    improvement_factor: Optional[float] = 1.0  # b1_drift_m / b5_drift_m
 
 class TelemetryPacket(BaseModel):
     timestamp_s: float
@@ -49,9 +53,10 @@ class TelemetryPacket(BaseModel):
     blackout_elapsed_s: float
     
     # Coordinates
-    gnss_position: Optional[LatLon] = None # None during blackout!
+    gnss_position: Optional[LatLon] = None  # None during blackout!
     idr_position: LatLon
     ground_truth: GroundTruthTelemetry
+    b1_position: Optional[LatLon] = None    # Raw INS (B1 baseline) — None during GNSS active
     
     # Primary Navigation Numbers (Instant 3-Second Comprehension)
     speed_kmh: float
@@ -62,6 +67,7 @@ class TelemetryPacket(BaseModel):
     distance_traveled_m: float
     point_error_m: Optional[float] = 0.0
     calibrated_pct: Optional[float] = 98.6
+    b1_drift_m: Optional[float] = 0.0      # B1 Raw INS drift from ground truth
     
     # Technical Proof Drawer
     technical_proof: TechnicalProof

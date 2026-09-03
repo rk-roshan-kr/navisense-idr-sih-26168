@@ -167,6 +167,58 @@ export const TechnicalProofDrawer: React.FC<TechnicalProofDrawerProps> = ({ tele
               </div>
             </div>
           </div>
+          {/* 6. B1 vs B5 Benchmark Comparison (BLACKOUT ONLY) */}
+          {blackout_active && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span className="drawer-section-title" style={{ margin: 0 }}>6. Benchmark Comparison (Live)</span>
+                <span className="badge-accepted" style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}>
+                  {p.improvement_factor?.toFixed(1) ?? '—'}× BETTER
+                </span>
+              </div>
+              <div className="glass-subtle" style={{ padding: '10px 12px' }}>
+                {/* B1 Raw INS bar */}
+                <div style={{ marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span className="proof-key mono" style={{ color: '#fb923c' }}>🟠 B1 Raw INS</span>
+                    <span className="proof-val mono" style={{ color: '#fb923c', fontWeight: 800 }}>
+                      {(p.b1_drift_m ?? 0).toFixed(1)} m
+                    </span>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${Math.min(100, ((p.b1_drift_m ?? 0) / Math.max(1, (p.b1_drift_m ?? 0))) * 100)}%`,
+                      background: 'linear-gradient(90deg, #f97316, #ef4444)',
+                      borderRadius: '4px',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+                {/* B5 NaviSense bar */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span className="proof-key mono" style={{ color: 'var(--idr-blue)' }}>🔵 NaviSense B5</span>
+                    <span className="proof-val mono" style={{ color: 'var(--idr-blue)', fontWeight: 800 }}>
+                      {(p.b5_drift_m ?? 0).toFixed(1)} m
+                    </span>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${Math.min(100, ((p.b5_drift_m ?? 0) / Math.max(1, (p.b1_drift_m ?? 0))) * 100)}%`,
+                      background: 'linear-gradient(90deg, #3b82f6, #06b6d4)',
+                      borderRadius: '4px',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+                <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
+                  B1 diverges freely · B5 road-locked + AI corrected
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       )}

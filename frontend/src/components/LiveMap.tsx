@@ -39,8 +39,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   // Segmented MultiLineString coordinates (Guarantees zero green line across blackout and zero spiderweb jumps!)
   const gnssSegmentsRef = useRef<[number, number][][]>([]);
   const idrSegmentsRef = useRef<[number, number][][]>([]);
+  const b1SegmentsRef = useRef<[number, number][][]>([]);  // B1 Raw INS orange trail
   const lastGnssCoordRef = useRef<[number, number] | null>(null);
   const lastIdrCoordRef = useRef<[number, number] | null>(null);
+  const lastB1CoordRef = useRef<[number, number] | null>(null);  // B1 last point
 
   // DOM Markers for Start (A), Destination (B), Car, and Ghost
   const carMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -162,7 +164,20 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#1d4ed8', 'line-width': 3, 'line-opacity': 0.85 }
       });
 
-      // 5. Raw INS Divergence Ghost Trail (DESIGN.md: Rose #E11D48)
+      // 5. B1 Raw Strapdown INS Divergence Trail (Orange dashed — only shown during blackout)
+      map.addSource('b1-trail', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'b1-trail-line',
+        type: 'line',
+        source: 'b1-trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#f97316', 'line-width': 2.5, 'line-dasharray': [4, 3], 'line-opacity': 0.85 }
+      });
+
+      // 6. Legacy ghost-trail source (kept for compatibility, not visually used)
       map.addSource('ghost-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -172,7 +187,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         type: 'line',
         source: 'ghost-trail',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#e11d48', 'line-width': 2, 'line-dasharray': [3, 3], 'line-opacity': 0.7 }
+        paint: { 'line-color': '#e11d48', 'line-width': 0, 'line-opacity': 0 }
       });
     });
 
@@ -326,14 +341,19 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     gnssSegmentsRef.current = [];
     idrSegmentsRef.current = [];
+    b1SegmentsRef.current = [];
     lastGnssCoordRef.current = null;
     lastIdrCoordRef.current = null;
+    lastB1CoordRef.current = null;
 
     const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
     gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
     const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
     iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
+
+    const b1Src = mapRef.current.getSource('b1-trail') as maplibregl.GeoJSONSource;
+    b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
     if (scenario.road_polyline && scenario.road_polyline.length > 0) {
       const startPt = scenario.road_polyline[0];
@@ -374,8 +394,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       // Reset trail buffers for clean start in new city / scenario reset
       gnssSegmentsRef.current = [[currCoord]];
       idrSegmentsRef.current = [];
+      b1SegmentsRef.current = [];
       lastGnssCoordRef.current = currCoord;
       lastIdrCoordRef.current = null;
+      lastB1CoordRef.current = null;
       // C025 FIX: reset blackout state so first packet in new city isn't treated as mid-blackout
       prevBlackoutRef.current = false;
 
@@ -383,6 +405,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [[currCoord]] } });
       const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
       iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
+      const b1Src = mapRef.current.getSource('b1-trail') as maplibregl.GeoJSONSource;
+      b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
       mapRef.current.jumpTo({
         center: currCoord,
@@ -451,18 +475,40 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         geometry: { type: 'MultiLineString', coordinates: idrSegmentsRef.current }
       });
 
-      // Raw INS Ghost Divergence
-      if (showGhostBaseline) {
-        const rad = (heading_deg * Math.PI) / 180;
-        const t = blackout_elapsed_s;
-        const driftM = 0.5 * 0.22 * t * t;
-        const ghostLat = idr_position.lat + (driftM * Math.cos(rad + Math.PI / 2)) / 111320;
-        const ghostLon = idr_position.lon + (driftM * Math.sin(rad + Math.PI / 2)) / (111320 * Math.cos((idr_position.lat * Math.PI) / 180));
-        ghostMarkerRef.current?.setLngLat([ghostLon, ghostLat]);
-        ghostMarkerRef.current?.getElement().style.setProperty('display', 'flex');
-      } else {
-        ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
+      // B1 Raw INS Divergence Trail — uses b1_position from backend InertialPropagator
+      const b1Pos = telemetry.b1_position;
+      if (b1Pos) {
+        const b1Coord: [number, number] = [b1Pos.lon, b1Pos.lat];
+        const lastB1 = lastB1CoordRef.current;
+        const b1DistFromLast = lastB1 ? distM(lastB1, b1Coord) : Infinity;
+        const b1NeedNew =
+          b1SegmentsRef.current.length === 0 ||
+          !prevBlackoutRef.current ||         // first frame of blackout → fresh segment
+          b1DistFromLast > MAX_TRAIL_GAP_M;
+
+        if (b1NeedNew) {
+          b1SegmentsRef.current.push([b1Coord]);
+        } else {
+          b1SegmentsRef.current[b1SegmentsRef.current.length - 1].push(b1Coord);
+        }
+        lastB1CoordRef.current = b1Coord;
+
+        const b1Src = mapRef.current.getSource('b1-trail') as maplibregl.GeoJSONSource;
+        b1Src?.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'MultiLineString', coordinates: b1SegmentsRef.current }
+        });
       }
+      // Hide old ghost marker (replaced by b1-trail layer)
+      ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
+    } else {
+      // GNSS active — clear B1 trail (reset starts fresh on next blackout)
+      b1SegmentsRef.current = [];
+      lastB1CoordRef.current = null;
+      const b1Src = mapRef.current?.getSource('b1-trail') as maplibregl.GeoJSONSource;
+      b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
+      ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
     }
     prevBlackoutRef.current = blackout_active;
 
