@@ -32,15 +32,15 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
-  scenario,
+  scenario: _scenario,
   scenariosList: _scenariosList,
   onSelectScenario: _onSelectScenario,
   isConnected,
   isPlaying,
   onTogglePlay,
   onReset,
-  appMode,
-  onToggleMode,
+  appMode: _appMode,
+  onToggleMode: _onToggleMode,
   customStatusMsg: _customStatusMsg,
   onClearCustomPoints: _onClearCustomPoints,
   viewMode: _viewMode,
@@ -54,7 +54,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   return (
     <header className="swiss-header-bar">
-      {/* Left: Subdued Breadcrumb Navigation */}
+      {/* Left: Subdued Breadcrumb Navigation with 3 Preset Corridors */}
       <div className="header-left-zone">
         <div className="brand-dot" />
         <span className="brand-title-mono">NAVISENSE IDR</span>
@@ -63,28 +63,34 @@ export const TopBar: React.FC<TopBarProps> = ({
           value={selectedPresetId ?? 'bangalore'}
           onChange={(e) => onSelectPresetId && onSelectPresetId(e.target.value)}
           className="breadcrumb-select mono"
-          title="Select Active Road Corridor"
+          title="Select Active Road Corridor Preset"
         >
-          <option value="bangalore">Bangalore: ISRO ➔ Indiranagar (17.4 km)</option>
-          <option value="delhi">Delhi: Connaught Place ➔ Aerocity (15.5 km)</option>
-          <option value="chandigarh">Chandigarh: Sector 1 ➔ Sector 35 (5.6 km)</option>
+          <option value="bangalore">Bangalore: ISRO ISTRAC ➔ Indiranagar Flat (17.4 km)</option>
+          <option value="delhi">Delhi: Connaught Place ➔ Aerocity Gateway (15.5 km)</option>
+          <option value="chandigarh">Chandigarh: Sector 1 Capitol ➔ Sector 35 Hub (5.6 km)</option>
         </select>
       </div>
 
-      {/* Center: Segmented Mode Selector */}
+      {/* Center: 3 Preset Corridor Fast-Pills */}
       <div className="header-center-zone">
         <div className="segmented-switch">
           <button
-            onClick={() => onToggleMode('CUSTOM_ROUTE')}
-            className={`seg-btn ${appMode === 'CUSTOM_ROUTE' ? 'seg-active' : ''}`}
+            onClick={() => onSelectPresetId && onSelectPresetId('bangalore')}
+            className={`seg-btn ${(selectedPresetId ?? 'bangalore') === 'bangalore' ? 'seg-active' : ''}`}
           >
-            2-Point Navigation
+            Bangalore (ISRO)
           </button>
           <button
-            onClick={() => onToggleMode('CANONICAL_DATASET')}
-            className={`seg-btn ${appMode === 'CANONICAL_DATASET' ? 'seg-active' : ''}`}
+            onClick={() => onSelectPresetId && onSelectPresetId('delhi')}
+            className={`seg-btn ${selectedPresetId === 'delhi' ? 'seg-active' : ''}`}
           >
-            Dataset Benchmark
+            Delhi (CP ➔ Aerocity)
+          </button>
+          <button
+            onClick={() => onSelectPresetId && onSelectPresetId('chandigarh')}
+            className={`seg-btn ${selectedPresetId === 'chandigarh' ? 'seg-active' : ''}`}
+          >
+            Chandigarh (Sec 1 ➔ 35)
           </button>
         </div>
       </div>
@@ -98,7 +104,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </span>
 
         {/* Judge Scorecard */}
-        <JudgeScorecard currentDriftPct={currentDriftPct} currentScenarioId={scenario?.id} />
+        <JudgeScorecard currentDriftPct={currentDriftPct} currentScenarioId={selectedPresetId ?? 'bangalore'} />
 
         {/* Raw INS Ghost Toggle */}
         <button

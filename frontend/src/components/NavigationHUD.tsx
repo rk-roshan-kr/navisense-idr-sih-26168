@@ -44,13 +44,13 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         <div className="coord-item">
           <span className="coord-label">GPS FIX</span>
           <span className="coord-val mono">
-            {isBlackout ? 'DENIED' : `${gpsLat.toFixed(4)}°, ${gpsLon.toFixed(4)}°`}
+            {isBlackout ? 'DENIED' : `${gpsLat.toFixed(5)}°, ${gpsLon.toFixed(5)}°`}
           </span>
         </div>
         <div className="coord-item">
           <span className="coord-label">IDR EST</span>
           <span className="coord-val mono">
-            {idrLat !== 0 ? `${idrLat.toFixed(4)}°, ${idrLon.toFixed(4)}°` : 'STANDBY'}
+            {idrLat !== 0 ? `${idrLat.toFixed(5)}°, ${idrLon.toFixed(5)}°` : 'STANDBY'}
           </span>
         </div>
       </div>
@@ -66,13 +66,13 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         <div className="grid-cell">
           <span className="grid-key">ERROR MARGIN</span>
           <span className="grid-val mono">
-            {isBlackout ? `±${driftM.toFixed(1)}m` : `±${pointErrorM.toFixed(2)}m`}
+            {isBlackout ? `±${driftM.toFixed(1)}m` : `±${pointErrorM.toFixed(2)}m (Sub-meter)`}
           </span>
         </div>
         <div className="grid-cell">
           <span className="grid-key">CALIBRATED</span>
           <span className="grid-val mono">
-            {calibratedPct >= 90 ? `${calibratedPct.toFixed(1)}%` : `${calibratedPct.toFixed(1)}% ADAPT`}
+            {calibratedPct >= 90 ? `${calibratedPct.toFixed(1)}% (Custom)` : `${calibratedPct.toFixed(1)}% (Online)`}
           </span>
         </div>
         <div className="grid-cell">

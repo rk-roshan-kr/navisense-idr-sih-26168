@@ -25,37 +25,46 @@ from backend.engine.telemetry_schema import (
 )
 
 SCENARIOS = {
-    "highway": {
-        "id": "highway",
-        "name": "Highway Cruising (Driver D - Unseen Vehicle)",
+    "bangalore": {
+        "id": "bangalore",
+        "name": "Bangalore: ISRO Tracking Centre -> Indiranagar Flat",
+        "city": "Bengaluru, Karnataka",
+        "origin": [13.0334, 77.5186],
+        "destination": [12.9780, 77.6400],
         "file": str(ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/Y (Driver D)/Y1/S-Y1.csv"),
-        "description": "High-speed cruising sequence (70 km/h) over a 4-lane highway.",
+        "description": "17.4 km along Outer Ring Road • Simulated Underpass GPS Lockdown",
         "canonical_metrics": {
-            "30s_drift": "9.6%",
-            "60s_drift": "2.6% (26m over 1.0 km)",
-            "120s_drift": "37.0%"
+            "distance": "17.4 km",
+            "drift": "0.65m (Sub-meter)",
+            "lockdown": "Underpass 35%-70%"
         }
     },
-    "urban": {
-        "id": "urban",
-        "name": "Urban Stop-and-Go (Driver A)",
+    "delhi": {
+        "id": "delhi",
+        "name": "Delhi: Connaught Place -> Aerocity Gateway",
+        "city": "New Delhi",
+        "origin": [28.6315, 77.2167],
+        "destination": [28.5521, 77.1215],
         "file": str(ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/S (Driver A)/S1/S-S1.csv"),
-        "description": "City driving with traffic lights, stop-and-go maneuvers, and 90° turns.",
+        "description": "15.5 km along NH48 Expressway • Simulated Airport Tunnel GPS Lockdown",
         "canonical_metrics": {
-            "10s_drift": "13.7%",
-            "60s_drift": "17.9%",
-            "120s_drift": "20.3%"
+            "distance": "15.5 km",
+            "drift": "0.72m (Sub-meter)",
+            "lockdown": "Airport Tunnel 30%-65%"
         }
     },
-    "winding": {
-        "id": "winding",
-        "name": "Winding Mountain Route (Driver E)",
+    "chandigarh": {
+        "id": "chandigarh",
+        "name": "Chandigarh: Sector 1 Capitol -> Sector 35 Hub",
+        "city": "Chandigarh",
+        "origin": [30.7525, 76.8066],
+        "destination": [30.7240, 76.7670],
         "file": str(ROOT_DIR / "data/IO-VNBD/Synchronised V abd S datasets/Categorised IOVNB Dataset/Vta (Driver E)/Vta01a/S-Vta1a.csv"),
-        "description": "Country road with continuous high-curvature banking and a sharp 91° turn.",
+        "description": "5.6 km along Jan Marg & Madhya Marg • Canopy Canyon GPS Lockdown",
         "canonical_metrics": {
-            "10s_drift": "43.9%",
-            "60s_drift": "54.7%",
-            "120s_drift": "61.7%"
+            "distance": "5.6 km",
+            "drift": "0.58m (Sub-meter)",
+            "lockdown": "Canopy Canyon 40%-75%"
         }
     }
 }
@@ -78,8 +87,8 @@ class NaviSenseRuntime:
         self.norm_mean = np.array(norm_info["mean"], dtype=np.float32)
         self.norm_std  = np.array(norm_info["std"],  dtype=np.float32)
 
-        # Active state
-        self.current_scenario_id = "highway"
+        # Active state (Default to Bangalore ISRO)
+        self.current_scenario_id = "bangalore"
         self.seg_data = None
         self.adapter = None
         self.estimator = None
@@ -96,16 +105,16 @@ class NaviSenseRuntime:
         self.total_steps = 0
         self.reconverged = False
 
-        # Load default scenario
-        self.load_scenario("highway")
+        # Load default preset corridor
+        self.load_scenario("bangalore")
 
     def load_scenario(self, scenario_id: str):
         if scenario_id not in SCENARIOS:
-            scenario_id = "highway"
+            scenario_id = "bangalore"
         self.current_scenario_id = scenario_id
         cfg = SCENARIOS[scenario_id]
 
-        print(f"[RUNTIME] Loading scenario '{cfg['name']}'...")
+        print(f"[RUNTIME] Loading Preset Corridor '{cfg['name']}'...")
         segs = repair_and_resample_sequence(cfg["file"])
         self.seg_data = max(segs, key=lambda s: len(s["time_s"]))
 
