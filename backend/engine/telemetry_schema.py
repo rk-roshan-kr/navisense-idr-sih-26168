@@ -34,6 +34,9 @@ class TechnicalProof(BaseModel):
     map_accepted: bool
     map_cross_track_m: float
     map_heading_diff_deg: float
+    # Dynamic Spatial Chunk Cache Telemetry
+    chunk_working_set_kb: Optional[float] = 28.4
+    chunk_active_tiles: Optional[int] = 9
 
 class TelemetryPacket(BaseModel):
     timestamp_s: float

@@ -236,20 +236,21 @@ html, body, #root {
   color: #0f172a;
 }
 
-/* ── 4. Navigation HUD (Light Clean Card) ── */
+/* ── 4. Navigation HUD (Large Clean High-Readability Card) ── */
 .hud-container {
   position: absolute;
   top: 76px;
   right: 20px;
   z-index: 1000;
-  width: 310px;
-  padding: 18px;
+  width: 360px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px -8px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
 }
 
 .hud-status-row {
@@ -257,46 +258,50 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 10px;
+  padding-bottom: 12px;
 }
 
 .hud-indicator-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
 .indicator-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
 }
 
 .dot-gnss-on {
   background-color: var(--gnss-emerald);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
 }
 
 .dot-gnss-off {
   background-color: var(--alert-red);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
   animation: flashAlert 0.8s infinite;
 }
 
 .dot-idr-on {
   background-color: var(--idr-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .indicator-name {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #475569;
 }
 
 .indicator-pill {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  letter-spacing: 0.03em;
 }
 
 .pill-gnss-avail {
@@ -318,51 +323,12 @@ html, body, #root {
 }
 
 .pill-idr-ready {
-  background: #f1f5f9;
+  background: #f8fafc;
   color: #64748b;
   border: 1px solid #e2e8f0;
 }
 
 .hud-metric-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.metric-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.metric-value-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.metric-large-digit {
-  font-size: 28px;
-  font-weight: 900;
-  line-height: 1;
-  color: #0f172a;
-}
-
-.metric-unit {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-.heading-cardinal {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--idr-blue);
-}
-
-.hud-drift-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -370,21 +336,63 @@ html, body, #root {
   padding-top: 12px;
 }
 
+.metric-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.metric-value-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-large-digit {
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.heading-cardinal-badge {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.hud-drift-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 14px;
+}
+
 .drift-info-left {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .drift-subtext {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
 }
 
 .drift-pct-digit {
-  font-size: 30px;
+  font-size: 38px;
   font-weight: 900;
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .drift-good {
@@ -399,11 +407,11 @@ html, body, #root {
   color: var(--alert-red);
 }
 
-/* ── 5. Speed Dial light styling ── */
+/* ── 5. Large Vehicle Speed Dial ── */
 .speed-dial-wrap {
   position: relative;
-  width: 200px;
-  height: 175px;
+  width: 260px;
+  height: 210px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -415,7 +423,7 @@ html, body, #root {
 
 .speed-dial-center-val {
   position: absolute;
-  top: 68px;
+  top: 72px;
   left: 0;
   right: 0;
   display: flex;
@@ -426,46 +434,47 @@ html, body, #root {
 }
 
 .speed-dial-digit {
-  font-size: 38px;
+  font-size: 56px;
   font-weight: 900;
   line-height: 1;
   color: #0f172a;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .speed-dial-unit {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  margin-top: 2px;
+  letter-spacing: 0.16em;
+  color: #64748b;
+  margin-top: 4px;
 }
 
 .speed-source-badge {
   position: absolute;
-  bottom: 6px;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 5px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 9999px;
-  padding: 2px 8px;
+  padding: 4px 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 .dot-source {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
 .source-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: var(--text-muted);
+  color: #475569;
   text-transform: uppercase;
 }
 

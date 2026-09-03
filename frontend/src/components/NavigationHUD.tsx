@@ -17,7 +17,7 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
     <div className="hud-container glass-panel">
       {/* Status Row */}
       <div className="hud-status-row">
-        {/* GNSS */}
+        {/* GNSS Status */}
         <div className="hud-indicator-group">
           <span className={`indicator-dot ${!isBlackout ? 'dot-gnss-on' : 'dot-gnss-off'}`} />
           <span className="indicator-name">GNSS</span>
@@ -26,37 +26,42 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
           </span>
         </div>
 
-        {/* IDR */}
+        {/* IDR Status */}
         <div className="hud-indicator-group">
           <span className="indicator-dot dot-idr-on" />
           <span className="indicator-name">IDR</span>
           <span className={`indicator-pill ${isBlackout ? 'pill-idr-active' : 'pill-idr-ready'}`}>
-            {isBlackout ? 'ACTIVE' : 'READY'}
+            {isBlackout ? 'ACTIVE' : 'STANDBY'}
           </span>
         </div>
       </div>
 
-      {/* 1. VEHICLE SPEED DIAL GAUGE */}
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 -8px' }}>
+      {/* 1. LARGE HIGH-READABILITY VEHICLE SPEED DIAL */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 0' }}>
         <SpeedDial speedKmh={speedKmh} isBlackout={isBlackout} maxSpeed={140} />
       </div>
 
-      {/* 2. HEADING */}
+      {/* 2. HEADING ROW */}
       <div className="hud-metric-row">
-        <span className="metric-label">HEADING</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span className="metric-label">VEHICLE HEADING</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Azimuth orientation</span>
+        </div>
         <div className="metric-value-wrap">
-          <span className="metric-large-digit mono" style={{ fontSize: '28px' }}>
+          <span className="metric-large-digit mono">
             {String(Math.round(headingDeg)).padStart(3, '0')}°
           </span>
-          <span className="heading-cardinal">{getCardinalDirection(headingDeg)}</span>
+          <span className="heading-cardinal-badge">
+            {getCardinalDirection(headingDeg)}
+          </span>
         </div>
       </div>
 
-      {/* 3. DRIFT % */}
+      {/* 3. DRIFT ERROR ROW */}
       <div className="hud-drift-row">
         <div className="drift-info-left">
-          <span className="metric-label">DRIFT ERROR</span>
-          <span className="drift-subtext mono">{driftM.toFixed(1)} m total</span>
+          <span className="metric-label">CUMULATIVE DRIFT</span>
+          <span className="drift-subtext mono">{driftM.toFixed(1)} m deviation</span>
         </div>
         <div className="metric-value-wrap">
           <span className={`drift-pct-digit mono ${driftPct <= 10.0 ? 'drift-good' : driftPct <= 25.0 ? 'drift-mid' : 'drift-bad'}`}>

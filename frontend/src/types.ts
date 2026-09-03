@@ -27,6 +27,8 @@ export interface TechnicalProof {
   map_accepted: boolean;
   map_cross_track_m: number;
   map_heading_diff_deg: number;
+  chunk_working_set_kb?: number;
+  chunk_active_tiles?: number;
 }
 
 export interface TelemetryPacket {

@@ -19,6 +19,7 @@ from src.data.preprocessor import repair_and_resample_sequence
 from src.models.nn_models import UniversalMotionNet, PersonalizationAdapter
 from src.navigation.state_estimator import NavigationStateEstimator, WGS84LocalProjector
 from src.navigation.road_corridor import RoadCorridorNetwork, apply_road_corridor_constraint
+from src.navigation.chunked_road_network import SpatialChunkizer, DynamicChunkManager
 from backend.engine.telemetry_schema import (
     TelemetryPacket, LatLon, GroundTruthTelemetry, TechnicalProof, ScenarioInfo
 )
@@ -126,9 +127,17 @@ class NaviSenseRuntime:
         gt_e, gt_n = self.projector.geodetic_to_enu(self.can_lat, self.can_lon)
         self.gt_enu = np.column_stack([gt_e, gt_n])
 
-        # Build Road Corridor Network
+        # Build Spatial Chunked Road Network (O(1) 500m spatial cells with LRU paging)
         step_samp = 25
         sampled_pts = self.gt_enu[::step_samp].copy()
+        self.chunkizer = SpatialChunkizer(chunk_size_m=500.0)
+        self.chunkizer.ingest_polyline(sampled_pts)
+        self.chunk_manager = DynamicChunkManager(
+            chunkizer=self.chunkizer,
+            max_active_chunks=9,
+            max_corridor_width_m=35.0,
+            lookahead_seconds=8.0
+        )
         self.road_network = RoadCorridorNetwork(sampled_pts, max_corridor_width_m=35.0)
 
         # Create & Calibrate Adapter (first 180s = 1800 samples)
@@ -245,11 +254,10 @@ class NaviSenseRuntime:
                 float(self.can_lat[i]), float(self.can_lon[i]),
                 float(self.can_speed[i]), float(self.can_head[i]), dt=self.dt
             )
-        else:
-            # GNSS Denial: Apply ambiguity-gated road corridor constraint
+            # GNSS Denial: Apply ambiguity-gated road corridor constraint from dynamic spatial chunks
             pos_enu = self.estimator.x[:2]
             veh_psi = self.estimator.x[3]
-            res = self.road_network.query_candidate(pos_enu, veh_psi)
+            res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=float(self.estimator.x[2]))
             found, r_y, r_psi, psi_road, n_unit, prob = res
             map_prob = float(prob)
             map_ry = float(r_y)
@@ -328,7 +336,9 @@ class NaviSenseRuntime:
                 map_best_prob=round(map_prob, 2),
                 map_accepted=map_accepted,
                 map_cross_track_m=round(map_ry, 2),
-                map_heading_diff_deg=round(map_rpsi_deg, 1)
+                map_heading_diff_deg=round(map_rpsi_deg, 1),
+                chunk_working_set_kb=self.chunk_manager.get_working_set_memory_kb(),
+                chunk_active_tiles=len(self.chunk_manager.active_chunks)
             )
         )
 
