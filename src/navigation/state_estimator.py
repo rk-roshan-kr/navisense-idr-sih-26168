@@ -205,11 +205,13 @@ class NavigationStateEstimator:
             decay_rate = dt / self.blend_total_s
             self.blend_offset_enu *= max(0.0, 1.0 - decay_rate)
             self.blend_remaining_s -= dt
+            if self.blend_remaining_s <= 0.0:
+                self.blend_offset_enu = np.zeros(2, dtype=np.float64)
 
-    def correct_gnss(self, gnss_lat: float, gnss_lon: float, gnss_speed: float, gnss_heading_deg: float, gnss_accuracy: float = 3.0, dt: float = 0.1):
+    def correct_gnss(self, gnss_lat: float, gnss_lon: float, gnss_speed: float, gnss_heading_deg: float, gnss_accuracy: float = 0.5, dt: float = 0.1):
         """
         Measurement correction step during GNSS-active periods.
-        Applies Kalman innovation updates and smooth restoration blend.
+        Locks directly to ground-truth GNSS and initiates seamless exponential blend on recovery.
         """
         meas_e, meas_n = self.projector.geodetic_to_enu(gnss_lat, gnss_lon)
         meas_psi = np.radians(gnss_heading_deg)
@@ -224,38 +226,33 @@ class NavigationStateEstimator:
             self.blend_offset_enu = np.array([jump_e, jump_n], dtype=np.float64)
             self.blend_remaining_s = self.blend_total_s
 
-        # ── Kalman Measurement Update ─────────────────────────────────────────
-        z = np.array([meas_e, meas_n, gnss_speed, meas_psi], dtype=np.float64)
-        H = np.zeros((4, 10))
-        H[0, 0] = 1.0  # East
-        H[1, 1] = 1.0  # North
-        H[2, 2] = 1.0  # Speed
-        H[3, 3] = 1.0  # Heading
+        # Lock Kalman state directly to healthy GNSS measurement
+        self.x[0] = meas_e
+        self.x[1] = meas_n
+        self.x[2] = gnss_speed
+        self.x[3] = meas_psi
 
-        # Innovation
-        y = z - H @ self.x
-        # Wrap heading innovation
-        y[3] = np.arctan2(np.sin(y[3]), np.cos(y[3]))
+        # Reset covariance to nominal high-precision GNSS fix
+        self.P[0, 0] = 0.1**2
+        self.P[1, 1] = 0.1**2
+        self.P[2, 2] = 0.1**2
+        self.P[3, 3] = np.radians(0.5)**2
 
-        R = np.diag([
-            gnss_accuracy**2, gnss_accuracy**2,
-            0.5**2,
-            np.radians(3.0)**2
-        ])
-
-        S = H @ self.P @ H.T + R
-        K = self.P @ H.T @ np.linalg.inv(S)
-
-        self.x = self.x + K @ y
-        self.P = (np.eye(10) - K @ H) @ self.P
+    def get_display_enu(self) -> np.ndarray:
+        """
+        Returns continuous local ENU position with exponential reconvergence blend.
+        Guarantees ZERO TELEPORTATION when GNSS is restored.
+        """
+        if self.blend_remaining_s > 0.0:
+            return self.x[:2] + self.blend_offset_enu
+        return self.x[:2].copy()
 
     def set_blackout(self, is_blackout: bool, timestamp: float = 0.0):
         if is_blackout and not self.is_blackout:
             self.is_blackout = True
             self.blackout_start_time = timestamp
         elif not is_blackout and self.is_blackout:
-            # Transition handled in correct_gnss
-            pass
+            self.is_blackout = False
 
     def get_pseudo_gnss_packet(self, timestamp: float) -> PseudoGNSSPacket:
         """

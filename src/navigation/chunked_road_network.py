@@ -408,19 +408,21 @@ class DynamicChunkManager:
 
         valid_indices = np.where(valid_mask)[0]
 
-        # 5. Base Mahalanobis Match Distance
-        sigma_p = 5.0      # 5.0m lateral lane corridor tolerance
-        sigma_psi = np.radians(12.0)  # 12 deg heading tolerance
+        # 5. Robust Mahalanobis Match Distance
+        sigma_p = 8.0      # 8.0m lateral lane corridor tolerance (allows wide highways)
+        sigma_psi = np.radians(25.0)  # 25 deg heading tolerance for curves
         scores = (dists[valid_indices] / sigma_p) ** 2 + (heading_diffs[valid_indices] / sigma_psi) ** 2
 
         # ── 6. Advanced Anti-Glitch & Multi-Level Penalties ───────────────────
         speed_kmh = speed_mps * 3.6
 
-        # Update layer estimation if vertical incline is sustained
-        if pitch_deg > 3.0:
-            self.current_layer = 1  # Incline ramp to bridge/flyover
-        elif pitch_deg < -3.0:
-            self.current_layer = -1 # Decline ramp to tunnel
+        # Only evaluate multi-level gating if actual multi-level segments exist
+        has_multi_level = np.any(layers != 0)
+        if has_multi_level:
+            if pitch_deg > 3.0:
+                self.current_layer = 1
+            elif pitch_deg < -3.0:
+                self.current_layer = -1
 
         for i, val_idx in enumerate(valid_indices):
             seg_id = cand_ids[val_idx]
@@ -429,41 +431,30 @@ class DynamicChunkManager:
             seg_spd_limit = speed_limits[val_idx]
 
             # (A) MULTI-LEVEL ELEVATION GATING (Bridges, Flyovers, Tunnels)
-            # Never snap to a surface road below an elevated highway, or cross-street above a tunnel!
-            if seg_layer != self.current_layer:
-                scores[i] += 80.0  # Massive vertical level barrier
+            if has_multi_level and self.current_layer != 0 and seg_layer != self.current_layer:
+                scores[i] += 80.0  # Vertical level barrier
 
             # (B) ANTI-GLITCH SERVICE LANE SEPARATION
-            # If driving on a highway, prevent accidental snapping to parallel service lanes!
             if not self.is_on_service and seg_is_srv:
-                # 1. Kinematic speed penalty: Highway speed vs Service Lane limit
                 if speed_kmh > 45.0:
                     speed_excess = max(0.0, speed_kmh - seg_spd_limit)
-                    scores[i] += (speed_excess / 3.0) ** 2
-
-                # 2. Topological barrier: Service lane separated by concrete crash barrier
-                # Only allowable if vehicle steered into an explicit ramp branch
-                if self.active_track_id is not None:
-                    curr_seg = self.chunkizer.all_segments.get(self.active_track_id)
-                    if curr_seg and seg_id not in curr_seg.connected_next_ids:
-                        scores[i] += 35.0  # Concrete barrier transition penalty
+                    scores[i] += (speed_excess / 3.0) ** 2 + 15.0
 
             # (C) TOPOLOGICAL MARKOV CONTINUITY BONUS
-            # Favour staying on the same continuous road segment sequence
             if self.active_track_id is not None:
                 curr_seg = self.chunkizer.all_segments.get(self.active_track_id)
                 if curr_seg and seg_id in curr_seg.connected_next_ids:
-                    scores[i] = max(0.0, scores[i] - 2.0)  # Continuity prior
+                    scores[i] = max(0.0, scores[i] - 3.0)  # Continuity prior
 
         best_local_idx = int(np.argmin(scores))
         best_score = float(scores[best_local_idx])
         best_idx = valid_indices[best_local_idx]
 
         # Match probability: P = exp(-0.5 * S) in (0, 1]
-        best_prob = float(np.exp(-0.5 * best_score))
+        best_prob = float(np.exp(-0.5 * min(20.0, best_score)))
 
-        # Gating: Accept if within plausible corridor (S <= 9.0 => P >= 0.011)
-        if best_score > 9.0:
+        # Gating: Accept if within corridor tolerance
+        if best_score > 30.0:
             self.last_query_time_ms = (time.perf_counter() - t0) * 1000.0
             return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
 

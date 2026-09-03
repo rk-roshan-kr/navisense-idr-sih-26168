@@ -270,53 +270,51 @@ class NaviSenseRuntime:
             pitch_deg = float(np.degrees(self.seg_data["gpit"][i]))
             res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=speed_mps, pitch_deg=pitch_deg)
             found, r_y, r_psi, psi_road, n_unit, prob = res
-            map_prob = float(prob)
-            map_ry = float(r_y)
-            map_rpsi_deg = float(np.degrees(r_psi))
 
             if found:
-                # Road detected: decay off-road evidence immediately
-                self.off_road_streak = max(0, self.off_road_streak - 3)
-                self.off_road_prob = max(0.0, 1.0 - map_prob)
-
-                self.last_valid_normal = n_unit
-                self.last_valid_ry = r_y
+                self.off_road_streak = 0
+                self.off_road_prob = 0.0
+                map_prob = float(prob)
+                map_ry = float(r_y)
+                map_rpsi_deg = float(np.degrees(r_psi))
 
                 # STRICT ROAD LOCK: vehicle stays 100% on the road centerline!
                 self.estimator.x[0] -= float(r_y * n_unit[0])
                 self.estimator.x[1] -= float(r_y * n_unit[1])
                 # Smoothly align heading towards road bearing
-                self.estimator.x[3] = float((self.estimator.x[3] - 0.4 * r_psi) % (2.0 * np.pi))
-                apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.4)
+                self.estimator.x[3] = float((self.estimator.x[3] - 0.5 * r_psi) % (2.0 * np.pi))
+                apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.3)
                 map_accepted = True
-
             else:
-                # Candidate gating failed (vehicle heading or position diverged from road)
-                # Accumulate Bayesian evidence: is this an intentional off-road departure (parking/field)?
-                self.off_road_streak += 1
-                # Sustained off-road evidence: after 15 steps (1.5s of outward driving), prob reaches >= 95%
-                self.off_road_prob = float(1.0 - np.exp(-0.22 * self.off_road_streak))
-
-                if self.off_road_prob >= 0.95:
-                    # >= 95% SURE: Confirmed off-road departure (parking lot, open field, driveway)
-                    # Explicitly allow vehicle to leave the road: navigate freely via neural inertial dynamics!
-                    map_accepted = False
-                else:
-                    # < 95% SURE: Ambiguous or momentary disturbance
-                    # STRICT ROAD LOCK: prevent vehicle from prematurely leaving asphalt into the grass!
-                    self.estimator.x[0] -= float(self.last_valid_ry * 0.3 * self.last_valid_normal[0])
-                    self.estimator.x[1] -= float(self.last_valid_ry * 0.3 * self.last_valid_normal[1])
+                # Robust fallback: query RoadCorridorNetwork directly
+                fb_res = self.road_network.query_candidate(pos_enu, veh_psi)
+                if fb_res[0]:
+                    _, fb_ry, fb_rpsi, fb_psi_road, fb_nunit, fb_prob = fb_res
+                    map_prob = float(fb_prob)
+                    map_ry = float(fb_ry)
+                    map_rpsi_deg = float(np.degrees(fb_rpsi))
+                    self.estimator.x[0] -= float(fb_ry * fb_nunit[0])
+                    self.estimator.x[1] -= float(fb_ry * fb_nunit[1])
+                    self.estimator.x[3] = float((self.estimator.x[3] - 0.5 * fb_rpsi) % (2.0 * np.pi))
+                    apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.3)
                     map_accepted = True
+                else:
+                    map_accepted = False
 
-        # 4. Compute Coordinates & Telemetry
-        est_lat, est_lon = self.projector.enu_to_geodetic(self.estimator.x[0], self.estimator.x[1])
+        # 4. Compute Coordinates & Telemetry with ZERO-TELEPORTATION Reconvergence
+        disp_enu = self.estimator.get_display_enu()
+        est_lat, est_lon = self.projector.enu_to_geodetic(disp_enu[0], disp_enu[1])
         true_lat = float(self.can_lat[i])
         true_lon = float(self.can_lon[i])
         true_spd_kmh = float(self.can_speed[i] * 3.6)
         true_head = float(self.can_head[i])
 
         gt_pos = self.gt_enu[i]
-        drift_m = float(np.linalg.norm(self.estimator.x[:2] - gt_pos))
+        drift_m = float(np.linalg.norm(disp_enu - gt_pos))
+
+        # Direct Point Error between Our Estimate and GPS Point
+        meas_e, meas_n = self.projector.geodetic_to_enu(true_lat, true_lon)
+        point_error_m = float(np.linalg.norm(disp_enu - np.array([meas_e, meas_n])))
 
         if self.blackout_active and self.blackout_start_step is not None:
             bo_dist = float(np.sum(self.can_speed[self.blackout_start_step:i+1] * self.dt))
