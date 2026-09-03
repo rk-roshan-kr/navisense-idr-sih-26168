@@ -64,7 +64,13 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
             <span className="coord-header-label">GPS POINT</span>
           </div>
           <div className="coord-coords mono">
-            {gpsLat.toFixed(5)}°, {gpsLon.toFixed(5)}°
+            {isBlackout ? (
+              <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em' }}>
+                SIGNAL DENIED (OFFLINE)
+              </span>
+            ) : (
+              `${gpsLat.toFixed(5)}°, ${gpsLon.toFixed(5)}°`
+            )}
           </div>
         </div>
 
@@ -80,15 +86,15 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         </div>
       </div>
 
-      {/* 3. INFO BAR: POINT ERROR (THUS THE ERROR FOR EACH POINT) */}
+      {/* 3. INFO BAR: POINT ERROR / DRIFT */}
       <div className="hud-infobar-container">
         <div className="infobar-header">
           <div className="infobar-header-left">
-            <span className="infobar-title">POINT ERROR</span>
+            <span className="infobar-title">{isBlackout ? 'ACCUMULATED DRIFT' : 'POINT ERROR'}</span>
             <span className="infobar-digit mono">{pointErrorM.toFixed(2)} m</span>
           </div>
           <span className={`infobar-pill ${pointErrorM <= 1.0 ? 'pill-submeter' : pointErrorM <= 5.0 ? 'pill-lane' : 'pill-warn'}`}>
-            {pointErrorM <= 1.0 ? 'SUB-METER' : pointErrorM <= 5.0 ? 'LANE LEVEL' : 'DRIFTING'}
+            {isBlackout ? 'IDR DEAD RECKONING' : pointErrorM <= 1.0 ? 'SUB-METER' : 'LANE LEVEL'}
           </span>
         </div>
         <div className="infobar-track">

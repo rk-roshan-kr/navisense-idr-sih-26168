@@ -113,9 +113,10 @@ class NavigationStateEstimator:
 
         # Reconvergence & Blackout state
         self.is_blackout = False
+        self.pending_reconvergence = False
         self.blackout_start_time = None
         self.blend_remaining_s = 0.0
-        self.blend_total_s = 3.0   # smooth blend over 3.0 seconds
+        self.blend_total_s = 3.5   # Smooth 3.5s exponential blend to eliminate any teleportation!
         self.blend_offset_enu = np.zeros(2, dtype=np.float64)
 
         # ZUPT tracking
@@ -236,12 +237,14 @@ class NavigationStateEstimator:
         self.model_error_m = float(np.linalg.norm(self.x_model[:2] - np.array([meas_e, meas_n])))
 
         # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
-        if self.is_blackout:
+        # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
+        if self.is_blackout or self.pending_reconvergence:
             self.is_blackout = False
+            self.pending_reconvergence = False
             # Discrepancy between where dead-reckoning was and where GNSS truly is
             jump_e = self.x[0] - meas_e
             jump_n = self.x[1] - meas_n
-            # Store offset to decay smoothly over 3 seconds
+            # Store offset to decay smoothly over 3.5 seconds
             self.blend_offset_enu = np.array([jump_e, jump_n], dtype=np.float64)
             self.blend_remaining_s = self.blend_total_s
             # Reset model anchor to GPS position upon recovery
@@ -290,6 +293,7 @@ class NavigationStateEstimator:
             self.blackout_start_time = timestamp
         elif not is_blackout and self.is_blackout:
             self.is_blackout = False
+            self.pending_reconvergence = True
 
     def get_pseudo_gnss_packet(self, timestamp: float) -> PseudoGNSSPacket:
         """

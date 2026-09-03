@@ -133,38 +133,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         );
       }
 
-      // 2. Drivable Road Corridor Aura (Shows exactly where vehicle can drive!)
-      map.addSource('road-corridor', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
-      });
-      // Outer Legal Drivable Envelope Glow
-      map.addLayer({
-        id: 'road-corridor-envelope',
-        type: 'line',
-        source: 'road-corridor',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#38bdf8',
-          'line-width': 12,
-          'line-opacity': 0.3
-        }
-      });
-      // Drivable Lane Centerline
-      map.addLayer({
-        id: 'road-corridor-centerline',
-        type: 'line',
-        source: 'road-corridor',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#0284c7',
-          'line-width': 4,
-          'line-dasharray': [3, 2],
-          'line-opacity': 0.7
-        }
-      });
-
-      // 3. GNSS Active Trail (Emerald Green - 10,000 Points Persistent)
+      // 1. GNSS Active Trail (Emerald Green - 10,000 Points Persistent)
       map.addSource('gnss-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -177,7 +146,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#059669', 'line-width': 6, 'line-opacity': 0.95 }
       });
 
-      // 4. IDR Dead Reckoning Trail (Electric Blue Aura + Core)
+      // 2. IDR Dead Reckoning Trail (Electric Blue Aura + Core)
       map.addSource('idr-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -197,7 +166,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#2563eb', 'line-width': 6, 'line-opacity': 0.95 }
       });
 
-      // 5. Custom Route Preview Layer
+      // 3. Custom Route Preview Layer
       map.addSource('custom-route', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -210,7 +179,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-dasharray': [2, 2], 'line-opacity': 0.8 }
       });
 
-      // 6. Raw INS Divergence Ghost Trail
+      // 4. Raw INS Divergence Ghost Trail (Only visible when explicitly toggled in top bar)
       map.addSource('ghost-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -222,17 +191,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': '#dc2626', 'line-width': 3, 'line-dasharray': [3, 3], 'line-opacity': 0.75 }
       });
-
-      // Set scenario road corridor if already present
-      if (scenario?.road_polyline && scenario.road_polyline.length > 0) {
-        const roadGeoJSON = scenario.road_polyline.map(([lat, lon]) => [lon, lat]);
-        const src = map.getSource('road-corridor') as maplibregl.GeoJSONSource;
-        src?.setData({
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: roadGeoJSON }
-        });
-      }
     });
 
     // Custom 3D Vehicle Marker Element with Forward Direction Beam
@@ -389,10 +347,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
 
     if (scenario.road_polyline && scenario.road_polyline.length > 0) {
-      const roadGeoJSON = scenario.road_polyline.map(([lat, lon]) => [lon, lat]);
-      const rSrc = mapRef.current.getSource('road-corridor') as maplibregl.GeoJSONSource;
-      rSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: roadGeoJSON } });
-
       const startPt = scenario.road_polyline[0];
       animPosRef.current = [startPt[1], startPt[0]];
       targetPosRef.current = [startPt[1], startPt[0]];
