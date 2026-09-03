@@ -447,7 +447,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         center: animPosRef.current,
         bearing: animHeadingRef.current,
         pitch: 68,
-        zoom: 16.5,
+        zoom: 17.8, // Zoomed in tight to the car for immersive 3D Cockpit driving
         duration: 800
       });
     } else {
@@ -469,7 +469,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         center: animPosRef.current,
         bearing: animHeadingRef.current,
         pitch: 68,
-        zoom: 16.5,
+        zoom: 17.8,
         duration: 600
       });
     } else {
