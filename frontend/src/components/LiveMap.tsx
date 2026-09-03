@@ -18,29 +18,34 @@ interface LiveMapProps {
   showGhostBaseline?: boolean;
 }
 
-// Lightweight, zero-latency monochromatic Carto Positron basemap (DESIGN.md specification)
-const CARTO_POSITRON_STYLE: maplibregl.StyleSpecification = {
+// Monochromatic Swiss-engineering street grid (100% Free, Zero Watermarks, Zero API Key)
+const SWISS_MONO_MAP_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
-    'carto-positron': {
+    'osm-street-grid': {
       type: 'raster',
       tiles: [
-        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
       ],
       tileSize: 256,
-      attribution: '© OpenStreetMap contributors, © CARTO'
+      attribution: '© OpenStreetMap contributors'
     }
   },
   layers: [
     {
-      id: 'carto-positron-tiles',
+      id: 'osm-monochrome-base',
       type: 'raster',
-      source: 'carto-positron',
+      source: 'osm-street-grid',
       minzoom: 0,
-      maxzoom: 20
+      maxzoom: 19,
+      paint: {
+        'raster-saturation': -1.0,   // 100% Monochromatic de-saturated street grid (DESIGN.md)
+        'raster-contrast': -0.15,     // Soft, low-distraction Swiss editorial contrast
+        'raster-brightness-min': 0.25, // Lightens background to crisp off-white canvas
+        'raster-opacity': 0.95
+      }
     }
   ]
 };
@@ -93,7 +98,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     }
   }, [appMode]);
 
-  // Initialize MapLibre GL Instant Map (Carto Positron - 0ms Style Load, High-Performance Global CDN)
+  // Initialize MapLibre GL Instant Map (Zero Watermarks, 0ms Style Load, High Performance)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
@@ -102,7 +107,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: CARTO_POSITRON_STYLE,
+      style: SWISS_MONO_MAP_STYLE,
       center: [initialLon, initialLat],
       zoom: 15.5,
       pitch: 45,
