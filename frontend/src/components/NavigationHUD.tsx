@@ -86,52 +86,35 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         </div>
       </div>
 
-      {/* 3. INFO BAR: POINT ERROR / DRIFT */}
-      <div className="hud-infobar-container">
-        <div className="infobar-header">
-          <div className="infobar-header-left">
-            <span className="infobar-title">{isBlackout ? 'ACCUMULATED DRIFT' : 'POINT ERROR'}</span>
-            <span className="infobar-digit mono">{pointErrorM.toFixed(2)} m</span>
-          </div>
-          <span className={`infobar-pill ${pointErrorM <= 1.0 ? 'pill-submeter' : pointErrorM <= 5.0 ? 'pill-lane' : 'pill-warn'}`}>
-            {isBlackout ? 'IDR DEAD RECKONING' : pointErrorM <= 1.0 ? 'SUB-METER' : 'LANE LEVEL'}
-          </span>
-        </div>
-        <div className="infobar-track">
-          <div
-            className="infobar-fill"
-            style={{
-              width: `${Math.min(100, Math.max(5, (pointErrorM / 8.0) * 100))}%`,
-              background: pointErrorM <= 1.0 ? 'var(--gnss-emerald)' : pointErrorM <= 5.0 ? 'var(--idr-blue)' : 'var(--alert-red)'
-            }}
-          />
-        </div>
-      </div>
-
-      {/* 4. CALIBRATED : % BAR */}
+      {/* 3. CALIBRATED : % BAR (Online neural adaptation progress from 0% to 98%) */}
       <div className="hud-calibration-container">
         <div className="calibration-header-row">
           <div className="calibration-left-wrap">
-            <span className="calibration-title">CALIBRATED :</span>
+            <span className="calibration-title">
+              {calibratedPct >= 90 ? 'CALIBRATED :' : 'ADAPTING MODEL :'}
+            </span>
             <span className="calibration-digit mono">{calibratedPct.toFixed(1)}%</span>
           </div>
-          <span className="calibration-ready-pill">
-            ● READY
+          <span className={`calibration-ready-pill ${calibratedPct >= 90 ? 'pill-ready' : 'pill-learning'}`}>
+            {calibratedPct >= 90 ? 'READY' : 'LEARNING'}
           </span>
         </div>
         <div className="calibration-track">
           <div
             className="calibration-fill"
-            style={{ width: `${Math.min(100, Math.max(0, calibratedPct))}%` }}
+            style={{
+              width: `${Math.min(100, Math.max(0, calibratedPct))}%`,
+              background: calibratedPct >= 90 ? 'var(--gnss-emerald)' : '#f59e0b'
+            }}
           />
         </div>
       </div>
 
-      {/* 5. HEADING ROW */}
+      {/* 4. HEADING ROW */}
       <div className="hud-metric-row">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <span className="metric-label">VEHICLE HEADING</span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Azimuth orientation</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Azimuth orientation</span>
         </div>
         <div className="metric-value-wrap">
           <span className="metric-large-digit mono">
@@ -143,15 +126,17 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
         </div>
       </div>
 
-      {/* 6. DRIFT ERROR ROW */}
+      {/* 5. NAVIGATION ACCURACY / DRIFT RATE */}
       <div className="hud-drift-row">
         <div className="drift-info-left">
-          <span className="metric-label">CUMULATIVE DRIFT</span>
-          <span className="drift-subtext mono">{driftM.toFixed(1)} m deviation</span>
+          <span className="metric-label">{isBlackout ? 'IDR DRIFT RATE' : 'POSITION ERROR'}</span>
+          <span className="drift-subtext mono">
+            {isBlackout ? `${driftM.toFixed(1)}m during blackout` : `${pointErrorM.toFixed(2)}m deviation`}
+          </span>
         </div>
         <div className="metric-value-wrap">
           <span className={`drift-pct-digit mono ${driftPct <= 10.0 ? 'drift-good' : driftPct <= 25.0 ? 'drift-mid' : 'drift-bad'}`}>
-            {driftPct.toFixed(1)}%
+            {isBlackout ? `${driftPct.toFixed(1)}%` : 'SUB-METER'}
           </span>
         </div>
       </div>

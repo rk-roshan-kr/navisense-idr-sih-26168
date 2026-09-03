@@ -99,15 +99,19 @@ html, body, #root {
 /* ── 3. Top Header Bar ── */
 .top-bar-container {
   position: absolute;
-  top: 14px;
-  left: 20px;
-  right: 20px;
+  top: 12px;
+  left: 16px;
+  right: 16px;
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.95);
+  flex-wrap: nowrap;
+  gap: 12px;
+  padding: 8px 16px;
+  height: 52px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
 }
@@ -236,21 +240,23 @@ html, body, #root {
   color: #0f172a;
 }
 
-/* ── 4. Navigation HUD (Large Clean High-Readability Card) ── */
+/* ── 4. Navigation HUD (Clean, Sleek Compact HUD) ── */
 .hud-container {
   position: absolute;
-  top: 76px;
-  right: 20px;
-  z-index: 1000;
-  width: 360px;
-  padding: 22px;
+  top: 72px; /* 20px clear margin below 52px TopBar */
+  right: 16px;
+  z-index: 900;
+  width: 310px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid #cbd5e1;
-  border-radius: 16px;
-  box-shadow: 0 16px 40px -8px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px -6px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  max-height: calc(100vh - 86px);
+  overflow-y: auto;
 }
 
 .hud-status-row {
@@ -505,9 +511,18 @@ html, body, #root {
   padding: 2px 6px;
   border-radius: 4px;
   letter-spacing: 0.04em;
+}
+
+.pill-ready {
   background: #ecfdf5;
   color: #059669;
   border: 1px solid #a7f3d0;
+}
+
+.pill-learning {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .calibration-track {
