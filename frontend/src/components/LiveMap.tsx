@@ -390,19 +390,25 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       targetHeadingRef.current = heading_deg;
     }
 
-    // ── Zero GPS Trail During Blackout & Zero Teleportation Jump Lines ──
-    if (!blackout_active) {
-      // 1. Normal GNSS Active:
-      // If GPS just restored, start a NEW segment at the current recovery point!
-      // This guarantees NO GREEN LINE is drawn across the blackout period!
-      const isRecovery = prevBlackoutRef.current;
-      const isLargeJump = lastGnssCoordRef.current ? distM(lastGnssCoordRef.current, currCoord) > 25.0 : false;
+    // ── Trail Management: gap-safe, no stale anchor bridging ──────────────
+    // Core rule: NEVER draw a line between two points that are far apart,
+    // regardless of the reason (blackout, scenario reset, stale ref, etc.).
+    // On ANY gap >50m, start a brand-new segment from currCoord only.
+    const MAX_TRAIL_GAP_M = 50.0;
 
-      if (isRecovery || isLargeJump || gnssSegmentsRef.current.length === 0 || gnssSegmentsRef.current[gnssSegmentsRef.current.length - 1].length === 0) {
+    if (!blackout_active) {
+      // GNSS Active: append to green trail
+      const lastGnss = lastGnssCoordRef.current;
+      const distFromLast = lastGnss ? distM(lastGnss, currCoord) : Infinity;
+      const needNewSegment =
+        gnssSegmentsRef.current.length === 0 ||
+        gnssSegmentsRef.current[gnssSegmentsRef.current.length - 1].length === 0 ||
+        distFromLast > MAX_TRAIL_GAP_M; // gap too large → new segment, no bridging
+
+      if (needNewSegment) {
         gnssSegmentsRef.current.push([currCoord]);
       } else {
-        const activeSeg = gnssSegmentsRef.current[gnssSegmentsRef.current.length - 1];
-        activeSeg.push(currCoord);
+        gnssSegmentsRef.current[gnssSegmentsRef.current.length - 1].push(currCoord);
       }
       lastGnssCoordRef.current = currCoord;
 
@@ -413,18 +419,21 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         geometry: { type: 'MultiLineString', coordinates: gnssSegmentsRef.current }
       });
     } else {
-      // 2. GNSS Blackout (Dead Reckoning Active):
-      // GPS line gets ZERO points added.
-      // Electric blue IDR trail records the outage navigation.
-      const isBlackoutStart = !prevBlackoutRef.current;
-      const isLargeJump = lastIdrCoordRef.current ? distM(lastIdrCoordRef.current, currCoord) > 25.0 : false;
+      // GNSS Blackout: append to blue IDR trail only
+      // IDR segment starts from currCoord alone — never bridge from lastGnssCoordRef
+      const lastIdr = lastIdrCoordRef.current;
+      const distFromLast = lastIdr ? distM(lastIdr, currCoord) : Infinity;
+      const needNewSegment =
+        idrSegmentsRef.current.length === 0 ||
+        idrSegmentsRef.current[idrSegmentsRef.current.length - 1].length === 0 ||
+        !prevBlackoutRef.current || // first frame of blackout → fresh start
+        distFromLast > MAX_TRAIL_GAP_M;
 
-      if (isBlackoutStart || isLargeJump || idrSegmentsRef.current.length === 0 || idrSegmentsRef.current[idrSegmentsRef.current.length - 1].length === 0) {
-        const startPt = lastGnssCoordRef.current || currCoord;
-        idrSegmentsRef.current.push([startPt, currCoord]);
+      if (needNewSegment) {
+        // Start IDR segment at currCoord only — no stale-anchor bridging
+        idrSegmentsRef.current.push([currCoord]);
       } else {
-        const activeSeg = idrSegmentsRef.current[idrSegmentsRef.current.length - 1];
-        activeSeg.push(currCoord);
+        idrSegmentsRef.current[idrSegmentsRef.current.length - 1].push(currCoord);
       }
       lastIdrCoordRef.current = currCoord;
 
