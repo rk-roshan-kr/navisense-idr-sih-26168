@@ -142,25 +142,29 @@ def build_rotation_matrix_3d(angles):
     """
     Constructs 3D rotation matrix R = R_z(yaw) * R_y(pitch) * R_x(roll)
     from Euler angles (roll, pitch, yaw) in radians.
+    Uses pre-allocated zero/one scalars to avoid 9 tensor allocations per call.
     """
     roll, pitch, yaw = angles[0], angles[1], angles[2]
+    dev = angles.device
+    z = torch.zeros(1, device=dev).squeeze()
+    o = torch.ones(1, device=dev).squeeze()
 
     Rx = torch.stack([
-        torch.tensor(1.0, device=angles.device), torch.tensor(0.0, device=angles.device), torch.tensor(0.0, device=angles.device),
-        torch.tensor(0.0, device=angles.device), torch.cos(roll), -torch.sin(roll),
-        torch.tensor(0.0, device=angles.device), torch.sin(roll),  torch.cos(roll)
+        o,              z,              z,
+        z,  torch.cos(roll), -torch.sin(roll),
+        z,  torch.sin(roll),  torch.cos(roll)
     ]).view(3, 3)
 
     Ry = torch.stack([
-        torch.cos(pitch), torch.tensor(0.0, device=angles.device), torch.sin(pitch),
-        torch.tensor(0.0, device=angles.device), torch.tensor(1.0, device=angles.device), torch.tensor(0.0, device=angles.device),
-        -torch.sin(pitch), torch.tensor(0.0, device=angles.device), torch.cos(pitch)
+        torch.cos(pitch),  z, torch.sin(pitch),
+        z,                 o, z,
+        -torch.sin(pitch), z, torch.cos(pitch)
     ]).view(3, 3)
 
     Rz = torch.stack([
-        torch.cos(yaw), -torch.sin(yaw), torch.tensor(0.0, device=angles.device),
-        torch.sin(yaw),  torch.cos(yaw), torch.tensor(0.0, device=angles.device),
-        torch.tensor(0.0, device=angles.device), torch.tensor(0.0, device=angles.device), torch.tensor(1.0, device=angles.device)
+        torch.cos(yaw), -torch.sin(yaw), z,
+        torch.sin(yaw),  torch.cos(yaw), z,
+        z,               z,              o
     ]).view(3, 3)
 
     return torch.mm(Rz, torch.mm(Ry, Rx))
@@ -218,12 +222,15 @@ class PersonalizationAdapter(nn.Module):
         # De-bias in physical units
         accel = x_raw[:, 0:3, :] - self.accel_bias.view(1, 3, 1)
 
-        # In IO-VNBD: ch3=gyaw(Z), ch4=gpit(Y), ch5=grol(X)
-        # Unpack into standard Cartesian XYZ: [X(roll), Y(pitch), Z(yaw)]
+        # Runtime IMU layout (runtime.py rows 0-8):
+        #   row 0: ax, row 1: ay, row 2: az (accelerometer)
+        #   row 3: gx = ROLL rate, row 4: gy = PITCH rate, row 5: gz = YAW rate  <-- KEY
+        #   row 6: mx, row 7: my, row 8: mz (magnetometer, unused in sim)
+        # Unpack into standard Cartesian XYZ order: [X=roll, Y=pitch, Z=yaw]
         gyro_xyz = torch.stack([
-            x_raw[:, 5, :] - self.gyro_bias[0], # grol (X)
-            x_raw[:, 4, :] - self.gyro_bias[1], # gpit (Y)
-            x_raw[:, 3, :] - self.gyro_bias[2]  # gyaw (Z)
+            x_raw[:, 3, :] - self.gyro_bias[0], # ch3 = gx = roll  (X)
+            x_raw[:, 4, :] - self.gyro_bias[1], # ch4 = gy = pitch (Y)
+            x_raw[:, 5, :] - self.gyro_bias[2]  # ch5 = gz = YAW   (Z) ← this drives heading!
         ], dim=1)
 
         # 3D rotation from phone body frame to vehicle chassis frame (both in Cartesian XYZ)
@@ -232,7 +239,7 @@ class PersonalizationAdapter(nn.Module):
 
         # Repack into UniversalMotionNet's canonical channel format:
         # ch3=veh_yaw(Z), ch4=veh_pitch(Y), ch5=veh_roll(X)
-        veh_gyaw = gyro_rot_xyz[:, 2:3, :] # Z -> vehicle yaw
+        veh_gyaw = gyro_rot_xyz[:, 2:3, :] # Z -> vehicle yaw  (correctly yaw now)
         veh_gpit = gyro_rot_xyz[:, 1:2, :] # Y -> vehicle pitch
         veh_grol = gyro_rot_xyz[:, 0:1, :] # X -> vehicle roll
         gyro_rot = torch.cat([veh_gyaw, veh_gpit, veh_grol], dim=1)

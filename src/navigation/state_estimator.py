@@ -167,9 +167,10 @@ class NavigationStateEstimator:
                     is_still = True
                     self.is_stationary = True
                     self.stationary_ticks += 1
-                    # Recursive gyro bias state update with covariance reduction
+                    # Recursive gyro YAW bias state update (x[9] = b_gz, imu_raw[5] = gz = yaw rate)
+                    # CRITICAL: must use channel 5 (yaw), NOT channel 3 (roll)
                     alpha = 0.02
-                    wz_current = float(imu_raw[3, -1])
+                    wz_current = float(imu_raw[5, -1])   # gz = yaw rate axis
                     self.x[9] = (1.0 - alpha) * self.x[9] + alpha * wz_current
                     self.P[9, 9] = max(1e-8, (1.0 - alpha) * self.P[9, 9])
             else:
@@ -272,7 +273,12 @@ class NavigationStateEstimator:
         K = self.P @ H.T @ np.linalg.inv(S)
 
         self.x = self.x + K @ y
-        self.P = (np.eye(10) - K @ H) @ self.P
+        # Use Joseph form for numerical stability: P = (I-KH)P(I-KH)ᵀ + KRKᵀ
+        # This prevents P from becoming asymmetric/negative-definite over long routes
+        IKH = np.eye(10) - K @ H
+        self.P = IKH @ self.P @ IKH.T + K @ R @ K.T
+        # Enforce exact symmetry to eliminate floating-point drift
+        self.P = 0.5 * (self.P + self.P.T)
 
     def get_display_enu(self) -> np.ndarray:
         """
