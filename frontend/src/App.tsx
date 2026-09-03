@@ -9,6 +9,7 @@ import { RightSidebar } from './components/RightSidebar';
 import { TopBar } from './components/TopBar';
 import { TurnGuidance } from './components/TurnGuidance';
 import { CustomRouteSimulator } from './utils/customRouteSimulator';
+import { RoutePlannerWidget } from './components/RoutePlannerWidget';
 
 export const App: React.FC = () => {
   // Mode state: Dataset vs 2-Point Mode
@@ -105,21 +106,44 @@ export const App: React.FC = () => {
     if (!customOrigin) {
       const originPt: [number, number] = [lat, lon];
       setCustomOrigin(originPt);
-      setCustomStatusMsg('Origin set. Click on the map to set Destination (Point B)');
+      setCustomStatusMsg('Point A (Origin) set. Now click on the map to set Point B (Destination)');
     } else if (!customDestination) {
       const destPt: [number, number] = [lat, lon];
       setCustomDestination(destPt);
-      setCustomStatusMsg('Planning route with vector road network...');
+      setCustomStatusMsg('Calculating route from offline road network...');
 
       try {
         const path = await customSimRef.current.fetchRoute(customOrigin, destPt);
         setCustomRoutePath(path);
-        setCustomStatusMsg('Route planned. Click PLAY to start navigation');
+        setCustomStatusMsg('Route ready! Click START SIMULATION to begin navigation');
         const firstPkt = customSimRef.current.step();
         if (firstPkt) setTelemetry(firstPkt);
       } catch (err: any) {
         setCustomStatusMsg(`Routing error: ${err.message}`);
       }
+    }
+  };
+
+  const handleSetOrigin = (pt: [number, number]) => {
+    setCustomOrigin(pt);
+    setCustomStatusMsg('Origin set from vehicle. Now click on the map to set Destination (Point B)');
+  };
+
+
+  const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string) => {
+    if (customTimerRef.current) clearInterval(customTimerRef.current);
+    customSimRef.current.reset();
+    setCustomOrigin(origin);
+    setCustomDestination(dest);
+    setCustomStatusMsg(`Calculating route for ${name}...`);
+    try {
+      const path = await customSimRef.current.fetchRoute(origin, dest);
+      setCustomRoutePath(path);
+      setCustomStatusMsg(`${name} loaded. Click START SIMULATION to begin navigation!`);
+      const firstPkt = customSimRef.current.step();
+      if (firstPkt) setTelemetry(firstPkt);
+    } catch (err: any) {
+      setCustomStatusMsg(`Routing error: ${err.message}`);
     }
   };
 
@@ -301,6 +325,23 @@ export const App: React.FC = () => {
 
           {/* Flash Alert Banner */}
           <AlertBanner telemetry={telemetry} />
+
+          {/* Custom 2-Location Route Planner Card (Easy Waypoint Selection & Presets) */}
+          {appMode === 'CUSTOM_ROUTE' && (
+            <RoutePlannerWidget
+              customOrigin={customOrigin}
+              customDestination={customDestination}
+              customRoutePath={customRoutePath}
+              customStatusMsg={customStatusMsg}
+              onSetOrigin={handleSetOrigin}
+              onSelectPreset={handleSelectPreset}
+              onClearPoints={handleClearCustomPoints}
+              onStartSimulation={handleTogglePlay}
+              onClose={() => handleToggleMode('CANONICAL_DATASET')}
+              telemetry={telemetry}
+              isPlaying={isPlaying}
+            />
+          )}
 
           {/* SIMPLIFIED VIEW (DEFAULT): Cockpit HUD with Vehicle Speed Dial */}
           {viewMode === 'SIMPLIFIED' && <NavigationHUD telemetry={telemetry} />}

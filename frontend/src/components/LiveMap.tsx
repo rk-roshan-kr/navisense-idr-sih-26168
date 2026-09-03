@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import type { TelemetryPacket, ScenarioInfo, AppMode } from '../types';
 
@@ -26,6 +26,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
+  // Camera Mode: 'FOLLOW' | 'FREECAM'
+  const [cameraMode, setCameraMode] = useState<'FOLLOW' | 'FREECAM'>('FOLLOW');
+  const cameraModeRef = useRef<'FOLLOW' | 'FREECAM'>('FOLLOW');
+
   // Layer refs
   const roadPolylineRef = useRef<L.Polyline | null>(null);
   const roadCorridorGlowRef = useRef<L.Polyline | null>(null);
@@ -36,7 +40,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const idrTrailRef = useRef<L.Polyline | null>(null);
   const idrGlowTrailRef = useRef<L.Polyline | null>(null);
 
-  // Raw INS Ghost Divergence baseline layers
+  // Raw INS Ghost Baseline layers
   const ghostMarkerRef = useRef<L.Marker | null>(null);
   const ghostTrailRef = useRef<L.Polyline | null>(null);
   const ghostPointsRef = useRef<[number, number][]>([]);
@@ -61,6 +65,14 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const targetHeadingRef = useRef<number>(0);
   const isInitializedRef = useRef<boolean>(false);
   const prevBlackoutStateRef = useRef<boolean>(false);
+
+  // Switch to Freecam automatically when entering custom 2-point mode
+  useEffect(() => {
+    if (appMode === 'CUSTOM_ROUTE') {
+      setCameraMode('FREECAM');
+      cameraModeRef.current = 'FREECAM';
+    }
+  }, [appMode]);
 
   // Initialize Map
   useEffect(() => {
@@ -119,14 +131,14 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     // IDR Trail Glow (Soft Blue Aura)
     idrGlowTrailRef.current = L.polyline([], {
-      color: '#bfdbfe',
+      color: 'rgba(37, 99, 235, 0.35)',
       weight: 12,
-      opacity: 0.5,
+      opacity: 0.4,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
 
-    // IDR Trail (Clean Electric Blue)
+    // IDR Trail (Electric Commercial Blue)
     idrTrailRef.current = L.polyline([], {
       color: '#2563eb',
       weight: 5.5,
@@ -184,8 +196,20 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       dashArray: '3, 6'
     }).addTo(map);
 
+    // Click handler for 2-point routing
     map.on('click', (e: L.LeafletMouseEvent) => {
       onMapClick(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Auto-switch to Freecam when user drags or zooms
+    map.on('dragstart', () => {
+      setCameraMode('FREECAM');
+      cameraModeRef.current = 'FREECAM';
+    });
+
+    map.on('zoomstart', () => {
+      setCameraMode('FREECAM');
+      cameraModeRef.current = 'FREECAM';
     });
 
     mapInstanceRef.current = map;
@@ -215,7 +239,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         arrowElem.style.transform = `rotate(${animHeadingRef.current}deg)`;
       }
 
-      if (mapInstanceRef.current) {
+      // ONLY AUTO-CENTER CAMERA IF IN FOLLOW MODE!
+      if (mapInstanceRef.current && cameraModeRef.current === 'FOLLOW') {
         const rad = (animHeadingRef.current * Math.PI) / 180;
         const lookaheadLat = newLat + (20 * Math.cos(rad)) / 111320;
         const lookaheadLon = newLon + (20 * Math.sin(rad)) / (111320 * Math.cos((newLat * Math.PI) / 180));
@@ -247,8 +272,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       if (!originMarkerRef.current) {
         originMarkerRef.current = L.circleMarker(customOrigin, {
           radius: 8,
-          color: '#00f59b',
-          fillColor: '#00f59b',
+          color: '#059669',
+          fillColor: '#10b981',
           fillOpacity: 0.9,
           weight: 3
         }).addTo(map);
@@ -266,7 +291,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       if (!destinationMarkerRef.current) {
         destinationMarkerRef.current = L.circleMarker(customDestination, {
           radius: 8,
-          color: '#ef4444',
+          color: '#b91c1c',
           fillColor: '#ef4444',
           fillOpacity: 0.9,
           weight: 3
@@ -355,7 +380,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       // Raw INS Divergence Ghost Vehicle
       if (showGhostBaseline) {
         const rad = (heading_deg * Math.PI) / 180;
-        // Quadratic error divergence: 0.5 * a_bias * t^2
         const t = blackout_elapsed_s;
         const driftM = 0.5 * 0.22 * t * t;
         const ghostLat = currPt[0] + (driftM * Math.cos(rad + Math.PI / 2)) / 111320;
@@ -396,9 +420,57 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     }
   }, [telemetry, showGhostBaseline]);
 
+  // Re-center on vehicle
+  const handleFollowCar = () => {
+    setCameraMode('FOLLOW');
+    cameraModeRef.current = 'FOLLOW';
+    if (mapInstanceRef.current && animPosRef.current) {
+      mapInstanceRef.current.flyTo(animPosRef.current, 17, { duration: 0.6 });
+    }
+  };
+
+  const handleToggleCamera = (mode: 'FOLLOW' | 'FREECAM') => {
+    setCameraMode(mode);
+    cameraModeRef.current = mode;
+    if (mode === 'FOLLOW' && mapInstanceRef.current && animPosRef.current) {
+      mapInstanceRef.current.flyTo(animPosRef.current, 17, { duration: 0.6 });
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', cursor: appMode === 'CUSTOM_ROUTE' ? 'crosshair' : 'default' }}>
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Camera Mode Toggle (Top-Right of Map) */}
+      <div className="map-camera-controls glass-panel">
+        <button
+          onClick={() => handleToggleCamera('FOLLOW')}
+          className={`btn-cam-mode ${cameraMode === 'FOLLOW' ? 'active-cam' : ''}`}
+          title="Keep camera centered and following the vehicle"
+        >
+          <span className={cameraMode === 'FOLLOW' ? 'cam-dot-live' : 'cam-dot-off'} />
+          <span>Follow Car</span>
+        </button>
+        <button
+          onClick={() => handleToggleCamera('FREECAM')}
+          className={`btn-cam-mode ${cameraMode === 'FREECAM' ? 'active-cam' : ''}`}
+          title="Freely pan, zoom, and inspect any road or junction"
+        >
+          <span>Freecam</span>
+        </button>
+      </div>
+
+      {/* Floating Re-center Action Button when in Freecam */}
+      {cameraMode === 'FREECAM' && (
+        <button
+          onClick={handleFollowCar}
+          className="btn-recenter-car glass-panel"
+          title="Fly back and center camera on vehicle"
+        >
+          <span className="recenter-target-icon">⌖</span>
+          <span>Re-center on Car</span>
+        </button>
+      )}
     </div>
   );
 };
