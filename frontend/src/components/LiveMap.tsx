@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import maplibreglWorker from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import maplibreglWorker from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { TelemetryPacket, ScenarioInfo, AppMode } from '../types';
 
-// Configure WebGL worker URL for Vite production bundle
+// Configure WebGL self-contained worker for Vite production bundle
 maplibregl.setWorkerUrl(maplibreglWorker);
 
 interface LiveMapProps {
