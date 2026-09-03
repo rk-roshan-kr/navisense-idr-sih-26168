@@ -55,14 +55,24 @@ async def engine_loop():
     while True:
         try:
             if runtime.is_playing:
-                packet = runtime.step()
-                if packet is not None:
-                    await broadcast_ws({
-                        "type": "telemetry",
-                        "data": packet.model_dump()
-                    })
-            sleep_time = max(0.01, (runtime.dt / max(0.1, runtime.playback_speed)))
-            await asyncio.sleep(sleep_time)
+                # C023 FIX: guard against step overflow before calling step()
+                if runtime.current_step >= runtime.total_steps - 1:
+                    runtime.is_playing = False
+                else:
+                    t_start = asyncio.get_event_loop().time()
+                    packet = runtime.step()
+                    if packet is not None:
+                        await broadcast_ws({
+                            "type": "telemetry",
+                            "data": packet.model_dump()
+                        })
+                    # C022 FIX: subtract actual compute time so loop stays at real 10 Hz
+                    elapsed = asyncio.get_event_loop().time() - t_start
+                    target = runtime.dt / max(0.1, runtime.playback_speed)
+                    sleep_time = max(0.005, target - elapsed)
+                    await asyncio.sleep(sleep_time)
+                    continue
+            await asyncio.sleep(max(0.01, runtime.dt / max(0.1, runtime.playback_speed)))
         except Exception as e:
             print(f"[ENGINE_LOOP] Error: {e}")
             await asyncio.sleep(0.1)

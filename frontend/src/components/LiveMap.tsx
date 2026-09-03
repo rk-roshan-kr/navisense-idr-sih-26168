@@ -367,11 +367,13 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       isInitializedRef.current = true;
       isFollowingRef.current = true;
 
-      // Reset trail buffers for clean start in new city
+      // Reset trail buffers for clean start in new city / scenario reset
       gnssSegmentsRef.current = [[currCoord]];
       idrSegmentsRef.current = [];
       lastGnssCoordRef.current = currCoord;
       lastIdrCoordRef.current = null;
+      // C025 FIX: reset blackout state so first packet in new city isn't treated as mid-blackout
+      prevBlackoutRef.current = false;
 
       const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
       gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [[currCoord]] } });
@@ -385,6 +387,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         bearing: is3DModeRef.current ? heading_deg : 0
       });
       return;
+
     } else {
       targetPosRef.current = currCoord;
       targetHeadingRef.current = heading_deg;

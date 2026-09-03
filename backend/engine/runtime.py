@@ -166,24 +166,30 @@ class NaviSenseRuntime:
         ax = np.clip(np.gradient(self.can_speed) / self.dt, -3.0, 3.0)
         rad_head = np.radians(self.can_head)
         d_head = np.diff(np.unwrap(rad_head), prepend=rad_head[0])
-        gyaw = np.clip(d_head / self.dt, -0.35, 0.35)
-        ay = np.clip(self.can_speed * gyaw, -3.5, 3.5)
+        # C003 FIX: clip raised from ±0.35 to ±1.5 rad/s
+        # ±0.35 rad/s = min turn radius 40m at 50 km/h — all urban turns were invisible to the net!
+        # ±1.5 rad/s = min turn radius 9m at 50 km/h — covers all realistic urban maneuvers
+        gyaw = np.clip(d_head / self.dt, -1.5, 1.5)
+        ay = np.clip(self.can_speed * gyaw, -8.0, 8.0)   # raised lateral g limit accordingly
+        # C006 FIX: add road-vibration noise to az so normalization matches IO-VNBD training distribution
+        # IO-VNBD real sensor has ~0.15 m/s² RMS road vibration in az channel
         az = np.full_like(ax, 9.81)
 
-        np.random.seed(42)
-        noise_ax = np.random.normal(0, 0.02, size=self.total_steps)
-        noise_ay = np.random.normal(0, 0.02, size=self.total_steps)
-        noise_gx = np.random.normal(0, 0.002, size=self.total_steps)
-        noise_gy = np.random.normal(0, 0.004, size=self.total_steps)
-        noise_yaw = np.random.normal(0, 0.003, size=self.total_steps)
+        rng = np.random.default_rng(42)   # C019 FIX: local RNG, not global state
+        noise_ax = rng.normal(0, 0.02, size=self.total_steps)
+        noise_ay = rng.normal(0, 0.02, size=self.total_steps)
+        noise_az = rng.normal(0, 0.15, size=self.total_steps)   # C006: road vibration noise
+        noise_gx = rng.normal(0, 0.002, size=self.total_steps)
+        noise_gy = rng.normal(0, 0.004, size=self.total_steps)
+        noise_yaw = rng.normal(0, 0.003, size=self.total_steps)
 
         self.raw_imu = np.stack([
-            (ax + noise_ax).astype(np.float32),      # row 0: ax
-            (ay + noise_ay).astype(np.float32),      # row 1: ay (lateral)
-            az.astype(np.float32),                   # row 2: az (gravity)
-            noise_gx.astype(np.float32),             # row 3: gx (roll)
-            noise_gy.astype(np.float32),             # row 4: gy (pitch)
-            (gyaw + noise_yaw).astype(np.float32),   # row 5: gz (yaw rate)
+            (ax + noise_ax).astype(np.float32),          # row 0: ax
+            (ay + noise_ay).astype(np.float32),          # row 1: ay (lateral)
+            (az + noise_az).astype(np.float32),          # row 2: az (gravity + vibration)
+            noise_gx.astype(np.float32),                 # row 3: gx (roll)
+            noise_gy.astype(np.float32),                 # row 4: gy (pitch)
+            (gyaw + noise_yaw).astype(np.float32),       # row 5: gz (yaw rate) ← DRIVES HEADING
             np.zeros(self.total_steps, dtype=np.float32), # row 6: mx
             np.zeros(self.total_steps, dtype=np.float32), # row 7: my
             np.zeros(self.total_steps, dtype=np.float32)  # row 8: mz

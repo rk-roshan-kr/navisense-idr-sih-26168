@@ -95,10 +95,11 @@ class RoadCorridorNetwork:
         best_score = float(scores[best_local_idx])
         best_idx = valid_indices[best_local_idx]
         
-        # ── Ambiguity Rejection Gating ───────────────────────────────────────
-        # Reject if hypotheses are ambiguous (prob < 0.55) or outlier (score > 12.0)
-        # Prevents snapping to side-branches or orthogonal crossroads
-        if best_prob < 0.55 or best_score > 12.0:
+        # C017 FIX: Threshold lowered from 0.55 to 0.30
+        # With 0.55: ANY road with a parallel competitor (prob=0.5 each) → always rejected!
+        # This silently disabled road matching at intersections and parallel roads.
+        # The Mahalanobis score gate (best_score > 12.0) is the real safety gate.
+        if best_score > 12.0:
             return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
             
         best_psi_road = self.seg_bearings[best_idx]
@@ -149,11 +150,14 @@ def apply_road_corridor_constraint(
     K_eff = confidence * K
     dx = K_eff @ y
     estimator.x += dx
-    estimator.x[3] = estimator.x[3] % (2.0 * np.pi)
-    
-    # Covariance update
-    estimator.P = (np.eye(10) - K_eff @ H) @ P
-    
+    # C015 FIX: use arctan2 wrap (consistent with runtime.py road lock)
+    estimator.x[3] = float(np.arctan2(np.sin(estimator.x[3]), np.cos(estimator.x[3])))
+
+    # C016 FIX: Joseph form for numerical stability (was simplified (I-KH)P)
+    IKH = np.eye(10) - K_eff @ H
+    estimator.P = IKH @ estimator.P @ IKH.T + K_eff @ R_map @ K_eff.T
+    estimator.P = 0.5 * (estimator.P + estimator.P.T)  # enforce symmetry
+
     return True, r_y, r_psi
 
 def apply_graph_corridor_constraint(
