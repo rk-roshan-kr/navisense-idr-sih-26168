@@ -177,6 +177,29 @@ class NaviSenseRuntime:
         self.can_speed = np.array(interp_spd, dtype=np.float32)
         self.total_steps = len(self.can_speed)
 
+        # ── Realistic Urban Speed Profile ────────────────────────────────────
+        # Replace the flat ~50 km/h sine with layered variation (30–65 km/h range)
+        # reflecting actual Indian urban driving: traffic lights, acceleration zones, curves
+        N = self.total_steps
+        t_norm = np.linspace(0, 1, N, dtype=np.float32)
+        speed_profile = (
+            13.8                                                          # 50 km/h base
+            + 3.0  * np.sin(2 * np.pi * t_norm * 6).astype(np.float32)  # ±11 km/h traffic-light cycle
+            + 1.5  * np.sin(2 * np.pi * t_norm * 18 + 0.8).astype(np.float32)  # ±5 km/h medium
+            + 0.7  * np.sin(2 * np.pi * t_norm * 45 + 1.5).astype(np.float32)  # ±2.5 km/h fine
+        )
+        speed_profile = np.clip(speed_profile, 3.0, 19.4)  # 11–70 km/h hard limits
+
+        # Startup: 0 → cruising in first 8 seconds (car starts from standstill)
+        RAMP = min(80, N // 8)
+        ramp_up   = np.sin(np.linspace(0, np.pi / 2, RAMP, dtype=np.float32)) ** 1.2
+        ramp_down = np.sin(np.linspace(np.pi / 2, 0, RAMP, dtype=np.float32)) ** 1.2
+        speed_profile[:RAMP]  *= ramp_up     # smooth sin-curve acceleration
+        speed_profile[-RAMP:] *= ramp_down   # smooth sin-curve deceleration to 0
+
+        self.can_speed = speed_profile
+
+
         # Synthesize realistic 10 Hz IMU physical dynamics
         ax = np.clip(np.gradient(self.can_speed) / self.dt, -3.0, 3.0)
         rad_head = np.radians(self.can_head)
