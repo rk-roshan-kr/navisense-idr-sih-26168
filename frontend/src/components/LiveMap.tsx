@@ -367,7 +367,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   useEffect(() => {
     if (!telemetry || !mapRef.current) return;
 
-    const { idr_position, heading_deg, blackout_active, blackout_elapsed_s } = telemetry;
+    const { idr_position, heading_deg, blackout_active } = telemetry;
     const currCoord: [number, number] = [idr_position.lon, idr_position.lat];
 
     // Distance metric in meters to detect teleportations, resets, or scenario jumps
@@ -408,12 +408,31 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       const b1Src = mapRef.current.getSource('b1-trail') as maplibregl.GeoJSONSource;
       b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
-      mapRef.current.jumpTo({
-        center: currCoord,
-        zoom: is3DModeRef.current ? 17.8 : 15.5,
-        pitch: is3DModeRef.current ? 68 : 0,
-        bearing: is3DModeRef.current ? heading_deg : 0
-      });
+      // Cinematic zoom-out → fly → zoom-in transition between scenarios/corridors
+      // flyTo naturally arcs through a high altitude (zoom-out) then lands at destination
+      const targetZoom = is3DModeRef.current ? 17.8 : 15.5;
+      const targetPitch = is3DModeRef.current ? 68 : 0;
+      const targetBearing = is3DModeRef.current ? heading_deg : 0;
+
+      if (isInitializedRef.current && isCitySwitch) {
+        // Two-phase: zoom out first, then fly in
+        mapRef.current.flyTo({
+          center: currCoord,
+          zoom: targetZoom,
+          pitch: targetPitch,
+          bearing: targetBearing,
+          curve: 1.8,        // controls arc height — higher = more zoom-out at peak
+          speed: 0.55,       // travel speed (lower = slower, more dramatic)
+          easing: (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
+          essential: true
+        });
+      } else {
+        // First load — instant jump, no animation needed
+        mapRef.current.setCenter(currCoord);
+        mapRef.current.setZoom(targetZoom);
+        mapRef.current.setPitch(targetPitch);
+        mapRef.current.setBearing(targetBearing);
+      }
       return;
 
     } else {
@@ -449,6 +468,13 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         properties: {},
         geometry: { type: 'MultiLineString', coordinates: gnssSegmentsRef.current }
       });
+
+      // GNSS active — clear B1 trail (resets fresh on next blackout)
+      b1SegmentsRef.current = [];
+      lastB1CoordRef.current = null;
+      const b1ClearSrc = mapRef.current.getSource('b1-trail') as maplibregl.GeoJSONSource;
+      b1ClearSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
+      ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
     } else {
       // GNSS Blackout: append to blue IDR trail only
       // IDR segment starts from currCoord alone — never bridge from lastGnssCoordRef
@@ -501,13 +527,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         });
       }
       // Hide old ghost marker (replaced by b1-trail layer)
-      ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
-    } else {
-      // GNSS active — clear B1 trail (reset starts fresh on next blackout)
-      b1SegmentsRef.current = [];
-      lastB1CoordRef.current = null;
-      const b1Src = mapRef.current?.getSource('b1-trail') as maplibregl.GeoJSONSource;
-      b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
       ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
     }
     prevBlackoutRef.current = blackout_active;
