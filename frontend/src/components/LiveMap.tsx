@@ -18,38 +18,6 @@ interface LiveMapProps {
   showGhostBaseline?: boolean;
 }
 
-// Monochromatic Swiss-engineering street grid (100% Free, Zero Watermarks, Zero API Key)
-const SWISS_MONO_MAP_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'osm-street-grid': {
-      type: 'raster',
-      tiles: [
-        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-      ],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors'
-    }
-  },
-  layers: [
-    {
-      id: 'osm-monochrome-base',
-      type: 'raster',
-      source: 'osm-street-grid',
-      minzoom: 0,
-      maxzoom: 19,
-      paint: {
-        'raster-saturation': -1.0,   // 100% Monochromatic de-saturated street grid (DESIGN.md)
-        'raster-contrast': -0.15,     // Soft, low-distraction Swiss editorial contrast
-        'raster-brightness-min': 0.25, // Lightens background to crisp off-white canvas
-        'raster-opacity': 0.95
-      }
-    }
-  ]
-};
-
 export const LiveMap: React.FC<LiveMapProps> = ({
   telemetry,
   scenario,
@@ -98,7 +66,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     }
   }, [appMode]);
 
-  // Initialize MapLibre GL Instant Map (Zero Watermarks, 0ms Style Load, High Performance)
+  // Initialize MapLibre GL 3D Vector Map (OpenFreeMap 3D Vector Tiles - 100% Free, Zero Watermarks)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
@@ -107,10 +75,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: SWISS_MONO_MAP_STYLE,
+      style: 'https://tiles.openfreemap.org/styles/liberty', // 3D Vector Map with building extrusions
       center: [initialLon, initialLat],
-      zoom: 15.5,
-      pitch: 45,
+      zoom: 16.5,
+      pitch: 55, // 3D Apple Maps Cockpit Navigation Perspective
       bearing: 0,
       maxPitch: 75,
       attributionControl: false,
@@ -122,7 +90,38 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     });
 
     map.on('load', () => {
-      // 1. GNSS Trail (MultiLineString - Breaks completely during outage, no bridging)
+      // 1. Add 3D Extruded Buildings Layer (Architectural shading in 3D)
+      const layers = map.getStyle().layers || [];
+      const labelLayer = layers.find((l: any) => l.type === 'symbol' && l.layout && l.layout['text-field']);
+      const labelLayerId = labelLayer ? labelLayer.id : undefined;
+
+      if (!map.getLayer('3d-buildings') && map.getSource('openmaptiles')) {
+        map.addLayer(
+          {
+            id: '3d-buildings',
+            source: 'openmaptiles',
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 15.0,
+            paint: {
+              'fill-extrusion-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'render_height'],
+                0, '#e2e8f0',
+                20, '#cbd5e1',
+                50, '#94a3b8'
+              ],
+              'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15.0, 0, 16.0, ['get', 'render_height']],
+              'fill-extrusion-base': ['get', 'render_min_height'],
+              'fill-extrusion-opacity': 0.8
+            }
+          },
+          labelLayerId
+        );
+      }
+
+      // 2. GNSS Trail (MultiLineString - Breaks completely during outage, no bridging)
       map.addSource('gnss-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
@@ -135,7 +134,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#0f172a', 'line-width': 2, 'line-opacity': 0.7 }
       });
 
-      // 2. IDR Dead Reckoning Trail (DESIGN.md: Emerald 500, 3px line)
+      // 3. IDR Dead Reckoning Trail (DESIGN.md: Emerald 500, 3px line)
       map.addSource('idr-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
