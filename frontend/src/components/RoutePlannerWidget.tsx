@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { TelemetryPacket } from '../types';
 
 interface RoutePlannerWidgetProps {
@@ -10,7 +10,6 @@ interface RoutePlannerWidgetProps {
   onSelectPreset: (origin: [number, number], destination: [number, number], name: string) => void;
   onClearPoints: () => void;
   onStartSimulation: () => void;
-  onClose: () => void;
   telemetry: TelemetryPacket | null;
   isPlaying: boolean;
 }
@@ -49,10 +48,10 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
   onSelectPreset,
   onClearPoints,
   onStartSimulation,
-  onClose,
   telemetry,
   isPlaying
 }) => {
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const hasOrigin = !!customOrigin;
   const hasDestination = !!customDestination;
   const hasRoute = customRoutePath.length > 0;
@@ -63,40 +62,61 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
     : null;
 
   return (
-    <div className="swiss-route-planner">
-      {/* 1. Header with Breadcrumb & Close */}
-      <div className="planner-top-bar">
+    <div className={`swiss-route-planner ${isMinimized ? 'planner-minimized' : ''}`}>
+      {/* 1. Header with Breadcrumb & True Minimize (− / +) */}
+      <div
+        className="planner-top-bar"
+        onClick={() => isMinimized && setIsMinimized(false)}
+        style={{ cursor: isMinimized ? 'pointer' : 'default' }}
+      >
         <div className="planner-title-group">
-          <span className="planner-title-tag mono">CORRIDOR PLANNER</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="planner-title-tag mono">CORRIDOR PLANNER</span>
+            {isMinimized && (
+              <span style={{ fontSize: '9px', background: '#ecfdf5', color: '#059669', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                ACTIVE CORRIDOR
+              </span>
+            )}
+          </div>
           <span className="planner-status-note">{customStatusMsg}</span>
         </div>
-        <button onClick={onClose} className="planner-close-icon" title="Minimize planner">
-          ✕
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMinimized(!isMinimized);
+          }}
+          className="planner-minimize-btn"
+          title={isMinimized ? "Expand planner" : "Minimize planner"}
+        >
+          {isMinimized ? '+' : '−'}
         </button>
       </div>
 
-      {/* 2. Subway-Stop Icon Connector */}
-      <div className="subway-connector-card">
-        {/* Origin Stop */}
-        <div className="subway-stop">
-          <div className="subway-node-wrap">
-            <span className="subway-dot dot-origin" />
-            <span className="subway-track-line" />
-          </div>
-          <div className="subway-info">
-            <div className="subway-label-row">
-              <span className="subway-label">POINT A / ORIGIN</span>
-              {currentCarPos && !hasOrigin && (
-                <button onClick={() => onSetOrigin(currentCarPos)} className="btn-chip-action mono">
-                  Use Car GPS
-                </button>
-              )}
+      {/* Body: Collapses cleanly when minimized */}
+      {!isMinimized && (
+        <>
+          {/* 2. Subway-Stop Icon Connector */}
+          <div className="subway-connector-card">
+            {/* Origin Stop */}
+            <div className="subway-stop">
+              <div className="subway-node-wrap">
+                <span className="subway-dot dot-origin" />
+                <span className="subway-track-line" />
+              </div>
+              <div className="subway-info">
+                <div className="subway-label-row">
+                  <span className="subway-label">POINT A / ORIGIN</span>
+                  {currentCarPos && !hasOrigin && (
+                    <button onClick={() => onSetOrigin(currentCarPos)} className="btn-chip-action mono">
+                      Use Car GPS
+                    </button>
+                  )}
+                </div>
+                <div className="subway-coord-chip mono">
+                  {hasOrigin ? `${customOrigin[0].toFixed(5)}°, ${customOrigin[1].toFixed(5)}°` : 'Click on map to set Point A'}
+                </div>
+              </div>
             </div>
-            <div className="subway-coord-chip mono">
-              {hasOrigin ? `${customOrigin[0].toFixed(5)}°, ${customOrigin[1].toFixed(5)}°` : 'Click on map to set Point A'}
-            </div>
-          </div>
-        </div>
 
         {/* Destination Stop */}
         <div className="subway-stop">
@@ -150,6 +170,8 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
           CLEAR
         </button>
       </div>
+        </>
+      )}
     </div>
   );
 };

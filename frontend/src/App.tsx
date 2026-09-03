@@ -14,7 +14,6 @@ import { RoutePlannerWidget, ROUTE_PRESETS } from './components/RoutePlannerWidg
 export const App: React.FC = () => {
   // Mode state: 2-Point Road Navigation by Default (Always Point A -> Point B!)
   const [appMode, setAppMode] = useState<AppMode>('CUSTOM_ROUTE');
-  const [isPlannerVisible, setIsPlannerVisible] = useState<boolean>(true);
 
   // View state: Simplified by Default vs Detailed Telemetry
   const [viewMode, setViewMode] = useState<ViewMode>('SIMPLIFIED');
@@ -354,30 +353,19 @@ export const App: React.FC = () => {
           {/* Flash Alert Banner */}
           <AlertBanner telemetry={telemetry} />
 
-          {/* 2-Location Route Corridor Planner Card (Can be minimized without changing mode) */}
-          {isPlannerVisible ? (
-            <RoutePlannerWidget
-              customOrigin={customOrigin}
-              customDestination={customDestination}
-              customRoutePath={customRoutePath}
-              customStatusMsg={customStatusMsg}
-              onSetOrigin={handleSetOrigin}
-              onSelectPreset={handleSelectPreset}
-              onClearPoints={handleClearCustomPoints}
-              onStartSimulation={handleTogglePlay}
-              onClose={() => setIsPlannerVisible(false)}
-              telemetry={telemetry}
-              isPlaying={isPlaying}
-            />
-          ) : (
-            <button
-              onClick={() => setIsPlannerVisible(true)}
-              className="planner-expand-pill"
-              title="Expand Route Corridor Planner"
-            >
-              <span>Route Planner</span>
-            </button>
-          )}
+          {/* 2-Location Route Corridor Planner Card (In-place collapsible with − / +) */}
+          <RoutePlannerWidget
+            customOrigin={customOrigin}
+            customDestination={customDestination}
+            customRoutePath={customRoutePath}
+            customStatusMsg={customStatusMsg}
+            onSetOrigin={handleSetOrigin}
+            onSelectPreset={handleSelectPreset}
+            onClearPoints={handleClearCustomPoints}
+            onStartSimulation={handleTogglePlay}
+            telemetry={telemetry}
+            isPlaying={isPlaying}
+          />
 
           {/* SIMPLIFIED VIEW (DEFAULT): Cockpit HUD with Vehicle Speed Dial */}
           {viewMode === 'SIMPLIFIED' && <NavigationHUD telemetry={telemetry} />}

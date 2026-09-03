@@ -1484,7 +1484,7 @@ html, body, #root {
   left: 16px;
   z-index: 900;
   width: 320px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -1494,6 +1494,27 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.swiss-route-planner.planner-minimized {
+  width: auto;
+  min-width: 250px;
+  max-width: 320px;
+  padding: 8px 14px;
+  gap: 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.swiss-route-planner.planner-minimized .planner-top-bar {
+  border-bottom: none;
+  padding-bottom: 0;
+  align-items: center;
+}
+
+.swiss-route-planner.planner-minimized .planner-status-note {
+  display: none;
 }
 
 .planner-top-bar {
@@ -1522,17 +1543,27 @@ html, body, #root {
   color: #64748b;
 }
 
-.planner-close-icon {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  font-size: 13px;
+.planner-minimize-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  padding: 2px;
+  line-height: 1;
+  transition: all 0.15s ease;
 }
 
-.planner-close-icon:hover {
-  color: #0f172a;
+.planner-minimize-btn:hover {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
 }
 
 .subway-connector-card {
