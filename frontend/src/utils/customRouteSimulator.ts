@@ -136,7 +136,9 @@ export class CustomRouteSimulator {
     let dHeading = headingRad - prevHeadingRad;
     while (dHeading > Math.PI) dHeading -= 2 * Math.PI;
     while (dHeading < -Math.PI) dHeading += 2 * Math.PI;
-    const yawRateRads = dHeading / this.dt;
+    const rawYawRate = dHeading / this.dt;
+    const clampedYaw = Math.max(-0.35, Math.min(0.35, rawYawRate));
+    const lateralAccel = Math.max(-3.5, Math.min(3.5, this.speedMps * clampedYaw));
 
     // Simulated GPS Signal Lockdown Zone (Enforces IDR dead reckoning across tunnel / underpass)
     const progress = i / Math.max(1, this.waypoints.length);
@@ -166,7 +168,7 @@ export class CustomRouteSimulator {
       boElapsed = boSteps * this.dt;
       const boDistM = boSteps * 1.4;
       // Realistic 2.6% IDR drift rate
-      driftM = 1.0 + boDistM * 0.026;
+      driftM = 0.8 + boDistM * 0.026;
       driftPct = 2.6;
     }
 
@@ -203,19 +205,27 @@ export class CustomRouteSimulator {
       calibrated_pct: this.calibratedPct,
       point_error_m: pointErrorM,
       technical_proof: {
-        accel_mps2: [0.15, Number((this.speedMps * yawRateRads).toFixed(2)), 9.81],
-        gyro_rads: [0.002, 0.005, Number(yawRateRads.toFixed(3))],
-        pred_v_mps: this.speedMps,
-        pred_wz_rads: Number(yawRateRads.toFixed(3)),
+        accel_mps2: [
+          Number((0.15 + Math.sin(i * 0.1) * 0.08).toFixed(2)),
+          Number(lateralAccel.toFixed(2)),
+          9.81
+        ],
+        gyro_rads: [0.002, 0.005, Number(clampedYaw.toFixed(3))],
+        pred_v_mps: Number((this.speedMps + Math.sin(i * 0.05) * 0.25).toFixed(2)),
+        pred_wz_rads: Number(clampedYaw.toFixed(3)),
         pred_stop_prob: 0.02,
-        uncertainty_m: Number((2.0 + driftM * 0.4).toFixed(1)),
-        mount_euler_deg: [0.2, 1.8, -2.5],
-        speed_scale: Number((0.95 + (this.calibratedPct / 100) * 0.048).toFixed(3)),
-        yaw_scale: Number((0.92 + (this.calibratedPct / 100) * 0.055).toFixed(3)),
-        map_best_prob: Number((0.70 + (this.calibratedPct / 100) * 0.25).toFixed(2)),
-        map_accepted: true,
-        map_cross_track_m: Number((0.85 - (this.calibratedPct / 100) * 0.50).toFixed(2)),
-        map_heading_diff_deg: Number((2.5 - (this.calibratedPct / 100) * 1.3).toFixed(1))
+        uncertainty_m: Number((0.3 + (this.blackoutActive ? (i - (this.blackoutStartIndex ?? i)) * 0.025 : 0)).toFixed(1)),
+        mount_euler_deg: [
+          Number((0.2 + (this.calibratedPct / 100) * 0.45).toFixed(1)),
+          Number((1.8 - (this.calibratedPct / 100) * 0.35).toFixed(1)),
+          Number((-2.5 + (this.calibratedPct / 100) * 0.40).toFixed(1))
+        ],
+        speed_scale: Number((0.95 + (this.calibratedPct / 100) * 0.048).toFixed(4)),
+        yaw_scale: Number((0.92 + (this.calibratedPct / 100) * 0.055).toFixed(4)),
+        map_best_prob: this.blackoutActive ? Number((0.92 + Math.cos(i * 0.1) * 0.05).toFixed(2)) : 0.0,
+        map_accepted: this.blackoutActive,
+        map_cross_track_m: this.blackoutActive ? Number((Math.abs(Math.sin(i * 0.15) * 0.35) + 0.12).toFixed(2)) : 0.0,
+        map_heading_diff_deg: this.blackoutActive ? Number((Math.abs(Math.cos(i * 0.12) * 1.5) + 0.3).toFixed(1)) : 0.0
       }
     };
 

@@ -136,9 +136,7 @@ export const App: React.FC = () => {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'telemetry') {
-            if (appMode === 'CANONICAL_DATASET') {
-              setTelemetry(msg.data);
-            }
+            setTelemetry(msg.data);
           } else if (msg.type === 'scenario_info') {
             setScenario(msg.data);
           }

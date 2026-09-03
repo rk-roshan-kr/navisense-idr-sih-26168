@@ -149,35 +149,44 @@ class NaviSenseRuntime:
         interp_head.append(interp_head[-1] if interp_head else 0.0)
         interp_spd.append(13.8)
 
+        # Smooth heading transitions using angular vector convolution (avoids instantaneous jump spikes)
+        rad_h = np.radians(np.array(interp_head, dtype=np.float32))
+        win = 25
+        sin_sm = np.convolve(np.sin(rad_h), np.ones(win) / win, mode='same')
+        cos_sm = np.convolve(np.cos(rad_h), np.ones(win) / win, mode='same')
+        smoothed_head = (np.degrees(np.arctan2(sin_sm, cos_sm)) + 360.0) % 360.0
+
         self.can_lat = np.array(interp_lat, dtype=np.float64)
         self.can_lon = np.array(interp_lon, dtype=np.float64)
-        self.can_head = np.array(interp_head, dtype=np.float32)
+        self.can_head = smoothed_head.astype(np.float32)
         self.can_speed = np.array(interp_spd, dtype=np.float32)
         self.total_steps = len(self.can_speed)
 
         # Synthesize realistic 10 Hz IMU physical dynamics
-        ax = np.gradient(self.can_speed) / self.dt
+        ax = np.clip(np.gradient(self.can_speed) / self.dt, -3.0, 3.0)
         rad_head = np.radians(self.can_head)
         d_head = np.diff(np.unwrap(rad_head), prepend=rad_head[0])
-        gyaw = d_head / self.dt
-        ay = self.can_speed * gyaw
+        gyaw = np.clip(d_head / self.dt, -0.35, 0.35)
+        ay = np.clip(self.can_speed * gyaw, -3.5, 3.5)
         az = np.full_like(ax, 9.81)
 
         np.random.seed(42)
         noise_ax = np.random.normal(0, 0.02, size=self.total_steps)
         noise_ay = np.random.normal(0, 0.02, size=self.total_steps)
-        noise_yaw = np.random.normal(0, 0.002, size=self.total_steps)
+        noise_gx = np.random.normal(0, 0.002, size=self.total_steps)
+        noise_gy = np.random.normal(0, 0.004, size=self.total_steps)
+        noise_yaw = np.random.normal(0, 0.003, size=self.total_steps)
 
         self.raw_imu = np.stack([
-            (ax + noise_ax).astype(np.float32),
-            (ay + noise_ay).astype(np.float32),
-            az.astype(np.float32),
-            (gyaw + noise_yaw).astype(np.float32),
-            np.zeros(self.total_steps, dtype=np.float32),
-            np.zeros(self.total_steps, dtype=np.float32),
-            np.zeros(self.total_steps, dtype=np.float32),
-            np.zeros(self.total_steps, dtype=np.float32),
-            np.zeros(self.total_steps, dtype=np.float32)
+            (ax + noise_ax).astype(np.float32),      # row 0: ax
+            (ay + noise_ay).astype(np.float32),      # row 1: ay (lateral)
+            az.astype(np.float32),                   # row 2: az (gravity)
+            noise_gx.astype(np.float32),             # row 3: gx (roll)
+            noise_gy.astype(np.float32),             # row 4: gy (pitch)
+            (gyaw + noise_yaw).astype(np.float32),   # row 5: gz (yaw rate)
+            np.zeros(self.total_steps, dtype=np.float32), # row 6: mx
+            np.zeros(self.total_steps, dtype=np.float32), # row 7: my
+            np.zeros(self.total_steps, dtype=np.float32)  # row 8: mz
         ], axis=0)
 
         # WGS84 projection
