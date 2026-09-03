@@ -29,6 +29,7 @@ export interface TechnicalProof {
   map_heading_diff_deg: number;
   chunk_working_set_kb?: number;
   chunk_active_tiles?: number;
+  off_road_prob?: number;
 }
 
 export interface TelemetryPacket {

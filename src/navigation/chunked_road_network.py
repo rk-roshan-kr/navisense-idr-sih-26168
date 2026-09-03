@@ -374,23 +374,20 @@ class DynamicChunkManager:
 
         valid_indices = np.where(valid_mask)[0]
 
-        # 5. Probabilistic Multi-Hypothesis Scoring
-        sigma_p_sq = 4.0 ** 2  # 4m tolerance
-        sigma_psi_sq = np.radians(6.0) ** 2  # 6 deg tolerance
-        scores = (dists[valid_indices] ** 2) / sigma_p_sq + (heading_diffs[valid_indices] ** 2) / sigma_psi_sq
+        # 5. Mahalanobis Match Likelihood (immune to candidate count dilution)
+        sigma_p = 5.0      # 5.0m lateral lane corridor tolerance
+        sigma_psi = np.radians(12.0)  # 12 deg heading tolerance
+        scores = (dists[valid_indices] / sigma_p) ** 2 + (heading_diffs[valid_indices] / sigma_psi) ** 2
 
-        # Softmax distribution: P(e_i) propto exp(-0.5 * S_i)
-        min_s = np.min(scores)
-        exp_neg = np.exp(-0.5 * (scores - min_s))
-        probs = exp_neg / np.sum(exp_neg)
-
-        best_local_idx = int(np.argmax(probs))
-        best_prob = float(probs[best_local_idx])
+        best_local_idx = int(np.argmin(scores))
         best_score = float(scores[best_local_idx])
         best_idx = valid_indices[best_local_idx]
 
-        # 6. Ambiguity Rejection Gating (prevents wrong-branch snapping)
-        if best_prob < 0.55 or best_score > 12.0:
+        # Match probability: P = exp(-0.5 * S) in (0, 1]
+        best_prob = float(np.exp(-0.5 * best_score))
+
+        # 6. Gating: Accept if within 3-sigma corridor (S <= 9.0 => P >= 0.011)
+        if best_score > 9.0:
             self.last_query_time_ms = (time.perf_counter() - t0) * 1000.0
             return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
 

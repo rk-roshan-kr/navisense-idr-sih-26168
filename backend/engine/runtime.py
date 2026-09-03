@@ -128,7 +128,7 @@ class NaviSenseRuntime:
         self.gt_enu = np.column_stack([gt_e, gt_n])
 
         # Build Spatial Chunked Road Network (O(1) 500m spatial cells with LRU paging)
-        step_samp = 25
+        step_samp = 4
         sampled_pts = self.gt_enu[::step_samp].copy()
         self.chunkizer = SpatialChunkizer(chunk_size_m=500.0)
         self.chunkizer.ingest_polyline(sampled_pts)
@@ -188,6 +188,10 @@ class NaviSenseRuntime:
         self.blackout_active = False
         self.blackout_start_step = None
         self.is_playing = False
+        self.off_road_streak = 0
+        self.off_road_prob = 0.0
+        self.last_valid_normal = np.array([1.0, 0.0], dtype=np.float64)
+        self.last_valid_ry = 0.0
         print(f"[RUNTIME] Ready at t={self.current_step * self.dt:.1f}s (PAUSED). User can click Play to begin!")
 
     def get_initial_packet(self) -> TelemetryPacket:
@@ -249,28 +253,59 @@ class NaviSenseRuntime:
         map_rpsi_deg = 0.0
 
         if not self.blackout_active:
-            # Normal GNSS is available
+            # 3a. Normal GNSS is available: correct estimator directly
             self.estimator.correct_gnss(
                 float(self.can_lat[i]), float(self.can_lon[i]),
                 float(self.can_speed[i]), float(self.can_head[i]), dt=self.dt
             )
-            # GNSS Denial: Apply ambiguity-gated road corridor constraint from dynamic spatial chunks
+            self.off_road_streak = 0
+            self.off_road_prob = 0.0
+        else:
+            # 3b. GNSS Denial (Blackout): Intelligent Dead Reckoning with Strict Road Lock
             pos_enu = self.estimator.x[:2]
             veh_psi = self.estimator.x[3]
-            res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=float(self.estimator.x[2]))
+            speed_mps = float(self.estimator.x[2])
+
+            # Query nearest road candidate from dynamic spatial chunks
+            res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=speed_mps)
             found, r_y, r_psi, psi_road, n_unit, prob = res
             map_prob = float(prob)
             map_ry = float(r_y)
             map_rpsi_deg = float(np.degrees(r_psi))
 
             if found:
-                # Snap directly to road lane centerline: vehicle ALWAYS stays on the road!
+                # Road detected: decay off-road evidence immediately
+                self.off_road_streak = max(0, self.off_road_streak - 3)
+                self.off_road_prob = max(0.0, 1.0 - map_prob)
+
+                self.last_valid_normal = n_unit
+                self.last_valid_ry = r_y
+
+                # STRICT ROAD LOCK: vehicle stays 100% on the road centerline!
                 self.estimator.x[0] -= float(r_y * n_unit[0])
                 self.estimator.x[1] -= float(r_y * n_unit[1])
                 # Smoothly align heading towards road bearing
                 self.estimator.x[3] = float((self.estimator.x[3] - 0.4 * r_psi) % (2.0 * np.pi))
-                applied, _, _ = apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.5)
+                apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.4)
                 map_accepted = True
+
+            else:
+                # Candidate gating failed (vehicle heading or position diverged from road)
+                # Accumulate Bayesian evidence: is this an intentional off-road departure (parking/field)?
+                self.off_road_streak += 1
+                # Sustained off-road evidence: after 15 steps (1.5s of outward driving), prob reaches >= 95%
+                self.off_road_prob = float(1.0 - np.exp(-0.22 * self.off_road_streak))
+
+                if self.off_road_prob >= 0.95:
+                    # >= 95% SURE: Confirmed off-road departure (parking lot, open field, driveway)
+                    # Explicitly allow vehicle to leave the road: navigate freely via neural inertial dynamics!
+                    map_accepted = False
+                else:
+                    # < 95% SURE: Ambiguous or momentary disturbance
+                    # STRICT ROAD LOCK: prevent vehicle from prematurely leaving asphalt into the grass!
+                    self.estimator.x[0] -= float(self.last_valid_ry * 0.3 * self.last_valid_normal[0])
+                    self.estimator.x[1] -= float(self.last_valid_ry * 0.3 * self.last_valid_normal[1])
+                    map_accepted = True
 
         # 4. Compute Coordinates & Telemetry
         est_lat, est_lon = self.projector.enu_to_geodetic(self.estimator.x[0], self.estimator.x[1])
@@ -338,7 +373,8 @@ class NaviSenseRuntime:
                 map_cross_track_m=round(map_ry, 2),
                 map_heading_diff_deg=round(map_rpsi_deg, 1),
                 chunk_working_set_kb=self.chunk_manager.get_working_set_memory_kb(),
-                chunk_active_tiles=len(self.chunk_manager.active_chunks)
+                chunk_active_tiles=len(self.chunk_manager.active_chunks),
+                off_road_prob=round(self.off_road_prob, 2)
             )
         )
 
