@@ -111,6 +111,38 @@ class RoadCorridorNetwork:
         
         return True, r_y, r_psi, best_psi_road, normal_unit, best_prob
 
+    def emergency_recovery_query(self, pos_enu: np.ndarray, vehicle_psi: float, max_dist_m: float = 80.0):
+        """
+        Emergency road recovery with NO heading gate.
+        Used when normal query_candidate fails at sharp turns (heading >45° from road).
+        Finds the absolute nearest route segment regardless of vehicle heading.
+        Returns gentle corrections proportional to lateral error, capped to avoid snapping.
+        """
+        p = np.asarray(pos_enu, dtype=np.float64)
+        v_to_p = p - self.seg_starts
+        dot = np.sum(v_to_p * self.diffs, axis=1)
+        u = np.clip(dot / (self.lengths ** 2), 0.0, 1.0)
+        closest_pts = self.seg_starts + u[:, None] * self.diffs
+        dist_vecs = p - closest_pts
+        dists = np.linalg.norm(dist_vecs, axis=1)
+
+        best_idx = int(np.argmin(dists))
+        min_dist = float(dists[best_idx])
+
+        if min_dist > max_dist_m:
+            return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
+
+        best_psi_road = float(self.seg_bearings[best_idx])
+        normal_unit = np.array([np.cos(best_psi_road), -np.sin(best_psi_road)], dtype=np.float64)
+        r_y = float(np.dot(dist_vecs[best_idx], normal_unit))
+        r_psi = float(wrap_angle(vehicle_psi - best_psi_road))
+        # Confidence: decays with distance (0→max_dist_m → prob 1.0→0)
+        prob = float(np.exp(-min_dist / 25.0))
+
+        return True, r_y, r_psi, best_psi_road, normal_unit, prob
+
+
+
 def apply_road_corridor_constraint(
     estimator,
     road_network: RoadCorridorNetwork,

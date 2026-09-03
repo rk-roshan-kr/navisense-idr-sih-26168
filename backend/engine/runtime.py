@@ -463,13 +463,14 @@ class NaviSenseRuntime:
                 map_ry = float(r_y)
                 map_rpsi_deg = float(np.degrees(r_psi))
 
-                # STRICT ROAD LOCK: vehicle stays 100% on the road centerline!
+                # ROAD LOCK: snap position to centerline (100% lateral correction)
                 self.estimator.x[0] -= float(r_y * n_unit[0])
                 self.estimator.x[1] -= float(r_y * n_unit[1])
-                # Smoothly align heading towards road bearing using consistent wrap to [-pi, pi]
-                raw_psi = self.estimator.x[3] - 0.5 * r_psi
+                # Align heading toward road bearing (capped at 0.25 × error to avoid oscillation)
+                raw_psi = self.estimator.x[3] - 0.25 * r_psi
                 self.estimator.x[3] = float(np.arctan2(np.sin(raw_psi), np.cos(raw_psi)))
-                apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.3)
+                # NOTE: apply_road_corridor_constraint NOT called here — double-correction
+                # causes heading overshoot/oscillation (visible as roundabout zigzag)
                 map_accepted = True
             else:
                 # Robust fallback: query RoadCorridorNetwork directly
@@ -481,13 +482,45 @@ class NaviSenseRuntime:
                     map_rpsi_deg = float(np.degrees(fb_rpsi))
                     self.estimator.x[0] -= float(fb_ry * fb_nunit[0])
                     self.estimator.x[1] -= float(fb_ry * fb_nunit[1])
-                    # Consistent heading wrap with primary road lock (arctan2 = [-pi, pi])
-                    raw_psi = self.estimator.x[3] - 0.5 * fb_rpsi
+                    raw_psi = self.estimator.x[3] - 0.25 * fb_rpsi
                     self.estimator.x[3] = float(np.arctan2(np.sin(raw_psi), np.cos(raw_psi)))
-                    apply_road_corridor_constraint(self.estimator, self.road_network, sigma_lane=0.3)
+                    # NOTE: no second apply_road_corridor_constraint — avoid double-correction
                     map_accepted = True
                 else:
-                    map_accepted = False
+                    # ── Emergency Recovery: NO heading gate ───────────────────────────────
+                    # Fires when BOTH primary and fallback fail — typically at sharp turns
+                    # where vehicle heading has drifted >45° from road direction.
+                    # Normal query_candidate gates on ±45° heading, so it CANNOT match
+                    # the new road bearing at a 90° turn. This recovery has no heading gate.
+                    bo_elapsed = (
+                        (i - self.blackout_start_step) * self.dt
+                        if self.blackout_start_step is not None else 0.0
+                    )
+                    if bo_elapsed > 1.5:  # give direct-gyro blend 1.5s to close the heading gap first
+                        emerg = self.road_network.emergency_recovery_query(
+                            self.estimator.x[:2], self.estimator.x[3], max_dist_m=80.0
+                        )
+                        if emerg[0]:
+                            _, e_ry, e_rpsi, _, e_nunit, e_prob = emerg
+                            # Scale strength by confidence (0→1) and cap per-step movement
+                            snap_str = min(0.30, e_prob * 0.35)
+                            self.estimator.x[0] -= snap_str * e_ry * e_nunit[0]
+                            self.estimator.x[1] -= snap_str * e_ry * e_nunit[1]
+                            # Cap heading correction at ±3°/step to avoid jarring jumps
+                            max_dpsi = np.radians(3.0)
+                            dpsi = float(np.clip(-snap_str * e_rpsi, -max_dpsi, max_dpsi))
+                            raw_psi = self.estimator.x[3] + dpsi
+                            self.estimator.x[3] = float(np.arctan2(np.sin(raw_psi), np.cos(raw_psi)))
+                            map_accepted = True
+                            self.off_road_streak = max(0, self.off_road_streak - 1)
+                        else:
+                            self.off_road_streak += 1
+                            self.off_road_prob = min(1.0, self.off_road_streak / 80.0)
+                            map_accepted = False
+                    else:
+                        self.off_road_streak += 1
+                        self.off_road_prob = min(1.0, self.off_road_streak / 80.0)
+                        map_accepted = False
 
         # Use display ENU (includes reconvergence blend offset) for drift calculation
         # This prevents the spike in drift% during GNSS restoration that the judge scorecard shows
