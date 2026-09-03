@@ -50,9 +50,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
 
-  // 60 FPS LERP animation state (Centered on ISRO ISTRAC, Bangalore, India)
-  const animPosRef = useRef<[number, number]>([77.5186, 13.0334]); // [lon, lat]
-  const targetPosRef = useRef<[number, number]>([77.5186, 13.0334]);
+  // 60 FPS LERP animation state (start at Coventry S3b first GPS point)
+  const animPosRef = useRef<[number, number]>([-1.2544, 52.3705]); // [lon, lat]
+  const targetPosRef = useRef<[number, number]>([-1.2544, 52.3705]);
   const animHeadingRef = useRef<number>(0);
   const targetHeadingRef = useRef<number>(0);
   const isInitializedRef = useRef<boolean>(false);
@@ -356,10 +356,42 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
     if (scenario.road_polyline && scenario.road_polyline.length > 0) {
-      const startPt = scenario.road_polyline[0];
-      animPosRef.current = [startPt[1], startPt[0]];
-      targetPosRef.current = [startPt[1], startPt[0]];
-      mapRef.current.jumpTo({ center: [startPt[1], startPt[0]], zoom: 17 });
+      const polyline = scenario.road_polyline;
+      const startPt = polyline[0];           // [lat, lon]
+      const endPt   = polyline[polyline.length - 1]; // [lat, lon]
+      const startLngLat: [number, number] = [startPt[1], startPt[0]];
+      const endLngLat:   [number, number] = [endPt[1],   endPt[0]];
+
+      animPosRef.current = startLngLat;
+      targetPosRef.current = startLngLat;
+      mapRef.current.jumpTo({ center: startLngLat, zoom: 15.5 });
+
+      // ── Place A (green start) and B (red end) markers from real dataset GPS ──
+      originMarkerRef.current?.remove();
+      const elA = document.createElement('div');
+      elA.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.5))">
+          <div style="width:30px;height:30px;border-radius:50%;background:#10b981;border:3px solid #fff;
+            display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;
+            box-shadow:0 0 0 4px rgba(16,185,129,0.35);">A</div>
+          <div style="width:2px;height:8px;background:#10b981;opacity:0.7;"></div>
+        </div>`;
+      originMarkerRef.current = new maplibregl.Marker({ element: elA, anchor: 'bottom' })
+        .setLngLat(startLngLat)
+        .addTo(mapRef.current!);
+
+      destMarkerRef.current?.remove();
+      const elB = document.createElement('div');
+      elB.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.5))">
+          <div style="width:30px;height:30px;border-radius:50%;background:#ef4444;border:3px solid #fff;
+            display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;
+            box-shadow:0 0 0 4px rgba(239,68,68,0.35);">B</div>
+          <div style="width:2px;height:8px;background:#ef4444;opacity:0.7;"></div>
+        </div>`;
+      destMarkerRef.current = new maplibregl.Marker({ element: elB, anchor: 'bottom' })
+        .setLngLat(endLngLat)
+        .addTo(mapRef.current!);
     }
   }, [scenario?.id, appMode]);
 
@@ -409,25 +441,22 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       b1Src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
       // Cinematic zoom-out → fly → zoom-in transition between scenarios/corridors
-      // flyTo naturally arcs through a high altitude (zoom-out) then lands at destination
       const targetZoom = is3DModeRef.current ? 17.8 : 15.5;
       const targetPitch = is3DModeRef.current ? 68 : 0;
       const targetBearing = is3DModeRef.current ? heading_deg : 0;
 
       if (isInitializedRef.current && isCitySwitch) {
-        // Two-phase: zoom out first, then fly in
         mapRef.current.flyTo({
           center: currCoord,
           zoom: targetZoom,
           pitch: targetPitch,
           bearing: targetBearing,
-          curve: 1.8,        // controls arc height — higher = more zoom-out at peak
-          speed: 0.55,       // travel speed (lower = slower, more dramatic)
+          curve: 1.8,
+          speed: 0.55,
           easing: (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
           essential: true
         });
       } else {
-        // First load — instant jump, no animation needed
         mapRef.current.setCenter(currCoord);
         mapRef.current.setZoom(targetZoom);
         mapRef.current.setPitch(targetPitch);
