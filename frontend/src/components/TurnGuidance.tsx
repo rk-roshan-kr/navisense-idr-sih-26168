@@ -11,20 +11,20 @@ export const TurnGuidance: React.FC<TurnGuidanceProps> = ({ telemetry, scenario 
   const isBlackout = telemetry?.blackout_active ?? false;
   const speedKmh = telemetry?.speed_kmh ?? 0;
 
-  const iconColor = isBlackout ? '#00d2ff' : '#00f59b';
+  const iconColor = isBlackout ? '#e11d48' : '#059669';
 
   // Determine maneuver based on scenario and heading
-  let ManeuverIcon = <IconArrowUp size={22} color={iconColor} />;
-  let maneuverText = isBlackout ? 'Underpass Tunnel Lockdown (IDR Active)' : 'Continue on Planned Road Corridor';
+  let ManeuverIcon = <IconArrowUp size={20} color={iconColor} />;
+  let maneuverText = isBlackout ? 'Underpass Tunnel GNSS Outage (IDR Active)' : 'Continue on Planned Road Corridor';
   let roadName = 'Outer Ring Road (ISRO ISTRAC ➔ Indiranagar)';
-  let distanceToTurn = isBlackout ? 'GPS LOCKDOWN' : 'In 400 m';
+  let distanceToTurn = isBlackout ? 'GNSS DENIED • IDR TRACKING' : 'IN 400 M';
 
   if (scenario?.id === 'delhi') {
     roadName = 'NH48 Expressway / Sardar Patel Marg';
-    maneuverText = isBlackout ? 'Aerocity Tunnel Lockdown (IDR Active)' : 'Follow NH48 toward Aerocity Gateway';
+    maneuverText = isBlackout ? 'Aerocity Tunnel Outage (IDR Active)' : 'Follow NH48 toward Aerocity Gateway';
   } else if (scenario?.id === 'chandigarh') {
     roadName = 'Jan Marg ➔ Madhya Marg Corridor';
-    maneuverText = isBlackout ? 'Canopy Canyon Lockdown (IDR Active)' : 'Continue on Jan Marg toward Sector 35';
+    maneuverText = isBlackout ? 'Canopy Canyon Outage (IDR Active)' : 'Continue on Jan Marg toward Sector 35';
   }
 
   // Speed limit for road
@@ -32,20 +32,20 @@ export const TurnGuidance: React.FC<TurnGuidanceProps> = ({ telemetry, scenario 
   const isOverSpeed = speedKmh > speedLimit + 5;
 
   return (
-    <div className="turn-guidance-card glass-panel">
+    <div className="turn-guidance-card">
       {/* Maneuver Arrow & Action */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div className="maneuver-icon-box">
           {ManeuverIcon}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: iconColor, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: '10px', fontWeight: 800, color: iconColor, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             {distanceToTurn}
           </div>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
+          <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
             {maneuverText}
           </div>
-          <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', marginTop: '1px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', marginTop: '1px' }}>
             {roadName}
           </div>
         </div>
