@@ -35,10 +35,11 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
   const is3DModeRef = useRef<boolean>(true);
 
-  // Accumulated Trail Coordinates (GeoJSON format: [lon, lat])
-  const gnssCoordsRef = useRef<[number, number][]>([]);
-  const idrCoordsRef = useRef<[number, number][]>([]);
-  const lastPointRef = useRef<[number, number] | null>(null);
+  // Segmented MultiLineString coordinates (Guarantees zero green line across blackout and zero spiderweb jumps!)
+  const gnssSegmentsRef = useRef<[number, number][][]>([]);
+  const idrSegmentsRef = useRef<[number, number][][]>([]);
+  const lastGnssCoordRef = useRef<[number, number] | null>(null);
+  const lastIdrCoordRef = useRef<[number, number] | null>(null);
 
   // Markers
   const carMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -149,10 +150,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         );
       }
 
-      // 1. GNSS Active Trail (Emerald Green - 10,000 Points Persistent)
+      // 1. GNSS Active Trail (Emerald Green - MultiLineString preserving blackout gaps)
       map.addSource('gnss-trail', {
         type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+        data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
       });
       map.addLayer({
         id: 'gnss-trail-line',
@@ -162,10 +163,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#059669', 'line-width': 6, 'line-opacity': 0.95 }
       });
 
-      // 2. IDR Dead Reckoning Trail (Electric Blue Aura + Core)
+      // 2. IDR Dead Reckoning Trail (Electric Blue Aura + Core - MultiLineString)
       map.addSource('idr-trail', {
         type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+        data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
       });
       map.addLayer({
         id: 'idr-trail-glow',
@@ -352,15 +353,16 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   useEffect(() => {
     if (!mapRef.current || appMode !== 'CANONICAL_DATASET' || !scenario) return;
 
-    gnssCoordsRef.current = [];
-    idrCoordsRef.current = [];
-    lastPointRef.current = null;
+    gnssSegmentsRef.current = [];
+    idrSegmentsRef.current = [];
+    lastGnssCoordRef.current = null;
+    lastIdrCoordRef.current = null;
 
     const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
-    gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+    gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
     const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
-    iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+    iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
 
     if (scenario.road_polyline && scenario.road_polyline.length > 0) {
       const startPt = scenario.road_polyline[0];
@@ -388,31 +390,56 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       targetHeadingRef.current = heading_deg;
     }
 
-    // ── Continuous Trail Updating (Expanded to 10,000 Points - NEVER DISAPPEARS!) ──
+    // Distance metric in meters to detect teleportations, resets, or scenario jumps
+    const distM = (c1: [number, number], c2: [number, number]) => {
+      const dlat = (c2[1] - c1[1]) * 111320;
+      const dlon = (c2[0] - c1[0]) * 111320 * Math.cos((c1[1] * Math.PI) / 180);
+      return Math.sqrt(dlat * dlat + dlon * dlon);
+    };
+
+    // ── Zero GPS Trail During Blackout & Zero Teleportation Jump Lines ──
     if (!blackout_active) {
-      gnssCoordsRef.current.push(currCoord);
-      lastPointRef.current = currCoord;
-      if (gnssCoordsRef.current.length > 10000) gnssCoordsRef.current.shift();
+      // 1. Normal GNSS Active:
+      // If GPS just restored, start a NEW segment at the current recovery point!
+      // This guarantees NO GREEN LINE is drawn across the blackout period!
+      const isRecovery = prevBlackoutRef.current;
+      const isLargeJump = lastGnssCoordRef.current ? distM(lastGnssCoordRef.current, currCoord) > 25.0 : false;
+
+      if (isRecovery || isLargeJump || gnssSegmentsRef.current.length === 0 || gnssSegmentsRef.current[gnssSegmentsRef.current.length - 1].length === 0) {
+        gnssSegmentsRef.current.push([currCoord]);
+      } else {
+        const activeSeg = gnssSegmentsRef.current[gnssSegmentsRef.current.length - 1];
+        activeSeg.push(currCoord);
+      }
+      lastGnssCoordRef.current = currCoord;
 
       const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
       gSrc?.setData({
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: gnssCoordsRef.current }
+        geometry: { type: 'MultiLineString', coordinates: gnssSegmentsRef.current }
       });
     } else {
-      if (!prevBlackoutRef.current && lastPointRef.current) {
-        idrCoordsRef.current = [lastPointRef.current, currCoord];
+      // 2. GNSS Blackout (Dead Reckoning Active):
+      // GPS line gets ZERO points added.
+      // Electric blue IDR trail records the outage navigation.
+      const isBlackoutStart = !prevBlackoutRef.current;
+      const isLargeJump = lastIdrCoordRef.current ? distM(lastIdrCoordRef.current, currCoord) > 25.0 : false;
+
+      if (isBlackoutStart || isLargeJump || idrSegmentsRef.current.length === 0 || idrSegmentsRef.current[idrSegmentsRef.current.length - 1].length === 0) {
+        const startPt = lastGnssCoordRef.current || currCoord;
+        idrSegmentsRef.current.push([startPt, currCoord]);
       } else {
-        idrCoordsRef.current.push(currCoord);
+        const activeSeg = idrSegmentsRef.current[idrSegmentsRef.current.length - 1];
+        activeSeg.push(currCoord);
       }
-      if (idrCoordsRef.current.length > 10000) idrCoordsRef.current.shift();
+      lastIdrCoordRef.current = currCoord;
 
       const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
       iSrc?.setData({
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: idrCoordsRef.current }
+        geometry: { type: 'MultiLineString', coordinates: idrSegmentsRef.current }
       });
 
       // Raw INS Ghost Divergence
