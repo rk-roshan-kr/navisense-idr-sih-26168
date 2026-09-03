@@ -78,9 +78,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       style: 'https://tiles.openfreemap.org/styles/liberty', // 3D Vector Map with building extrusions
       center: [initialLon, initialLat],
       zoom: 16.5,
-      pitch: 55, // 3D Apple Maps Cockpit Navigation Perspective
+      pitch: 68, // Low-angle cockpit navigation perspective to see far down the road
       bearing: 0,
-      maxPitch: 75,
+      maxPitch: 85,
       attributionControl: false,
       dragRotate: true,
       touchZoomRotate: true,
@@ -245,12 +245,12 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         arrow.style.transform = is3DModeRef.current ? 'rotate(0deg)' : `rotate(${animHeadingRef.current}deg)`;
       }
 
-      // In 3D Cockpit Mode: camera tracks vehicle in 3D perspective along road
+      // In 3D Cockpit Mode: camera tracks vehicle in low-angle 3D perspective along road
       if (mapRef.current && is3DModeRef.current) {
         mapRef.current.jumpTo({
           center: [newLon, newLat],
           bearing: animHeadingRef.current,
-          pitch: 50
+          pitch: 68
         });
       }
 
@@ -439,8 +439,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       mapRef.current.easeTo({
         center: animPosRef.current,
         bearing: animHeadingRef.current,
-        pitch: 50,
-        zoom: 17.2,
+        pitch: 68,
+        zoom: 16.5,
         duration: 800
       });
     } else {
