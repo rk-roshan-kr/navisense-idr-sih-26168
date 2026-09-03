@@ -1,6 +1,5 @@
 import React from 'react';
 import type { TelemetryPacket } from '../types';
-import { SpeedDial } from './SpeedDial';
 
 interface NavigationHUDProps {
   telemetry: TelemetryPacket | null;
@@ -12,131 +11,74 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({ telemetry }) => {
   const headingDeg = telemetry?.heading_deg ?? 0;
   const driftPct = telemetry?.drift_pct ?? 0;
   const driftM = telemetry?.drift_m ?? 0;
+  const pointErrorM = telemetry?.point_error_m ?? driftM ?? 0;
+  const calibratedPct = telemetry?.calibrated_pct ?? 0.0;
 
-  // 1. GPS Point coordinates (falls back to ground truth if blackout)
+  // 1. GPS coordinates vs IDR state estimate
   const gpsLat = telemetry?.gnss_position?.lat ?? telemetry?.ground_truth?.lat ?? 0;
   const gpsLon = telemetry?.gnss_position?.lon ?? telemetry?.ground_truth?.lon ?? 0;
-
-  // 2. Our Point coordinates (IDR state estimate)
   const idrLat = telemetry?.idr_position?.lat ?? 0;
   const idrLon = telemetry?.idr_position?.lon ?? 0;
 
-  // 3. Point-to-point error
-  const pointErrorM = telemetry?.point_error_m ?? driftM ?? 0;
-
-  // 4. Calibration percentage
-  const calibratedPct = telemetry?.calibrated_pct ?? 98.6;
-
   return (
-    <div className="hud-container glass-panel">
-      {/* Status Row */}
-      <div className="hud-status-row">
-        {/* GNSS Status */}
-        <div className="hud-indicator-group">
-          <span className={`indicator-dot ${!isBlackout ? 'dot-gnss-on' : 'dot-gnss-off'}`} />
-          <span className="indicator-name">GNSS</span>
-          <span className={`indicator-pill ${!isBlackout ? 'pill-gnss-avail' : 'pill-gnss-lost'}`}>
-            {!isBlackout ? 'AVAILABLE' : 'LOST'}
+    <div className="telemetry-instrument-card">
+      {/* 1. Header Engine Status Chip */}
+      <div className="instrument-status-row">
+        <span className={`status-pill ${!isBlackout ? 'pill-gnss-locked' : 'pill-idr-active'}`}>
+          <span className={`status-dot ${!isBlackout ? 'dot-emerald' : 'dot-rose'}`} />
+          {!isBlackout ? 'GNSS LOCKED' : 'IDR ACTIVE (OUTAGE)'}
+        </span>
+        <span className="timestamp-badge mono">
+          T+{telemetry?.timestamp_s.toFixed(1) ?? '0.0'}s
+        </span>
+      </div>
+
+      {/* 2. Pure Typographic Speed Display (DESIGN.md: 44px bold text with 11px uppercase mono beneath) */}
+      <div className="instrument-speed-block">
+        <div className="speed-digit mono">{speedKmh}</div>
+        <div className="speed-unit mono">KM / H</div>
+      </div>
+
+      {/* 3. Inline Coordinate Indicators */}
+      <div className="instrument-coords-row">
+        <div className="coord-item">
+          <span className="coord-label">GPS FIX</span>
+          <span className="coord-val mono">
+            {isBlackout ? 'DENIED' : `${gpsLat.toFixed(4)}°, ${gpsLon.toFixed(4)}°`}
           </span>
         </div>
-
-        {/* IDR Status */}
-        <div className="hud-indicator-group">
-          <span className="indicator-dot dot-idr-on" />
-          <span className="indicator-name">IDR</span>
-          <span className={`indicator-pill ${isBlackout ? 'pill-idr-active' : 'pill-idr-ready'}`}>
-            {isBlackout ? 'ACTIVE' : 'STANDBY'}
+        <div className="coord-item">
+          <span className="coord-label">IDR EST</span>
+          <span className="coord-val mono">
+            {idrLat !== 0 ? `${idrLat.toFixed(4)}°, ${idrLon.toFixed(4)}°` : 'STANDBY'}
           </span>
         </div>
       </div>
 
-      {/* 1. LARGE HIGH-READABILITY VEHICLE SPEED DIAL */}
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0 0' }}>
-        <SpeedDial speedKmh={speedKmh} isBlackout={isBlackout} maxSpeed={140} />
-      </div>
-
-      {/* 2. DUAL VALUES: GPS POINT vs OUR POINT */}
-      <div className="hud-coords-row">
-        {/* GPS Point Card */}
-        <div className="hud-coord-card coord-card-gps">
-          <div className="coord-card-top">
-            <span className={`coord-mini-dot ${!isBlackout ? 'dot-gnss-on' : 'dot-gnss-off'}`} />
-            <span className="coord-header-label">GPS POINT</span>
-          </div>
-          <div className="coord-coords mono">
-            {isBlackout ? (
-              <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em' }}>
-                SIGNAL DENIED (OFFLINE)
-              </span>
-            ) : (
-              `${gpsLat.toFixed(5)}°, ${gpsLon.toFixed(5)}°`
-            )}
-          </div>
-        </div>
-
-        {/* Our Point Card */}
-        <div className="hud-coord-card coord-card-idr">
-          <div className="coord-card-top">
-            <span className="coord-mini-dot dot-idr-on" />
-            <span className="coord-header-label">OUR POINT (IDR)</span>
-          </div>
-          <div className="coord-coords mono">
-            {idrLat.toFixed(5)}°, {idrLon.toFixed(5)}°
-          </div>
-        </div>
-      </div>
-
-      {/* 3. CALIBRATED : % BAR (Online neural adaptation progress from 0% to 98%) */}
-      <div className="hud-calibration-container">
-        <div className="calibration-header-row">
-          <div className="calibration-left-wrap">
-            <span className="calibration-title">
-              {calibratedPct >= 90 ? 'CALIBRATED :' : 'ADAPTING MODEL :'}
-            </span>
-            <span className="calibration-digit mono">{calibratedPct.toFixed(1)}%</span>
-          </div>
-          <span className={`calibration-ready-pill ${calibratedPct >= 90 ? 'pill-ready' : 'pill-learning'}`}>
-            {calibratedPct >= 90 ? 'READY' : 'LEARNING'}
+      {/* 4. Tight 2-Column Key-Value Telemetry Grid */}
+      <div className="telemetry-grid">
+        <div className="grid-cell">
+          <span className="grid-key">HEADING</span>
+          <span className="grid-val mono">
+            {String(Math.round(headingDeg)).padStart(3, '0')}° {getCardinalDirection(headingDeg)}
           </span>
         </div>
-        <div className="calibration-track">
-          <div
-            className="calibration-fill"
-            style={{
-              width: `${Math.min(100, Math.max(0, calibratedPct))}%`,
-              background: calibratedPct >= 90 ? 'var(--gnss-emerald)' : '#f59e0b'
-            }}
-          />
-        </div>
-      </div>
-
-      {/* 4. HEADING ROW */}
-      <div className="hud-metric-row">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <span className="metric-label">VEHICLE HEADING</span>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Azimuth orientation</span>
-        </div>
-        <div className="metric-value-wrap">
-          <span className="metric-large-digit mono">
-            {String(Math.round(headingDeg)).padStart(3, '0')}°
-          </span>
-          <span className="heading-cardinal-badge">
-            {getCardinalDirection(headingDeg)}
+        <div className="grid-cell">
+          <span className="grid-key">ERROR MARGIN</span>
+          <span className="grid-val mono">
+            {isBlackout ? `±${driftM.toFixed(1)}m` : `±${pointErrorM.toFixed(2)}m`}
           </span>
         </div>
-      </div>
-
-      {/* 5. NAVIGATION ACCURACY / DRIFT RATE */}
-      <div className="hud-drift-row">
-        <div className="drift-info-left">
-          <span className="metric-label">{isBlackout ? 'IDR DRIFT RATE' : 'POSITION ERROR'}</span>
-          <span className="drift-subtext mono">
-            {isBlackout ? `${driftM.toFixed(1)}m during blackout` : `${pointErrorM.toFixed(2)}m deviation`}
+        <div className="grid-cell">
+          <span className="grid-key">CALIBRATED</span>
+          <span className="grid-val mono">
+            {calibratedPct >= 90 ? `${calibratedPct.toFixed(1)}%` : `${calibratedPct.toFixed(1)}% ADAPT`}
           </span>
         </div>
-        <div className="metric-value-wrap">
-          <span className={`drift-pct-digit mono ${driftPct <= 10.0 ? 'drift-good' : driftPct <= 25.0 ? 'drift-mid' : 'drift-bad'}`}>
-            {isBlackout ? `${driftPct.toFixed(1)}%` : 'SUB-METER'}
+        <div className="grid-cell">
+          <span className="grid-key">DRIFT RATE</span>
+          <span className={`grid-val mono ${isBlackout ? 'text-rose' : 'text-slate'}`}>
+            {isBlackout ? `${driftPct.toFixed(1)}%` : '< 0.5%'}
           </span>
         </div>
       </div>

@@ -18,6 +18,33 @@ interface LiveMapProps {
   showGhostBaseline?: boolean;
 }
 
+// Lightweight, zero-latency monochromatic Carto Positron basemap (DESIGN.md specification)
+const CARTO_POSITRON_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    'carto-positron': {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors, © CARTO'
+    }
+  },
+  layers: [
+    {
+      id: 'carto-positron-tiles',
+      type: 'raster',
+      source: 'carto-positron',
+      minzoom: 0,
+      maxzoom: 20
+    }
+  ]
+};
+
 export const LiveMap: React.FC<LiveMapProps> = ({
   telemetry,
   scenario,
@@ -41,7 +68,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const lastGnssCoordRef = useRef<[number, number] | null>(null);
   const lastIdrCoordRef = useRef<[number, number] | null>(null);
 
-  // Markers
+  // DOM Markers for Start (A), Destination (B), Car, and Ghost
   const carMarkerRef = useRef<maplibregl.Marker | null>(null);
   const ghostMarkerRef = useRef<maplibregl.Marker | null>(null);
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -66,7 +93,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     }
   }, [appMode]);
 
-  // Initialize MapLibre GL 3D Vector Map (OpenFreeMap 3D Vector Tiles - 100% Free, No API Key)
+  // Initialize MapLibre GL Instant Map (Carto Positron - 0ms Style Load, High-Performance Global CDN)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
@@ -75,14 +102,13 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: CARTO_POSITRON_STYLE,
       center: [initialLon, initialLat],
       zoom: 15.5,
-      pitch: 50, // Optimal Apple Maps 3D navigation perspective
+      pitch: 45,
       bearing: 0,
       maxPitch: 75,
       attributionControl: false,
-      // Google Maps Gesture Controls & Kinetic Physics
       dragRotate: true,
       touchZoomRotate: true,
       doubleClickZoom: true,
@@ -91,57 +117,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     });
 
     map.on('load', () => {
-      // 1. Add 3D Extruded Buildings Layer (Culls distant clutter, only renders onscreen within local range)
-      const layers = map.getStyle().layers;
-      const labelLayer = layers ? layers.find((l: any) => l.type === 'symbol' && l.layout && l.layout['text-field']) : null;
-      const labelLayerId = labelLayer ? labelLayer.id : undefined;
-
-      if (!map.getLayer('3d-buildings') && map.getSource('openmaptiles')) {
-        map.addLayer(
-          {
-            id: '3d-buildings',
-            source: 'openmaptiles',
-            'source-layer': 'building',
-            type: 'fill-extrusion',
-            minzoom: 15.8, // Only extrude buildings in the immediate local vicinity
-            paint: {
-              'fill-extrusion-color': [
-                'interpolate',
-                ['linear'],
-                ['get', 'render_height'],
-                0, '#f1f5f9',
-                20, '#e2e8f0',
-                50, '#cbd5e1'
-              ],
-              'fill-extrusion-height': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                15.8, 0,
-                16.5, ['get', 'render_height']
-              ],
-              'fill-extrusion-base': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                15.8, 0,
-                16.5, ['get', 'render_min_height']
-              ],
-              'fill-extrusion-opacity': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                15.8, 0.0,
-                16.5, 0.45,
-                17.5, 0.65
-              ]
-            }
-          },
-          labelLayerId
-        );
-      }
-
-      // 1. GNSS Active Trail (Emerald Green - MultiLineString preserving blackout gaps)
+      // 1. GNSS Trail (MultiLineString - Breaks completely during outage, no bridging)
       map.addSource('gnss-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
@@ -151,30 +127,23 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         type: 'line',
         source: 'gnss-trail',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#059669', 'line-width': 6, 'line-opacity': 0.95 }
+        paint: { 'line-color': '#0f172a', 'line-width': 2, 'line-opacity': 0.7 }
       });
 
-      // 2. IDR Dead Reckoning Trail (Electric Blue Aura + Core - MultiLineString)
+      // 2. IDR Dead Reckoning Trail (DESIGN.md: Emerald 500, 3px line)
       map.addSource('idr-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
-      });
-      map.addLayer({
-        id: 'idr-trail-glow',
-        type: 'line',
-        source: 'idr-trail',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': 'rgba(37, 99, 235, 0.45)', 'line-width': 14, 'line-opacity': 0.6 }
       });
       map.addLayer({
         id: 'idr-trail-line',
         type: 'line',
         source: 'idr-trail',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#2563eb', 'line-width': 6, 'line-opacity': 0.95 }
+        paint: { 'line-color': '#10b981', 'line-width': 3, 'line-opacity': 0.95 }
       });
 
-      // 3. Custom Route Preview Layer (Planned 2-Point Road Corridor)
+      // 3. Custom Route Preview Layer (DESIGN.md: Cobalt Blue #1D4ED8, 3px line)
       map.addSource('custom-route', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -184,10 +153,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         type: 'line',
         source: 'custom-route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#3b82f6', 'line-width': 8, 'line-opacity': 0.65 }
+        paint: { 'line-color': '#1d4ed8', 'line-width': 3, 'line-opacity': 0.85 }
       });
 
-      // 4. Raw INS Divergence Ghost Trail (Only visible when explicitly toggled in top bar)
+      // 5. Raw INS Divergence Ghost Trail (DESIGN.md: Rose #E11D48)
       map.addSource('ghost-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -197,7 +166,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         type: 'line',
         source: 'ghost-trail',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#dc2626', 'line-width': 3, 'line-dasharray': [3, 3], 'line-opacity': 0.75 }
+        paint: { 'line-color': '#e11d48', 'line-width': 2, 'line-dasharray': [3, 3], 'line-opacity': 0.7 }
       });
     });
 

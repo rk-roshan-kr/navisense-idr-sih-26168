@@ -1,6 +1,5 @@
 import React from 'react';
 import type { TelemetryPacket } from '../types';
-import { IconMapPin, IconPlay, IconRotateCcw } from './Icons';
 
 interface RoutePlannerWidgetProps {
   customOrigin: [number, number] | null;
@@ -63,98 +62,89 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
     : null;
 
   return (
-    <div className="route-planner-container glass-panel">
-      {/* Header */}
-      <div className="planner-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className="planner-icon-badge">
-            <IconMapPin size={16} color="#ffffff" />
-          </span>
-          <div>
-            <div className="planner-title">2-LOCATION ROUTE PLANNER</div>
-            <div className="planner-subtitle">Test IDR offline dead reckoning on any route</div>
+    <div className="swiss-route-planner">
+      {/* 1. Header with Breadcrumb & Close */}
+      <div className="planner-top-bar">
+        <div className="planner-title-group">
+          <span className="planner-title-tag mono">CORRIDOR PLANNER</span>
+          <span className="planner-status-note">{customStatusMsg}</span>
+        </div>
+        <button onClick={onClose} className="planner-close-icon" title="Minimize planner">
+          ✕
+        </button>
+      </div>
+
+      {/* 2. Subway-Stop Icon Connector */}
+      <div className="subway-connector-card">
+        {/* Origin Stop */}
+        <div className="subway-stop">
+          <div className="subway-node-wrap">
+            <span className="subway-dot dot-origin" />
+            <span className="subway-track-line" />
+          </div>
+          <div className="subway-info">
+            <div className="subway-label-row">
+              <span className="subway-label">POINT A / ORIGIN</span>
+              {currentCarPos && !hasOrigin && (
+                <button onClick={() => onSetOrigin(currentCarPos)} className="btn-chip-action mono">
+                  Use Car GPS
+                </button>
+              )}
+            </div>
+            <div className="subway-coord-chip mono">
+              {hasOrigin ? `${customOrigin[0].toFixed(5)}°, ${customOrigin[1].toFixed(5)}°` : 'Click on map to set Point A'}
+            </div>
           </div>
         </div>
-        <button onClick={onClose} className="planner-close-btn" title="Close planner">✕</button>
-      </div>
 
-      {/* Step Status Banner */}
-      <div className={`planner-step-banner ${hasRoute ? 'step-ready' : 'step-picking'}`}>
-        <span>{customStatusMsg}</span>
-      </div>
-
-      {/* Origin (Point A) Card */}
-      <div className={`planner-loc-card ${hasOrigin ? 'loc-set' : 'loc-empty'}`}>
-        <div className="loc-card-top">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="loc-dot-origin" />
-            <span className="loc-card-title">POINT A (START / ORIGIN)</span>
+        {/* Destination Stop */}
+        <div className="subway-stop">
+          <div className="subway-node-wrap">
+            <span className="subway-dot dot-dest" />
           </div>
-          {currentCarPos && !hasOrigin && (
-            <button
-              onClick={() => onSetOrigin(currentCarPos)}
-              className="btn-loc-action"
-              title="Use current vehicle position"
-            >
-              Use Car Location
-            </button>
-          )}
-        </div>
-        <div className="loc-coords mono">
-          {hasOrigin
-            ? `${customOrigin[0].toFixed(5)}°, ${customOrigin[1].toFixed(5)}°`
-            : 'Click anywhere on the map to set Origin'}
-        </div>
-      </div>
-
-      {/* Destination (Point B) Card */}
-      <div className={`planner-loc-card ${hasDestination ? 'loc-set' : 'loc-empty'}`}>
-        <div className="loc-card-top">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="loc-dot-dest" />
-            <span className="loc-card-title">POINT B (DESTINATION)</span>
+          <div className="subway-info">
+            <span className="subway-label">POINT B / DESTINATION</span>
+            <div className="subway-coord-chip mono">
+              {hasDestination
+                ? `${customDestination[0].toFixed(5)}°, ${customDestination[1].toFixed(5)}°`
+                : hasOrigin
+                ? 'Click on map to set Point B'
+                : 'Set Point A first'}
+            </div>
           </div>
         </div>
-        <div className="loc-coords mono">
-          {hasDestination
-            ? `${customDestination[0].toFixed(5)}°, ${customDestination[1].toFixed(5)}°`
-            : hasOrigin
-            ? 'Click anywhere on the map to set Destination'
-            : 'Set Point A first'}
-        </div>
       </div>
 
-      {/* 1-Click Instant Presets */}
-      <div className="planner-presets-section">
-        <div className="presets-title">QUICK 1-CLICK TEST PRESETS:</div>
-        <div className="presets-list">
-          {ROUTE_PRESETS.map((p, idx) => (
-            <button
-              key={idx}
-              onClick={() => onSelectPreset(p.origin, p.destination, p.name)}
-              className="btn-preset-route"
-            >
-              <div className="preset-route-name">{p.name}</div>
-              <div className="preset-route-desc">{p.desc}</div>
-            </button>
+      {/* 3. Preset Corridor Selector */}
+      <div className="planner-preset-row">
+        <span className="preset-label mono">PRESET CORRIDORS:</span>
+        <select
+          onChange={(e) => {
+            const p = ROUTE_PRESETS.find((r) => r.id === e.target.value);
+            if (p) onSelectPreset(p.origin, p.destination, p.name);
+          }}
+          className="planner-select mono"
+          defaultValue="bangalore"
+        >
+          {ROUTE_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({p.desc.split('•')[0].trim()})
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
-      {/* Action Footer */}
-      <div className="planner-footer">
-        {hasRoute && (
-          <button
-            onClick={onStartSimulation}
-            className={`btn-planner-primary ${isPlaying ? 'btn-pause' : 'btn-play'}`}
-          >
-            <IconPlay size={14} color="#ffffff" />
-            <span>{isPlaying ? 'PAUSE NAVIGATION' : 'START SIMULATION'}</span>
-          </button>
-        )}
-        <button onClick={onClearPoints} className="btn-planner-secondary">
-          <IconRotateCcw size={13} />
-          <span>Reset Points</span>
+      {/* 4. Action Buttons */}
+      <div className="planner-footer-actions">
+        <button
+          onClick={onStartSimulation}
+          disabled={!hasRoute}
+          className={`btn-primary-slate ${hasRoute ? 'btn-active' : 'btn-disabled'}`}
+        >
+          {isPlaying ? 'PAUSE NAVIGATION' : 'START NAVIGATION'}
+        </button>
+        <button onClick={onClearPoints} className="btn-secondary-outline" title="Reset points">
+          CLEAR
         </button>
       </div>
     </div>

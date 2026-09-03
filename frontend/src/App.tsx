@@ -359,8 +359,13 @@ export const App: React.FC = () => {
           {/* SIMPLIFIED VIEW (DEFAULT): Cockpit HUD with Vehicle Speed Dial */}
           {viewMode === 'SIMPLIFIED' && <NavigationHUD telemetry={telemetry} />}
 
-          {/* Floating Action Button: SIMULATE GNSS LOSS */}
-          <ActionControl telemetry={telemetry} onToggleBlackout={handleToggleBlackout} />
+          {/* Floating Action Capsule (Center-aligned Bottom Dock per DESIGN.md) */}
+          <ActionControl
+            telemetry={telemetry}
+            onToggleBlackout={handleToggleBlackout}
+            isPlaying={isPlaying}
+            onTogglePlay={handleTogglePlay}
+          />
 
           {/* Subtle Technical Proof Drawer */}
           {viewMode === 'SIMPLIFIED' && <TechnicalProofDrawer telemetry={telemetry} />}
