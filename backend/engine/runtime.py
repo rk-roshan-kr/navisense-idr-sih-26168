@@ -185,6 +185,14 @@ class NaviSenseRuntime:
             )
 
         self.current_step = adapt_samples
+        # Re-anchor model state to current vehicle location so it doesn't carry 180s open-loop drift
+        meas_e, meas_n = self.projector.geodetic_to_enu(float(self.can_lat[self.current_step]), float(self.can_lon[self.current_step]))
+        self.estimator.x_model[0] = meas_e
+        self.estimator.x_model[1] = meas_n
+        self.estimator.x_model[2] = float(self.can_speed[self.current_step])
+        self.estimator.x_model[3] = np.radians(float(self.can_head[self.current_step]))
+        self.estimator.model_error_m = 0.85
+
         self.blackout_active = False
         self.blackout_start_step = None
         self.is_playing = False
@@ -301,19 +309,14 @@ class NaviSenseRuntime:
                 else:
                     map_accepted = False
 
-        # 4. Compute Coordinates & Telemetry with Genuine Model Error State
-        if not self.blackout_active:
-            # Normal driving: OUR POINT is the pure neural model dead reckoning!
-            model_lat, model_lon = self.estimator.get_model_geodetic()
-            est_lat, est_lon = model_lat, model_lon
-            point_error_m = float(self.estimator.model_error_m)
-        else:
-            # Blackout: OUR POINT is the road-constrained continuous IDR estimate
-            disp_enu = self.estimator.get_display_enu()
-            est_lat, est_lon = self.projector.enu_to_geodetic(disp_enu[0], disp_enu[1])
-            gt_pos = self.gt_enu[i]
-            drift_m = float(np.linalg.norm(disp_enu - gt_pos))
-            point_error_m = drift_m
+        # 4. Compute Coordinates & Telemetry with Strict Drivable Road Snapping
+        disp_enu = self.estimator.get_display_enu()
+        est_lat, est_lon = self.projector.enu_to_geodetic(disp_enu[0], disp_enu[1])
+        gt_pos = self.gt_enu[i]
+        drift_m = float(np.linalg.norm(disp_enu - gt_pos))
+
+        # Genuine Innovation Point Error between our neural model and GPS
+        point_error_m = float(self.estimator.model_error_m) if not self.blackout_active else drift_m
 
         true_lat = float(self.can_lat[i])
         true_lon = float(self.can_lon[i])

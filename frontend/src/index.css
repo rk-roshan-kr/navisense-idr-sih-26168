@@ -1147,18 +1147,19 @@ html, body, #root {
   border-radius: 3px;
 }
 
-/* ── Floating Camera Controls (Top-Right of Map) ────────────────────────── */
+/* ── Floating Camera Controls (Bottom-Left of Map) ────────────────────────── */
 .map-camera-controls {
   position: absolute;
-  top: 76px;
-  right: 18px;
+  bottom: 24px;
+  left: 20px;
   z-index: 1000;
   display: flex;
   background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   padding: 4px;
   border-radius: 10px;
   border: 1px solid #cbd5e1;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
   gap: 3px;
 }
 
@@ -1502,4 +1503,51 @@ html, body, #root {
 .btn-planner-secondary:hover {
   background: #f1f5f9;
   color: #0f172a;
+}
+
+/* Google Maps Floating Zoom Controls */
+.gmaps-zoom-controls {
+  position: absolute;
+  bottom: 24px;
+  right: 18px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.btn-gmaps-zoom {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.btn-gmaps-zoom:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-gmaps-zoom:active {
+  background: #e2e8f0;
+}
+
+.zoom-btn-divider {
+  width: 100%;
+  height: 1px;
+  background: #e2e8f0;
 }
