@@ -75,7 +75,7 @@ The system operates strictly on **consumer smartphone sensors** (3-axis accelero
 ## 2. Component-by-Component Architecture
 
 ### Module 1: Smartphone Sensor Ingestion & Dynamic 3D Alignment
-* **Input:** Raw unconstrained smartphone inertial stream at $10\text{ Hz}$ across rolling temporal window $W = 100$ ($1.0\text{ s}$).
+* **Input:** Raw unconstrained smartphone inertial stream at $10\text{ Hz}$ across rolling temporal window $W = 20$ ($2.0\text{ s}$).
   $$\mathbf{u}(t) = \begin{bmatrix} a_x(t) & a_y(t) & a_z(t) & \omega_x(t) & \omega_y(t) & \omega_z(t) & g_x(t) & g_y(t) & g_z(t) \end{bmatrix}^T \in \mathbb{R}^{9 \times W}$$
 * **Mathematical Alignment:** Phones are mounted arbitrarily (portrait, landscape, tilted on dashboard, or in cupholders). The mounting matrix $\mathbf{R}(\alpha, \beta, \gamma) \in \text{SO}(3)$ rotates raw smartphone frame coordinates into the vehicle body frame (Forward, Right, Down):
   $$\mathbf{R}(\alpha, \beta, \gamma) = \mathbf{R}_z(\gamma) \mathbf{R}_y(\beta) \mathbf{R}_x(\alpha)$$
@@ -97,7 +97,7 @@ The system operates strictly on **consumer smartphone sensors** (3-axis accelero
 
 ```mermaid
 graph LR
-    Input["IMU Window (9 x 100)"] --> Proj["Conv1D Input Projection (64 channels)"]
+    Input["IMU Window (9 x 20)"] --> Proj["Conv1D Input Projection (64 channels)"]
     Proj --> Res1["ResBlock 1D (Dilation 1)"]
     Res1 --> Res2["ResBlock 1D (Dilation 2)"]
     Res2 --> Res3["ResBlock 1D (Dilation 4)"]
@@ -233,17 +233,20 @@ When GNSS signal is restored after a tunnel or blackout:
 
 ## 3. Compliance Matrix (SIH PS 26168 Requirements)
 
-| SIH 26168 Requirement | Official Target | NaviSense Measured Result | Jury Verdict |
+> **Note:** **(E)** = analytically derived or simulation-estimated. **(M)** = directly measured / architecturally guaranteed. Verdicts are for the jury — we report target vs result.
+
+| SIH 26168 Requirement | Official Target | NaviSense Result | Source |
 | :--- | :--- | :--- | :---: |
-| **Dead Reckoning Drift (Outage)** | $< 10.0\%$ distance traveled | **2.6%** ($26.4\text{ m}$ over $1,001.5\text{ m}$) | **PASSED** |
-| **External Sensor Prohibition** | 0 OBD-II / Wheel Sensors | **0 External Connections** (Phone only) | **PASSED** |
-| **Offline Road Network RAM** | $< 50\text{ MB}$ embedded limit | **95.8 KB** ($0.095\text{ MB}$ via Spatial Chunks) | **PASSED** |
-| **Per-Frame Processing Latency** | $< 20\text{ ms}$ ($50\text{ Hz}$) | **0.46 ms** ($2,160\text{ Hz}$ on standard CPU) | **PASSED** |
-| **In-Vehicle Tilt Calibration** | Automatic phone alignment | **Online $\mathbf{R}(\alpha,\beta,\gamma)$ in SO(3)** | **PASSED** |
-| **GNSS Recovery Teleportation** | Seamless transition | **Exponential blend decay ($\tau = 3.0\text{ s}$)** | **PASSED** |
-| **Off-Road Support (Fields/Parking)**| Must support off-network | **95% Bayesian Departure Gating** | **PASSED** |
+| **Dead Reckoning Drift (Outage)** | $< 10.0\%$ distance traveled | **2.6%** ($26.4\text{ m}$ over $1{,}001.5\text{ m}$) | **(E)** Simulated run |
+| **External Sensor Prohibition** | 0 OBD-II / Wheel Sensors | **0 External Connections** (Smartphone only) | **(M)** Architecture |
+| **Offline Road Network RAM** | $< 50\text{ MB}$ embedded limit | **< 100 KB** active working set | **(E)** 10 km route estimate |
+| **Per-Frame Processing Latency** | $< 20\text{ ms}$ ($50\text{ Hz}$) | **< 1 ms** vectorized SIMD projection | **(E)** SIMD estimate |
+| **In-Vehicle Tilt Calibration** | Automatic phone alignment | **Online $\mathbf{R}(\alpha,\beta,\gamma) \in \text{SO}(3)$** | **(M)** Implemented |
+| **GNSS Recovery Teleportation** | Seamless transition | **Exponential blend decay, $\tau = 3.0\text{ s}$** | **(M)** Implemented |
+| **Off-Road Support (Fields/Parking)**| Must support off-network | **Bayesian departure gating at $P_{\text{off}} \ge 0.95$** | **(M)** Implemented |
 
 ---
+
 
 ## 4. Repository Structure & Key Files
 
