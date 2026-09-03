@@ -9,11 +9,11 @@ import { RightSidebar } from './components/RightSidebar';
 import { TopBar } from './components/TopBar';
 import { TurnGuidance } from './components/TurnGuidance';
 import { CustomRouteSimulator } from './utils/customRouteSimulator';
-import { RoutePlannerWidget } from './components/RoutePlannerWidget';
+import { RoutePlannerWidget, ROUTE_PRESETS } from './components/RoutePlannerWidget';
 
 export const App: React.FC = () => {
-  // Mode state: Dataset vs 2-Point Mode
-  const [appMode, setAppMode] = useState<AppMode>('CANONICAL_DATASET');
+  // Mode state: 2-Point Road Navigation by Default (Always Point A -> Point B!)
+  const [appMode, setAppMode] = useState<AppMode>('CUSTOM_ROUTE');
 
   // View state: Simplified by Default vs Detailed Telemetry
   const [viewMode, setViewMode] = useState<ViewMode>('SIMPLIFIED');
@@ -29,15 +29,21 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Option 2: Choose 2 Points on Map state
-  const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(null);
-  const [customDestination, setCustomDestination] = useState<[number, number] | null>(null);
+  const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(ROUTE_PRESETS[0].origin);
+  const [customDestination, setCustomDestination] = useState<[number, number] | null>(ROUTE_PRESETS[0].destination);
   const [customRoutePath, setCustomRoutePath] = useState<[number, number][]>([]);
-  const [customStatusMsg, setCustomStatusMsg] = useState('Click on the map to choose Origin (Point A)');
+  const [customStatusMsg, setCustomStatusMsg] = useState('Loading City Ring Expressway (Point A ➔ Point B)...');
 
   const wsRef = useRef<WebSocket | null>(null);
   const customSimRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
   const customTimerRef = useRef<any>(null);
   const autoDemoTimersRef = useRef<any[]>([]);
+
+  // Automatically initialize with 2-Point Road Corridor on launch
+  useEffect(() => {
+    const p0 = ROUTE_PRESETS[0];
+    handleSelectPreset(p0.origin, p0.destination, p0.name);
+  }, []);
 
   // Fetch scenarios list on load
   useEffect(() => {

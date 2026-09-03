@@ -183,7 +183,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#2563eb', 'line-width': 6, 'line-opacity': 0.95 }
       });
 
-      // 3. Custom Route Preview Layer
+      // 3. Custom Route Preview Layer (Planned 2-Point Road Corridor)
       map.addSource('custom-route', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -193,7 +193,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         type: 'line',
         source: 'custom-route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-dasharray': [2, 2], 'line-opacity': 0.8 }
+        paint: { 'line-color': '#3b82f6', 'line-width': 8, 'line-opacity': 0.65 }
       });
 
       // 4. Raw INS Divergence Ghost Trail (Only visible when explicitly toggled in top bar)

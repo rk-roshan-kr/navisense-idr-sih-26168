@@ -69,11 +69,33 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Mode Switcher Segmented Control (Clean Light Segmented Control) */}
+      {/* Mode Switcher Segmented Control (Point A -> Point B Navigation vs Benchmark) */}
       <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <button
+          onClick={() => onToggleMode('CUSTOM_ROUTE')}
+          style={{
+            padding: '6px 15px',
+            fontSize: '11px',
+            fontWeight: 800,
+            borderRadius: '6px',
+            border: 'none',
+            cursor: 'pointer',
+            background: appMode === 'CUSTOM_ROUTE' ? '#0284c7' : 'transparent',
+            color: appMode === 'CUSTOM_ROUTE' ? '#ffffff' : '#64748b',
+            boxShadow: appMode === 'CUSTOM_ROUTE' ? '0 2px 4px rgba(2, 132, 199, 0.25)' : 'none',
+            transition: 'all 0.15s',
+            letterSpacing: '0.02em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+        >
+          <span>📍</span> 2-Point Road Navigation (Point A ➔ Point B)
+        </button>
         <button
           onClick={() => onToggleMode('CANONICAL_DATASET')}
           style={{
-            padding: '5px 14px',
+            padding: '6px 14px',
             fontSize: '11px',
             fontWeight: 700,
             borderRadius: '6px',
@@ -86,25 +108,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             letterSpacing: '0.02em'
           }}
         >
-          Dataset Scenarios
-        </button>
-        <button
-          onClick={() => onToggleMode('CUSTOM_ROUTE')}
-          style={{
-            padding: '5px 14px',
-            fontSize: '11px',
-            fontWeight: 700,
-            borderRadius: '6px',
-            border: 'none',
-            cursor: 'pointer',
-            background: appMode === 'CUSTOM_ROUTE' ? '#ffffff' : 'transparent',
-            color: appMode === 'CUSTOM_ROUTE' ? '#0f172a' : '#64748b',
-            boxShadow: appMode === 'CUSTOM_ROUTE' ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
-            transition: 'all 0.15s',
-            letterSpacing: '0.02em'
-          }}
-        >
-          Custom 2-Point Route
+          Raw Dataset Benchmark
         </button>
       </div>
 
