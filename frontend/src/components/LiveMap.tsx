@@ -212,6 +212,21 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       cameraModeRef.current = 'FREECAM';
     });
 
+    // Zoom-adaptive stroke widths (thin when zoomed out over city, soft lane glow when zoomed in)
+    const updateZoomStyles = () => {
+      const z = map.getZoom();
+      if (roadCorridorGlowRef.current) {
+        const w = z >= 17 ? 12 : z >= 15 ? 6 : z >= 13 ? 2 : 1;
+        const op = z >= 15 ? 0.4 : z >= 13 ? 0.25 : 0.15;
+        roadCorridorGlowRef.current.setStyle({ weight: w, opacity: op });
+      }
+      if (roadPolylineRef.current) {
+        const w = z >= 16 ? 4 : z >= 14 ? 2 : 1;
+        roadPolylineRef.current.setStyle({ weight: w });
+      }
+    };
+    map.on('zoomend', updateZoomStyles);
+
     mapInstanceRef.current = map;
 
     // ── 60 FPS Smooth Liquid LERP Animation Loop ─────────────────────────────
