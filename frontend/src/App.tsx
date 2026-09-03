@@ -199,15 +199,11 @@ export const App: React.FC = () => {
 
   // Control Actions
   const handleToggleBlackout = () => {
-    // Notify Python backend via WebSocket and REST
+    // ONLY use WebSocket — HTTP REST was causing a double-toggle
+    // (WS: blackout ON, then REST immediately: blackout OFF again within ms)
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ command: 'toggle_blackout' }));
     }
-    fetch('http://127.0.0.1:8000/api/blackout/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    }).catch(console.error);
   };
 
   const handleSelectScenario = (scenarioId: string) => {
