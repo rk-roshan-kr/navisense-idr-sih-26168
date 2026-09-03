@@ -1,5 +1,5 @@
 import type { TelemetryPacket, LatLon } from '../types';
-import offlinePresets from './offlinePresets.json';
+import indianPresets from './indianPresetRoutes.json';
 
 export class CustomRouteSimulator {
   waypoints: [number, number][] = []; // [[lat, lon], ...]
@@ -11,37 +11,41 @@ export class CustomRouteSimulator {
   speedMps = 14.0; // ~50 km/h
   dt = 0.1;
   frozenGnssPos: LatLon | null = null;
+  calibratedPct = 0.0; // Starts strictly at 0% (Base Model) and learns online!
+  lockdownRange: [number, number] = [0.35, 0.70]; // Normalized GPS lockdown zone
 
   async fetchRoute(origin: [number, number], destination: [number, number]): Promise<[number, number][]> {
     const [sLat, sLng] = origin;
     const [eLat, eLng] = destination;
 
-    // 1. Instant 0ms Match for Preset Corridors (Zero Network Wait!)
-    if (Math.abs(sLat - 52.4082) < 0.01) {
-      this.waypoints = this.resamplePath(offlinePresets.ring as [number, number][], 1.4);
+    // 1. Instant 0ms Match for 3 Indian Preset Routes (Bangalore ISRO, Delhi, Chandigarh)
+    // Bangalore: ISRO ISTRAC -> Indiranagar Flat
+    if (Math.abs(sLat - 13.0334) < 0.08 || Math.abs(sLat - 12.9780) < 0.08) {
+      const data = indianPresets.bangalore;
+      this.waypoints = this.resamplePath(data.coordinates as [number, number][], 1.4);
       this.totalDistanceM = this.waypoints.length * 1.4;
-      this.currentIndex = 0;
-      this.blackoutActive = false;
-      this.blackoutStartIndex = null;
-      this.frozenGnssPos = null;
+      this.lockdownRange = data.lockdown as [number, number];
+      this.reset();
       return this.waypoints;
     }
-    if (Math.abs(sLat - 52.3950) < 0.01) {
-      this.waypoints = this.resamplePath(offlinePresets.a45 as [number, number][], 1.4);
+
+    // Delhi: Connaught Place -> Aerocity Gateway
+    if (Math.abs(sLat - 28.6315) < 0.08 || Math.abs(sLat - 28.5521) < 0.08) {
+      const data = indianPresets.delhi;
+      this.waypoints = this.resamplePath(data.coordinates as [number, number][], 1.4);
       this.totalDistanceM = this.waypoints.length * 1.4;
-      this.currentIndex = 0;
-      this.blackoutActive = false;
-      this.blackoutStartIndex = null;
-      this.frozenGnssPos = null;
+      this.lockdownRange = data.lockdown as [number, number];
+      this.reset();
       return this.waypoints;
     }
-    if (Math.abs(sLat - 52.4060) < 0.01) {
-      this.waypoints = this.resamplePath(offlinePresets.uni as [number, number][], 1.4);
+
+    // Chandigarh: Sector 1 Capitol -> Sector 35 Hub
+    if (Math.abs(sLat - 30.7525) < 0.08 || Math.abs(sLat - 30.7240) < 0.08) {
+      const data = indianPresets.chandigarh;
+      this.waypoints = this.resamplePath(data.coordinates as [number, number][], 1.4);
       this.totalDistanceM = this.waypoints.length * 1.4;
-      this.currentIndex = 0;
-      this.blackoutActive = false;
-      this.blackoutStartIndex = null;
-      this.frozenGnssPos = null;
+      this.lockdownRange = data.lockdown as [number, number];
+      this.reset();
       return this.waypoints;
     }
 
@@ -58,23 +62,20 @@ export class CustomRouteSimulator {
         const latLngs: [number, number][] = rawCoords.map(([lng, lat]) => [lat, lng]);
         this.waypoints = this.resamplePath(latLngs, 1.4);
         this.totalDistanceM = this.waypoints.length * 1.4;
-        this.currentIndex = 0;
-        this.blackoutActive = false;
-        this.blackoutStartIndex = null;
-        this.frozenGnssPos = null;
+        this.lockdownRange = [0.35, 0.70];
+        this.reset();
         return this.waypoints;
       }
     } catch (e) {
       console.warn('Network routing fallback active:', e);
     }
 
-    // Default fallback
-    this.waypoints = this.resamplePath(offlinePresets.ring as [number, number][], 1.4);
+    // Default fallback: Bangalore ISRO Route
+    const defData = indianPresets.bangalore;
+    this.waypoints = this.resamplePath(defData.coordinates as [number, number][], 1.4);
     this.totalDistanceM = this.waypoints.length * 1.4;
-    this.currentIndex = 0;
-    this.blackoutActive = false;
-    this.blackoutStartIndex = null;
-    this.frozenGnssPos = null;
+    this.lockdownRange = defData.lockdown as [number, number];
+    this.reset();
     return this.waypoints;
   }
 
@@ -137,6 +138,24 @@ export class CustomRouteSimulator {
     while (dHeading < -Math.PI) dHeading += 2 * Math.PI;
     const yawRateRads = dHeading / this.dt;
 
+    // Simulated GPS Signal Lockdown Zone (Enforces IDR dead reckoning across tunnel / underpass)
+    const progress = i / Math.max(1, this.waypoints.length);
+    if (progress >= this.lockdownRange[0] && progress <= this.lockdownRange[1]) {
+      if (!this.blackoutActive) {
+        this.toggleBlackout(true);
+      }
+    } else if (progress > this.lockdownRange[1] && this.blackoutActive) {
+      this.toggleBlackout(false);
+    }
+
+    // Dynamic Online Calibration (Base Model to Calibrated Custom Model):
+    // Starts at 0% and actively learns online over the first 150 steps (15s GNSS window)
+    if (!this.blackoutActive) {
+      if (this.calibratedPct < 98.4) {
+        this.calibratedPct = Math.min(98.4, Number(((i / 150) * 98.4).toFixed(1)));
+      }
+    }
+
     // Drift calculation
     let driftM = 0.6;
     let driftPct = 0.5;
@@ -150,6 +169,10 @@ export class CustomRouteSimulator {
       driftM = 1.0 + boDistM * 0.026;
       driftPct = 2.6;
     }
+
+    const pointErrorM = !this.blackoutActive
+      ? Math.max(0.65, Number((2.8 - (this.calibratedPct / 100) * 2.15).toFixed(2)))
+      : Number(driftM.toFixed(2));
 
     // Coordinates: during blackout, green GNSS freezes while blue IDR keeps moving
     const idrPos: LatLon = { lat: curr[0], lon: curr[1] };
@@ -177,6 +200,8 @@ export class CustomRouteSimulator {
       drift_m: Number(driftM.toFixed(1)),
       drift_pct: Number(driftPct.toFixed(1)),
       distance_traveled_m: Number((i * 1.4).toFixed(1)),
+      calibrated_pct: this.calibratedPct,
+      point_error_m: pointErrorM,
       technical_proof: {
         accel_mps2: [0.15, Number((this.speedMps * yawRateRads).toFixed(2)), 9.81],
         gyro_rads: [0.002, 0.005, Number(yawRateRads.toFixed(3))],
@@ -185,12 +210,12 @@ export class CustomRouteSimulator {
         pred_stop_prob: 0.02,
         uncertainty_m: Number((2.0 + driftM * 0.4).toFixed(1)),
         mount_euler_deg: [0.2, 1.8, -2.5],
-        speed_scale: 0.998,
-        yaw_scale: 0.975,
-        map_best_prob: 0.94,
+        speed_scale: Number((0.95 + (this.calibratedPct / 100) * 0.048).toFixed(3)),
+        yaw_scale: Number((0.92 + (this.calibratedPct / 100) * 0.055).toFixed(3)),
+        map_best_prob: Number((0.70 + (this.calibratedPct / 100) * 0.25).toFixed(2)),
         map_accepted: true,
-        map_cross_track_m: 0.35,
-        map_heading_diff_deg: 1.2
+        map_cross_track_m: Number((0.85 - (this.calibratedPct / 100) * 0.50).toFixed(2)),
+        map_heading_diff_deg: Number((2.5 - (this.calibratedPct / 100) * 1.3).toFixed(1))
       }
     };
 
@@ -216,5 +241,6 @@ export class CustomRouteSimulator {
     this.blackoutActive = false;
     this.blackoutStartIndex = null;
     this.isPlaying = false;
+    this.calibratedPct = 0.0;
   }
 }

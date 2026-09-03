@@ -1,6 +1,6 @@
 import React from 'react';
 import type { TelemetryPacket, ScenarioInfo } from '../types';
-import { IconArrowUp, IconTurnLeft, IconTurnRight } from './Icons';
+import { IconArrowUp } from './Icons';
 
 interface TurnGuidanceProps {
   telemetry: TelemetryPacket | null;
@@ -10,36 +10,25 @@ interface TurnGuidanceProps {
 export const TurnGuidance: React.FC<TurnGuidanceProps> = ({ telemetry, scenario }) => {
   const isBlackout = telemetry?.blackout_active ?? false;
   const speedKmh = telemetry?.speed_kmh ?? 0;
-  const headingDeg = telemetry?.heading_deg ?? 0;
 
   const iconColor = isBlackout ? '#00d2ff' : '#00f59b';
 
   // Determine maneuver based on scenario and heading
   let ManeuverIcon = <IconArrowUp size={22} color={iconColor} />;
-  let maneuverText = 'Continue straight';
-  let roadName = 'A4053 Ringway / Highway';
-  let distanceToTurn = 'In 350 m';
+  let maneuverText = isBlackout ? 'Underpass Tunnel Lockdown (IDR Active)' : 'Continue on Planned Road Corridor';
+  let roadName = 'Outer Ring Road (ISRO ISTRAC ➔ Indiranagar)';
+  let distanceToTurn = isBlackout ? 'GPS LOCKDOWN' : 'In 400 m';
 
-  if (scenario?.id === 'urban') {
-    roadName = 'B4101 Spon End ➔ Hearsall Lane';
-    if (headingDeg >= 170 && headingDeg <= 230) {
-      ManeuverIcon = <IconTurnLeft size={22} color={iconColor} />;
-      maneuverText = 'Turn left onto Hearsall Lane';
-      distanceToTurn = 'Now';
-    } else {
-      ManeuverIcon = <IconArrowUp size={22} color={iconColor} />;
-      maneuverText = 'Follow Spon End';
-      distanceToTurn = 'In 180 m';
-    }
-  } else if (scenario?.id === 'winding') {
-    roadName = 'B4113 Country Route';
-    ManeuverIcon = <IconTurnRight size={22} color={iconColor} />;
-    maneuverText = 'Sharp bend ahead (91°)';
-    distanceToTurn = 'In 120 m';
+  if (scenario?.id === 'delhi') {
+    roadName = 'NH48 Expressway / Sardar Patel Marg';
+    maneuverText = isBlackout ? 'Aerocity Tunnel Lockdown (IDR Active)' : 'Follow NH48 toward Aerocity Gateway';
+  } else if (scenario?.id === 'chandigarh') {
+    roadName = 'Jan Marg ➔ Madhya Marg Corridor';
+    maneuverText = isBlackout ? 'Canopy Canyon Lockdown (IDR Active)' : 'Continue on Jan Marg toward Sector 35';
   }
 
   // Speed limit for road
-  const speedLimit = scenario?.id === 'highway' ? 70 : 50;
+  const speedLimit = 60;
   const isOverSpeed = speedKmh > speedLimit + 5;
 
   return (

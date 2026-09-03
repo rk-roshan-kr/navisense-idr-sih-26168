@@ -16,25 +16,28 @@ interface RoutePlannerWidgetProps {
   isPlaying: boolean;
 }
 
-// Curated high-fidelity drivable presets around the test geography
+// Curated high-fidelity Indian 2-point drivable presets
 export const ROUTE_PRESETS = [
   {
-    name: 'City Ring Expressway',
-    origin: [52.4082, -1.5106] as [number, number],
-    destination: [52.4180, -1.5020] as [number, number],
-    desc: 'Urban high-speed loop (1.8 km)'
+    id: 'bangalore',
+    name: 'Bangalore: ISRO ISTRAC to Indiranagar Flat',
+    origin: [13.0334, 77.5186] as [number, number],
+    destination: [12.9780, 77.6400] as [number, number],
+    desc: 'Outer Ring Road (17.4 km) • Underpass GPS Lockdown'
   },
   {
-    name: 'A45 Highway Corridor',
-    origin: [52.3950, -1.5500] as [number, number],
-    destination: [52.4120, -1.5200] as [number, number],
-    desc: 'Dual-carriageway cruising (3.2 km)'
+    id: 'delhi',
+    name: 'Delhi: Connaught Place to Aerocity Gateway',
+    origin: [28.6315, 77.2167] as [number, number],
+    destination: [28.5521, 77.1215] as [number, number],
+    desc: 'NH48 Expressway (15.5 km) • Airport Tunnel Lockdown'
   },
   {
-    name: 'University Campus to Center',
-    origin: [52.4060, -1.5030] as [number, number],
-    destination: [52.4110, -1.5140] as [number, number],
-    desc: 'Stop-and-go downtown streets (1.2 km)'
+    id: 'chandigarh',
+    name: 'Chandigarh: Sector 1 Capitol to Sector 35 Hub',
+    origin: [30.7525, 76.8066] as [number, number],
+    destination: [30.7240, 76.7670] as [number, number],
+    desc: 'Jan Marg & Madhya Marg (5.6 km) • Canopy Canyon Lockdown'
   }
 ];
 
@@ -100,7 +103,7 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
         <div className="loc-coords mono">
           {hasOrigin
             ? `${customOrigin[0].toFixed(5)}°, ${customOrigin[1].toFixed(5)}°`
-            : '👉 Click anywhere on the map to set Origin'}
+            : 'Click anywhere on the map to set Origin'}
         </div>
       </div>
 
@@ -116,7 +119,7 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
           {hasDestination
             ? `${customDestination[0].toFixed(5)}°, ${customDestination[1].toFixed(5)}°`
             : hasOrigin
-            ? '👉 Click anywhere on the map to set Destination'
+            ? 'Click anywhere on the map to set Destination'
             : 'Set Point A first'}
         </div>
       </div>

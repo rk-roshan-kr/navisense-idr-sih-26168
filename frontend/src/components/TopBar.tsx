@@ -7,8 +7,7 @@ import {
   IconActivity,
   IconPlay,
   IconPause,
-  IconRotateCcw,
-  IconMapPin
+  IconRotateCcw
 } from './Icons';
 
 interface TopBarProps {
@@ -29,6 +28,8 @@ interface TopBarProps {
   showGhostBaseline: boolean;
   onToggleGhostBaseline: () => void;
   onStartAutoDemo: () => void;
+  selectedPresetId?: string;
+  onSelectPresetId?: (id: string) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -41,14 +42,16 @@ export const TopBar: React.FC<TopBarProps> = ({
   onReset,
   appMode,
   onToggleMode,
-  customStatusMsg,
+  customStatusMsg: _customStatusMsg,
   onClearCustomPoints,
   viewMode,
   onToggleViewMode,
   currentDriftPct,
   showGhostBaseline,
   onToggleGhostBaseline,
-  onStartAutoDemo
+  onStartAutoDemo,
+  selectedPresetId,
+  onSelectPresetId
 }) => {
   return (
     <header className="top-bar-container glass-panel">
@@ -90,7 +93,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             gap: '5px'
           }}
         >
-          <span>📍</span> 2-Point Road Navigation (Point A ➔ Point B)
+          <span>2-Point Road Navigation (Point A ➔ Point B)</span>
         </button>
         <button
           onClick={() => onToggleMode('CANONICAL_DATASET')}
@@ -112,7 +115,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       </div>
 
-      {/* Mode 1: Scenario Selector */}
+      {/* Mode 1: Scenario Selector / Mode 2: Indian Route Selector */}
       {appMode === 'CANONICAL_DATASET' ? (
         <div className="scenario-select-box">
           <span className="scenario-label">Scenario:</span>
@@ -135,11 +138,19 @@ export const TopBar: React.FC<TopBarProps> = ({
           </select>
         </div>
       ) : (
-        /* Mode 2: Interactive Prompt & Clear Button */
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#059669' }}>
-            <IconMapPin size={13} color="#059669" />
-            <span>{customStatusMsg}</span>
+        /* Mode 2: 3 Indian Preset Routes Dropdown */
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="scenario-select-box">
+            <span className="scenario-label">Route:</span>
+            <select
+              value={selectedPresetId ?? 'bangalore'}
+              onChange={(e) => onSelectPresetId && onSelectPresetId(e.target.value)}
+              className="scenario-select"
+            >
+              <option value="bangalore">Bangalore: ISRO ISTRAC to Indiranagar Flat (17.4 km)</option>
+              <option value="delhi">Delhi: Connaught Place to Aerocity Gateway (15.5 km)</option>
+              <option value="chandigarh">Chandigarh: Sector 1 Capitol to Sector 35 Hub (5.6 km)</option>
+            </select>
           </div>
           <button onClick={onClearCustomPoints} className="btn-control" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <IconRotateCcw size={12} />

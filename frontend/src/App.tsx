@@ -29,10 +29,11 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Option 2: Choose 2 Points on Map state
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('bangalore');
   const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(ROUTE_PRESETS[0].origin);
   const [customDestination, setCustomDestination] = useState<[number, number] | null>(ROUTE_PRESETS[0].destination);
   const [customRoutePath, setCustomRoutePath] = useState<[number, number][]>([]);
-  const [customStatusMsg, setCustomStatusMsg] = useState('Loading City Ring Expressway (Point A ➔ Point B)...');
+  const [customStatusMsg, setCustomStatusMsg] = useState('Bangalore: ISRO ISTRAC to Indiranagar Flat loaded.');
 
   const wsRef = useRef<WebSocket | null>(null);
   const customSimRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
@@ -86,6 +87,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSelectPresetById = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    const target = ROUTE_PRESETS.find((p) => p.id === presetId) || ROUTE_PRESETS[0];
+    handleSelectPreset(target.origin, target.destination, target.name);
+  };
+
   const handleClearCustomPoints = () => {
     if (customTimerRef.current) clearInterval(customTimerRef.current);
     customSimRef.current.reset();
@@ -96,10 +103,9 @@ export const App: React.FC = () => {
     setIsPlaying(false);
   };
 
-  // Automatically initialize with 2-Point Road Corridor on launch
+  // Automatically initialize with Bangalore ISRO 2-Point Road Corridor on launch
   useEffect(() => {
-    const p0 = ROUTE_PRESETS[0];
-    handleSelectPreset(p0.origin, p0.destination, p0.name);
+    handleSelectPresetById('bangalore');
   }, []);
 
   // Fetch scenarios list on load
@@ -308,6 +314,8 @@ export const App: React.FC = () => {
         showGhostBaseline={showGhostBaseline}
         onToggleGhostBaseline={handleToggleGhostBaseline}
         onStartAutoDemo={handleStartAutoDemo}
+        selectedPresetId={selectedPresetId}
+        onSelectPresetId={handleSelectPresetById}
       />
 
       {/* 2. Main Layout */}

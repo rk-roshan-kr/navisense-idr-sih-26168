@@ -47,9 +47,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
 
-  // 60 FPS LERP animation state
-  const animPosRef = useRef<[number, number]>([-1.5021, 52.4069]); // [lon, lat]
-  const targetPosRef = useRef<[number, number]>([-1.5021, 52.4069]);
+  // 60 FPS LERP animation state (Centered on ISRO ISTRAC, Bangalore, India)
+  const animPosRef = useRef<[number, number]>([77.5186, 13.0334]); // [lon, lat]
+  const targetPosRef = useRef<[number, number]>([77.5186, 13.0334]);
   const animHeadingRef = useRef<number>(0);
   const targetHeadingRef = useRef<number>(0);
   const isInitializedRef = useRef<boolean>(false);
@@ -70,14 +70,14 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const initialLon = -1.5021;
-    const initialLat = 52.4069;
+    const initialLon = 77.5186;
+    const initialLat = 13.0334;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: 'https://tiles.openfreemap.org/styles/liberty',
       center: [initialLon, initialLat],
-      zoom: 17.2,
+      zoom: 15.5,
       pitch: 50, // Optimal Apple Maps 3D navigation perspective
       bearing: 0,
       maxPitch: 75,
@@ -526,14 +526,14 @@ export const LiveMap: React.FC<LiveMapProps> = ({
           title="Apple Maps 3D Cockpit driving perspective with 3D buildings (Press Space or C)"
         >
           <span className={is3DMode ? 'cam-dot-live' : 'cam-dot-off'} />
-          <span>🏎️ 3D Cockpit</span>
+          <span>3D Cockpit</span>
         </button>
         <button
           onClick={() => handleToggleMode(false)}
           className={`btn-cam-mode ${!is3DMode ? 'active-cam' : ''}`}
           title="2D Top-down Freecam overview (Press F)"
         >
-          <span>🗺️ 2D Freecam</span>
+          <span>2D Freecam</span>
         </button>
       </div>
 
