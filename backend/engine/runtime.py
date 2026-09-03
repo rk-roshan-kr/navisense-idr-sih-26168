@@ -301,20 +301,27 @@ class NaviSenseRuntime:
                 else:
                     map_accepted = False
 
-        # 4. Compute Coordinates & Telemetry with ZERO-TELEPORTATION Reconvergence
-        disp_enu = self.estimator.get_display_enu()
-        est_lat, est_lon = self.projector.enu_to_geodetic(disp_enu[0], disp_enu[1])
+        # 4. Compute Coordinates & Telemetry with Genuine Model Error State
+        if not self.blackout_active:
+            # Normal driving: OUR POINT is the pure neural model dead reckoning!
+            model_lat, model_lon = self.estimator.get_model_geodetic()
+            est_lat, est_lon = model_lat, model_lon
+            point_error_m = float(self.estimator.model_error_m)
+        else:
+            # Blackout: OUR POINT is the road-constrained continuous IDR estimate
+            disp_enu = self.estimator.get_display_enu()
+            est_lat, est_lon = self.projector.enu_to_geodetic(disp_enu[0], disp_enu[1])
+            gt_pos = self.gt_enu[i]
+            drift_m = float(np.linalg.norm(disp_enu - gt_pos))
+            point_error_m = drift_m
+
         true_lat = float(self.can_lat[i])
         true_lon = float(self.can_lon[i])
         true_spd_kmh = float(self.can_speed[i] * 3.6)
         true_head = float(self.can_head[i])
 
         gt_pos = self.gt_enu[i]
-        drift_m = float(np.linalg.norm(disp_enu - gt_pos))
-
-        # Direct Point Error between Our Estimate and GPS Point
-        meas_e, meas_n = self.projector.geodetic_to_enu(true_lat, true_lon)
-        point_error_m = float(np.linalg.norm(disp_enu - np.array([meas_e, meas_n])))
+        drift_m = float(np.linalg.norm(self.estimator.x[:2] - gt_pos))
 
         if self.blackout_active and self.blackout_start_step is not None:
             bo_dist = float(np.sum(self.can_speed[self.blackout_start_step:i+1] * self.dt))
@@ -323,7 +330,7 @@ class NaviSenseRuntime:
         else:
             bo_elapsed = 0.0
             cum_dist = float(np.sum(self.can_speed[:i+1] * self.dt))
-            drift_pct = (drift_m / max(15.0, cum_dist)) * 100.0
+            drift_pct = (point_error_m / max(15.0, cum_dist)) * 100.0
 
         uncertainty_m = float(math.sqrt(self.estimator.P[0,0] + self.estimator.P[1,1]))
 

@@ -102,6 +102,15 @@ class NavigationStateEstimator:
             1e-7, 1e-7, 1e-7    # gyro bias random walk
         ])
 
+        # Pure Neural Model Dead-Reckoning State [E, N, v, psi]
+        # Propagates independently from IMU to track true model accuracy vs GPS
+        self.x_model = np.zeros(4, dtype=np.float64)
+        self.x_model[0] = 0.0
+        self.x_model[1] = 0.0
+        self.x_model[2] = float(init_speed)
+        self.x_model[3] = np.radians(float(init_heading_deg))
+        self.model_error_m = 0.0
+
         # Reconvergence & Blackout state
         self.is_blackout = False
         self.blackout_start_time = None
@@ -109,11 +118,11 @@ class NavigationStateEstimator:
         self.blend_total_s = 3.0   # smooth blend over 3.0 seconds
         self.blend_offset_enu = np.zeros(2, dtype=np.float64)
 
-        # Robust Multi-Signal Stationary Tracking
-        self.is_stationary = False
+        # ZUPT tracking
         self.stationary_ticks = 0
+        self.is_stationary = False
         self.zupt_candidate_ticks = 0
-        self.zupt_min_ticks = 5     # Requires 0.5s of persistent physical evidence
+        self.zupt_min_ticks = 2
 
     def predict(self, motion_pred: dict, imu_raw: np.ndarray, dt: float = 0.1):
         """
@@ -185,10 +194,17 @@ class NavigationStateEstimator:
         dE = step_ds * np.sin(half_turn)
         dN = step_ds * np.cos(half_turn)
 
+        # Update Kalman fused navigation state
         self.x[0] += dE
         self.x[1] += dN
         self.x[2] = v_t if not is_still else 0.0
         self.x[3] = (current_psi + step_dpsi) % (2.0 * np.pi)
+
+        # Update pure neural model dead reckoning state independently
+        self.x_model[0] += dE
+        self.x_model[1] += dN
+        self.x_model[2] = v_t if not is_still else 0.0
+        self.x_model[3] = (self.x_model[3] + step_dpsi) % (2.0 * np.pi)
 
         # ── 4. Covariance Growth ─────────────────────────────────────────────
         # Propagate positional uncertainty with model's learned heteroscedastic sigma
@@ -211,32 +227,49 @@ class NavigationStateEstimator:
     def correct_gnss(self, gnss_lat: float, gnss_lon: float, gnss_speed: float, gnss_heading_deg: float, gnss_accuracy: float = 0.5, dt: float = 0.1):
         """
         Measurement correction step during GNSS-active periods.
-        Locks directly to ground-truth GNSS and initiates seamless exponential blend on recovery.
+        Calculates genuine model innovation residual against GPS without erasing the error state.
         """
         meas_e, meas_n = self.projector.geodetic_to_enu(gnss_lat, gnss_lon)
         meas_psi = np.radians(gnss_heading_deg)
 
+        # Compute TRUE error of our neural model vs GPS (Innovation Error!)
+        self.model_error_m = float(np.linalg.norm(self.x_model[:2] - np.array([meas_e, meas_n])))
+
         # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
         if self.is_blackout:
             self.is_blackout = False
-            # Compute position discrepancy at the moment of restoration
+            # Discrepancy between where dead-reckoning was and where GNSS truly is
             jump_e = self.x[0] - meas_e
             jump_n = self.x[1] - meas_n
             # Store offset to decay smoothly over 3 seconds
             self.blend_offset_enu = np.array([jump_e, jump_n], dtype=np.float64)
             self.blend_remaining_s = self.blend_total_s
+            # Reset model anchor to GPS position upon recovery
+            self.x_model[0] = meas_e
+            self.x_model[1] = meas_n
 
-        # Lock Kalman state directly to healthy GNSS measurement
-        self.x[0] = meas_e
-        self.x[1] = meas_n
-        self.x[2] = gnss_speed
-        self.x[3] = meas_psi
+        # Standard Kalman Measurement Update
+        z = np.array([meas_e, meas_n, gnss_speed, meas_psi], dtype=np.float64)
+        H = np.zeros((4, 10))
+        H[0, 0] = 1.0  # East
+        H[1, 1] = 1.0  # North
+        H[2, 2] = 1.0  # Speed
+        H[3, 3] = 1.0  # Heading
 
-        # Reset covariance to nominal high-precision GNSS fix
-        self.P[0, 0] = 0.1**2
-        self.P[1, 1] = 0.1**2
-        self.P[2, 2] = 0.1**2
-        self.P[3, 3] = np.radians(0.5)**2
+        y = z - H @ self.x
+        y[3] = np.arctan2(np.sin(y[3]), np.cos(y[3]))
+
+        R = np.diag([
+            gnss_accuracy**2, gnss_accuracy**2,
+            0.2**2,
+            np.radians(1.0)**2
+        ])
+
+        S = H @ self.P @ H.T + R
+        K = self.P @ H.T @ np.linalg.inv(S)
+
+        self.x = self.x + K @ y
+        self.P = (np.eye(10) - K @ H) @ self.P
 
     def get_display_enu(self) -> np.ndarray:
         """
@@ -246,6 +279,10 @@ class NavigationStateEstimator:
         if self.blend_remaining_s > 0.0:
             return self.x[:2] + self.blend_offset_enu
         return self.x[:2].copy()
+
+    def get_model_geodetic(self) -> tuple[float, float]:
+        """Returns geodetic latitude & longitude from the pure neural model dead reckoning state."""
+        return self.projector.enu_to_geodetic(self.x_model[0], self.x_model[1])
 
     def set_blackout(self, is_blackout: bool, timestamp: float = 0.0):
         if is_blackout and not self.is_blackout:

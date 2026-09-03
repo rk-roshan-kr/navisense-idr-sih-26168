@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { TelemetryPacket, ScenarioInfo, AppMode } from '../types';
 
 interface LiveMapProps {
@@ -24,466 +25,469 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   showGhostBaseline = false
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Camera Mode: 'FOLLOW' | 'FREECAM'
-  const [cameraMode, setCameraMode] = useState<'FOLLOW' | 'FREECAM'>('FOLLOW');
-  const cameraModeRef = useRef<'FOLLOW' | 'FREECAM'>('FOLLOW');
+  // Camera Modes: 3D Cockpit (Apple Maps style) vs 2D Freecam
+  const [is3DMode, setIs3DMode] = useState<boolean>(true);
+  const is3DModeRef = useRef<boolean>(true);
 
-  // Layer refs
-  const roadPolylineRef = useRef<L.Polyline | null>(null);
-  const roadCorridorGlowRef = useRef<L.Polyline | null>(null);
-  const customPreviewPolylineRef = useRef<L.Polyline | null>(null);
+  // Accumulated Trail Coordinates (GeoJSON format: [lon, lat])
+  const gnssCoordsRef = useRef<[number, number][]>([]);
+  const idrCoordsRef = useRef<[number, number][]>([]);
+  const lastPointRef = useRef<[number, number] | null>(null);
 
-  // Seamless unified trails
-  const gnssTrailRef = useRef<L.Polyline | null>(null);
-  const idrTrailRef = useRef<L.Polyline | null>(null);
-  const idrGlowTrailRef = useRef<L.Polyline | null>(null);
+  // Markers
+  const carMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const ghostMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const originMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const destMarkerRef = useRef<maplibregl.Marker | null>(null);
 
-  // Raw INS Ghost Baseline layers
-  const ghostMarkerRef = useRef<L.Marker | null>(null);
-  const ghostTrailRef = useRef<L.Polyline | null>(null);
-  const ghostPointsRef = useRef<[number, number][]>([]);
-
-  // Marker refs for custom 2-point mode
-  const originMarkerRef = useRef<L.CircleMarker | null>(null);
-  const destinationMarkerRef = useRef<L.CircleMarker | null>(null);
-
-  // Accumulated point history
-  const gnssPointsRef = useRef<[number, number][]>([]);
-  const idrPointsRef = useRef<[number, number][]>([]);
-  const lastGnssPtRef = useRef<[number, number] | null>(null);
-
-  // Vehicle marker & uncertainty circle
-  const vehicleMarkerRef = useRef<L.Marker | null>(null);
-  const uncertaintyCircleRef = useRef<L.Circle | null>(null);
-
-  // 60 FPS LERP animation refs
-  const animPosRef = useRef<[number, number]>([52.4069, -1.5021]);
-  const targetPosRef = useRef<[number, number]>([52.4069, -1.5021]);
+  // 60 FPS LERP animation state
+  const animPosRef = useRef<[number, number]>([-1.5021, 52.4069]); // [lon, lat]
+  const targetPosRef = useRef<[number, number]>([-1.5021, 52.4069]);
   const animHeadingRef = useRef<number>(0);
   const targetHeadingRef = useRef<number>(0);
   const isInitializedRef = useRef<boolean>(false);
-  const prevBlackoutStateRef = useRef<boolean>(false);
+  const prevBlackoutRef = useRef<boolean>(false);
 
-  // Switch to Freecam automatically when entering custom 2-point mode
+  // Auto-switch to Freecam when entering custom 2-point mode
   useEffect(() => {
     if (appMode === 'CUSTOM_ROUTE') {
-      setCameraMode('FREECAM');
-      cameraModeRef.current = 'FREECAM';
+      setIs3DMode(false);
+      is3DModeRef.current = false;
+      if (mapRef.current) {
+        mapRef.current.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+      }
     }
   }, [appMode]);
 
-  // Initialize Map
+  // Initialize MapLibre GL (100% Free OpenFreeMap 3D Vector Tiles)
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
-    const initialLat = 52.4069;
     const initialLon = -1.5021;
+    const initialLat = 52.4069;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [initialLat, initialLon],
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      // 100% Free OpenFreeMap 3D Vector Tile Style (NO API KEY REQUIRED!)
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [initialLon, initialLat],
       zoom: 17,
-      zoomControl: false,
+      pitch: 60, // 3D Perspective Tilt like Apple Maps
+      bearing: 0,
+      maxPitch: 85,
       attributionControl: false
     });
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      subdomains: 'abc'
-    }).addTo(map);
+    map.on('load', () => {
+      // 1. Add 3D Extruded Buildings Layer (Apple Maps 3D City Look!)
+      const layers = map.getStyle().layers;
+      const labelLayer = layers ? layers.find((l: any) => l.type === 'symbol' && l.layout && l.layout['text-field']) : null;
+      const labelLayerId = labelLayer ? labelLayer.id : undefined;
 
-    // Active Road Corridor Lane Glow (Soft Sky-Blue Guideway)
-    roadCorridorGlowRef.current = L.polyline([], {
-      color: '#bfdbfe',
-      weight: 14,
-      opacity: 0.45,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(map);
+      if (!map.getLayer('3d-buildings') && map.getSource('openmaptiles')) {
+        map.addLayer(
+          {
+            id: '3d-buildings',
+            source: 'openmaptiles',
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 14,
+            paint: {
+              'fill-extrusion-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'render_height'],
+                0, '#e2e8f0',
+                20, '#cbd5e1',
+                50, '#94a3b8'
+              ],
+              'fill-extrusion-height': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                14, 0,
+                14.5, ['get', 'render_height']
+              ],
+              'fill-extrusion-base': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                14, 0,
+                14.5, ['get', 'render_min_height']
+              ],
+              'fill-extrusion-opacity': 0.75
+            }
+          },
+          labelLayerId
+        );
+      }
 
-    // Road Centerline Polyline
-    roadPolylineRef.current = L.polyline([], {
-      color: '#94a3b8',
-      weight: 5,
-      opacity: 0.5,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(map);
+      // 2. Active Road Corridor Source & Layer
+      map.addSource('road-corridor', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'road-corridor-line',
+        type: 'line',
+        source: 'road-corridor',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#60a5fa', 'line-width': 4, 'line-opacity': 0.6 }
+      });
 
-    // Custom route dashed preview
-    customPreviewPolylineRef.current = L.polyline([], {
-      color: '#2563eb',
-      weight: 4,
-      opacity: 0.75,
-      dashArray: '6, 8',
-      lineCap: 'round'
-    }).addTo(map);
+      // 3. GNSS Active Trail (Emerald Green - Never Disappears!)
+      map.addSource('gnss-trail', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'gnss-trail-line',
+        type: 'line',
+        source: 'gnss-trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#059669', 'line-width': 5.5, 'line-opacity': 0.95 }
+      });
 
-    // GNSS Trail (Clean Emerald Green)
-    gnssTrailRef.current = L.polyline([], {
-      color: '#059669',
-      weight: 5.5,
-      opacity: 0.92,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(map);
+      // 4. IDR Dead Reckoning Trail (Electric Blue Aura & Core)
+      map.addSource('idr-trail', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'idr-trail-glow',
+        type: 'line',
+        source: 'idr-trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': 'rgba(37, 99, 235, 0.4)', 'line-width': 12, 'line-opacity': 0.5 }
+      });
+      map.addLayer({
+        id: 'idr-trail-line',
+        type: 'line',
+        source: 'idr-trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#2563eb', 'line-width': 5.5, 'line-opacity': 0.95 }
+      });
 
-    // IDR Trail Glow (Soft Blue Aura)
-    idrGlowTrailRef.current = L.polyline([], {
-      color: 'rgba(37, 99, 235, 0.35)',
-      weight: 12,
-      opacity: 0.4,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(map);
+      // 5. Custom Route Preview Layer
+      map.addSource('custom-route', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'custom-route-line',
+        type: 'line',
+        source: 'custom-route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-dasharray': [2, 2], 'line-opacity': 0.8 }
+      });
 
-    // IDR Trail (Electric Commercial Blue)
-    idrTrailRef.current = L.polyline([], {
-      color: '#2563eb',
-      weight: 5.5,
-      opacity: 0.95,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(map);
+      // 6. Raw INS Divergence Ghost Trail
+      map.addSource('ghost-trail', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'ghost-trail-line',
+        type: 'line',
+        source: 'ghost-trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#dc2626', 'line-width': 3, 'line-dasharray': [3, 3], 'line-opacity': 0.75 }
+      });
 
-    // Raw INS Ghost Divergence Trail
-    ghostTrailRef.current = L.polyline([], {
-      color: '#dc2626',
-      weight: 3,
-      opacity: 0.75,
-      dashArray: '6, 6',
-      lineCap: 'round'
-    }).addTo(map);
-
-    // Vehicle Navigation Marker Puck
-    const carIcon = L.divIcon({
-      className: 'nav-car-marker-container',
-      html: `
-        <div id="nav-car-puck-wrap" class="nav-car-wrap">
-          <div class="nav-car-halo"></div>
-          <div class="nav-car-puck">
-            <div id="nav-car-arrow" class="nav-car-arrow"></div>
-          </div>
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      // Set scenario road corridor if already present
+      if (scenario?.road_polyline && scenario.road_polyline.length > 0) {
+        const roadGeoJSON = scenario.road_polyline.map(([lat, lon]) => [lon, lat]);
+        const src = map.getSource('road-corridor') as maplibregl.GeoJSONSource;
+        src?.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: roadGeoJSON }
+        });
+      }
     });
 
-    vehicleMarkerRef.current = L.marker([initialLat, initialLon], { icon: carIcon }).addTo(map);
+    // Custom 3D Vehicle Marker Element
+    const carEl = document.createElement('div');
+    carEl.className = 'nav-car-wrap';
+    carEl.innerHTML = `
+      <div class="nav-car-halo"></div>
+      <div id="nav-car-puck-wrap" class="nav-car-puck">
+        <div id="nav-car-arrow" class="nav-car-arrow"></div>
+      </div>
+    `;
+    carMarkerRef.current = new maplibregl.Marker({ element: carEl })
+      .setLngLat([initialLon, initialLat])
+      .addTo(map);
 
     // Raw INS Ghost Marker
-    const ghostIcon = L.divIcon({
-      className: 'nav-ghost-container',
-      html: `
-        <div style="width: 20px; height: 20px; border-radius: 50%; background: rgba(220, 38, 38, 0.4); border: 2px dashed #ef4444; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(220, 38, 38, 0.6);">
-          <div style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444;"></div>
-        </div>
-      `,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
+    const ghostEl = document.createElement('div');
+    ghostEl.style.cssText = 'width: 20px; height: 20px; border-radius: 50%; background: rgba(220, 38, 38, 0.4); border: 2px dashed #ef4444; display: none; align-items: center; justify-content: center;';
+    ghostEl.innerHTML = '<div style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444;"></div>';
+    ghostMarkerRef.current = new maplibregl.Marker({ element: ghostEl })
+      .setLngLat([initialLon, initialLat])
+      .addTo(map);
+
+    // Map Events
+    map.on('click', (e: maplibregl.MapMouseEvent) => {
+      onMapClick(e.lngLat.lat, e.lngLat.lng);
     });
 
-    ghostMarkerRef.current = L.marker([initialLat, initialLon], { icon: ghostIcon, opacity: 0 }).addTo(map);
-
-    uncertaintyCircleRef.current = L.circle([initialLat, initialLon], {
-      radius: 4,
-      color: '#00f59b',
-      fillColor: '#00f59b',
-      fillOpacity: 0.1,
-      weight: 1.5,
-      dashArray: '3, 6'
-    }).addTo(map);
-
-    // Click handler for 2-point routing
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      onMapClick(e.latlng.lat, e.latlng.lng);
-    });
-
-    // Auto-switch to Freecam when user drags or zooms
     map.on('dragstart', () => {
-      setCameraMode('FREECAM');
-      cameraModeRef.current = 'FREECAM';
+      setIs3DMode(false);
+      is3DModeRef.current = false;
     });
 
-    map.on('zoomstart', () => {
-      setCameraMode('FREECAM');
-      cameraModeRef.current = 'FREECAM';
-    });
+    mapRef.current = map;
 
-    // Zoom-adaptive stroke widths (thin when zoomed out over city, soft lane glow when zoomed in)
-    const updateZoomStyles = () => {
-      const z = map.getZoom();
-      if (roadCorridorGlowRef.current) {
-        const w = z >= 17 ? 12 : z >= 15 ? 6 : z >= 13 ? 2 : 1;
-        const op = z >= 15 ? 0.4 : z >= 13 ? 0.25 : 0.15;
-        roadCorridorGlowRef.current.setStyle({ weight: w, opacity: op });
-      }
-      if (roadPolylineRef.current) {
-        const w = z >= 16 ? 4 : z >= 14 ? 2 : 1;
-        roadPolylineRef.current.setStyle({ weight: w });
-      }
-    };
-    map.on('zoomend', updateZoomStyles);
-
-    mapInstanceRef.current = map;
-
-    // ── 60 FPS Smooth Liquid LERP Animation Loop ─────────────────────────────
-    let animFrameId: number;
-
+    // ── 60 FPS Smooth WebGL Animation Loop ───────────────────────────────────
+    let animId: number;
     const animateLoop = () => {
-      const curPos = animPosRef.current;
-      const tgtPos = targetPosRef.current;
+      const cur = animPosRef.current;
+      const tgt = targetPosRef.current;
 
-      const newLat = curPos[0] + (tgtPos[0] - curPos[0]) * 0.22;
-      const newLon = curPos[1] + (tgtPos[1] - curPos[1]) * 0.22;
-      animPosRef.current = [newLat, newLon];
+      const newLon = cur[0] + (tgt[0] - cur[0]) * 0.22;
+      const newLat = cur[1] + (tgt[1] - cur[1]) * 0.22;
+      animPosRef.current = [newLon, newLat];
 
       let dHead = targetHeadingRef.current - animHeadingRef.current;
       while (dHead > 180) dHead -= 360;
       while (dHead < -180) dHead += 360;
       animHeadingRef.current += dHead * 0.2;
 
-      if (vehicleMarkerRef.current) {
-        vehicleMarkerRef.current.setLatLng([newLat, newLon]);
+      // Update vehicle marker on map
+      if (carMarkerRef.current) {
+        carMarkerRef.current.setLngLat([newLon, newLat]);
       }
 
-      const arrowElem = document.getElementById('nav-car-arrow');
-      if (arrowElem) {
-        arrowElem.style.transform = `rotate(${animHeadingRef.current}deg)`;
+      const arrow = document.getElementById('nav-car-arrow');
+      if (arrow) {
+        // If in 3D driving view, map rotates with heading, so arrow points straight forward
+        arrow.style.transform = is3DModeRef.current ? 'rotate(0deg)' : `rotate(${animHeadingRef.current}deg)`;
       }
 
-      // ONLY AUTO-CENTER CAMERA IF IN FOLLOW MODE!
-      if (mapInstanceRef.current && cameraModeRef.current === 'FOLLOW') {
-        const rad = (animHeadingRef.current * Math.PI) / 180;
-        const lookaheadLat = newLat + (20 * Math.cos(rad)) / 111320;
-        const lookaheadLon = newLon + (20 * Math.sin(rad)) / (111320 * Math.cos((newLat * Math.PI) / 180));
-        mapInstanceRef.current.panTo([lookaheadLat, lookaheadLon], { animate: false });
+      // In 3D Cockpit Mode: camera tracks vehicle in 3D perspective ahead
+      if (mapRef.current && is3DModeRef.current) {
+        mapRef.current.jumpTo({
+          center: [newLon, newLat],
+          bearing: animHeadingRef.current,
+          pitch: 60
+        });
       }
 
-      animFrameId = requestAnimationFrame(animateLoop);
+      animId = requestAnimationFrame(animateLoop);
     };
 
-    animFrameId = requestAnimationFrame(animateLoop);
-
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 150);
+    animId = requestAnimationFrame(animateLoop);
 
     return () => {
-      cancelAnimationFrame(animFrameId);
+      cancelAnimationFrame(animId);
       map.remove();
-      mapInstanceRef.current = null;
+      mapRef.current = null;
     };
   }, []);
 
   // Update Custom Origin & Destination Markers (Option 2)
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
+    if (!mapRef.current) return;
+    const map = mapRef.current;
 
     if (customOrigin) {
       if (!originMarkerRef.current) {
-        originMarkerRef.current = L.circleMarker(customOrigin, {
-          radius: 8,
-          color: '#059669',
-          fillColor: '#10b981',
-          fillOpacity: 0.9,
-          weight: 3
-        }).addTo(map);
+        const el = document.createElement('div');
+        el.style.cssText = 'width: 16px; height: 16px; border-radius: 50%; background: #10b981; border: 3px solid #ffffff; box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);';
+        originMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat([customOrigin[1], customOrigin[0]])
+          .addTo(map);
       } else {
-        originMarkerRef.current.setLatLng(customOrigin);
+        originMarkerRef.current.setLngLat([customOrigin[1], customOrigin[0]]);
       }
     } else {
-      if (originMarkerRef.current) {
-        originMarkerRef.current.remove();
-        originMarkerRef.current = null;
-      }
+      originMarkerRef.current?.remove();
+      originMarkerRef.current = null;
     }
 
     if (customDestination) {
-      if (!destinationMarkerRef.current) {
-        destinationMarkerRef.current = L.circleMarker(customDestination, {
-          radius: 8,
-          color: '#b91c1c',
-          fillColor: '#ef4444',
-          fillOpacity: 0.9,
-          weight: 3
-        }).addTo(map);
+      if (!destMarkerRef.current) {
+        const el = document.createElement('div');
+        el.style.cssText = 'width: 16px; height: 16px; border-radius: 50%; background: #ef4444; border: 3px solid #ffffff; box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);';
+        destMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat([customDestination[1], customDestination[0]])
+          .addTo(map);
       } else {
-        destinationMarkerRef.current.setLatLng(customDestination);
+        destMarkerRef.current.setLngLat([customDestination[1], customDestination[0]]);
       }
     } else {
-      if (destinationMarkerRef.current) {
-        destinationMarkerRef.current.remove();
-        destinationMarkerRef.current = null;
-      }
+      destMarkerRef.current?.remove();
+      destMarkerRef.current = null;
     }
 
     if (customRoutePath.length > 0) {
-      customPreviewPolylineRef.current?.setLatLngs(customRoutePath);
-      map.fitBounds(L.latLngBounds(customRoutePath).pad(0.15));
-    } else {
-      customPreviewPolylineRef.current?.setLatLngs([]);
+      const geojson = customRoutePath.map(([lat, lon]) => [lon, lat]);
+      const src = map.getSource('custom-route') as maplibregl.GeoJSONSource;
+      src?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: geojson } });
+      const bounds = geojson.reduce(
+        (b, coord) => b.extend(coord as [number, number]),
+        new maplibregl.LngLatBounds(geojson[0] as [number, number], geojson[0] as [number, number])
+      );
+      map.fitBounds(bounds, { padding: 80 });
     }
   }, [customOrigin, customDestination, customRoutePath]);
 
   // Scenario Switch Reset
   useEffect(() => {
-    if (!mapInstanceRef.current || appMode !== 'CANONICAL_DATASET' || !scenario) return;
+    if (!mapRef.current || appMode !== 'CANONICAL_DATASET' || !scenario) return;
 
-    gnssPointsRef.current = [];
-    idrPointsRef.current = [];
-    ghostPointsRef.current = [];
-    lastGnssPtRef.current = null;
+    gnssCoordsRef.current = [];
+    idrCoordsRef.current = [];
+    lastPointRef.current = null;
 
-    gnssTrailRef.current?.setLatLngs([]);
-    idrTrailRef.current?.setLatLngs([]);
-    idrGlowTrailRef.current?.setLatLngs([]);
-    ghostTrailRef.current?.setLatLngs([]);
-    ghostMarkerRef.current?.setOpacity(0);
+    const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
+    gSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+
+    const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
+    iSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
 
     if (scenario.road_polyline && scenario.road_polyline.length > 0) {
-      roadPolylineRef.current?.setLatLngs(scenario.road_polyline);
-      roadCorridorGlowRef.current?.setLatLngs(scenario.road_polyline);
+      const roadGeoJSON = scenario.road_polyline.map(([lat, lon]) => [lon, lat]);
+      const rSrc = mapRef.current.getSource('road-corridor') as maplibregl.GeoJSONSource;
+      rSrc?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: roadGeoJSON } });
+
       const startPt = scenario.road_polyline[0];
-      animPosRef.current = startPt;
-      targetPosRef.current = startPt;
-      mapInstanceRef.current.setView(startPt, 17, { animate: false });
+      animPosRef.current = [startPt[1], startPt[0]];
+      targetPosRef.current = [startPt[1], startPt[0]];
+      mapRef.current.jumpTo({ center: [startPt[1], startPt[0]], zoom: 17 });
     }
   }, [scenario?.id, appMode]);
 
   // Update Target Telemetry on 10 Hz Packets
   useEffect(() => {
-    if (!telemetry) return;
+    if (!telemetry || !mapRef.current) return;
 
-    const { idr_position, heading_deg, technical_proof, blackout_active, blackout_elapsed_s } = telemetry;
-    const currPt: [number, number] = [idr_position.lat, idr_position.lon];
+    const { idr_position, heading_deg, blackout_active, blackout_elapsed_s } = telemetry;
+    const currCoord: [number, number] = [idr_position.lon, idr_position.lat];
 
-    // First packet initialization
     if (!isInitializedRef.current) {
-      animPosRef.current = currPt;
-      targetPosRef.current = currPt;
+      animPosRef.current = currCoord;
+      targetPosRef.current = currCoord;
       animHeadingRef.current = heading_deg;
       targetHeadingRef.current = heading_deg;
       isInitializedRef.current = true;
     } else {
-      targetPosRef.current = currPt;
+      targetPosRef.current = currCoord;
       targetHeadingRef.current = heading_deg;
     }
 
-    // Single-Ribbon Trail Logic
+    // ── Continuous Trail Updating (Expanded to 10,000 Points - NEVER DISAPPEARS!) ──
     if (!blackout_active) {
-      gnssPointsRef.current.push(currPt);
-      lastGnssPtRef.current = currPt;
-      if (gnssPointsRef.current.length > 1000) gnssPointsRef.current.shift();
-      gnssTrailRef.current?.setLatLngs(gnssPointsRef.current);
-      ghostPointsRef.current = [];
-      ghostTrailRef.current?.setLatLngs([]);
-      ghostMarkerRef.current?.setOpacity(0);
-    } else {
-      if (!prevBlackoutStateRef.current && lastGnssPtRef.current) {
-        idrPointsRef.current = [lastGnssPtRef.current, currPt];
-      } else {
-        idrPointsRef.current.push(currPt);
-      }
-      if (idrPointsRef.current.length > 1000) idrPointsRef.current.shift();
-      idrTrailRef.current?.setLatLngs(idrPointsRef.current);
-      idrGlowTrailRef.current?.setLatLngs(idrPointsRef.current);
+      gnssCoordsRef.current.push(currCoord);
+      lastPointRef.current = currCoord;
+      if (gnssCoordsRef.current.length > 10000) gnssCoordsRef.current.shift();
 
-      // Raw INS Divergence Ghost Vehicle
+      const gSrc = mapRef.current.getSource('gnss-trail') as maplibregl.GeoJSONSource;
+      gSrc?.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: gnssCoordsRef.current }
+      });
+    } else {
+      if (!prevBlackoutRef.current && lastPointRef.current) {
+        idrCoordsRef.current = [lastPointRef.current, currCoord];
+      } else {
+        idrCoordsRef.current.push(currCoord);
+      }
+      if (idrCoordsRef.current.length > 10000) idrCoordsRef.current.shift();
+
+      const iSrc = mapRef.current.getSource('idr-trail') as maplibregl.GeoJSONSource;
+      iSrc?.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: idrCoordsRef.current }
+      });
+
+      // Raw INS Ghost Divergence
       if (showGhostBaseline) {
         const rad = (heading_deg * Math.PI) / 180;
         const t = blackout_elapsed_s;
         const driftM = 0.5 * 0.22 * t * t;
-        const ghostLat = currPt[0] + (driftM * Math.cos(rad + Math.PI / 2)) / 111320;
-        const ghostLon = currPt[1] + (driftM * Math.sin(rad + Math.PI / 2)) / (111320 * Math.cos((currPt[0] * Math.PI) / 180));
-        const ghostPt: [number, number] = [ghostLat, ghostLon];
-
-        ghostMarkerRef.current?.setLatLng(ghostPt);
-        ghostMarkerRef.current?.setOpacity(0.85);
-
-        ghostPointsRef.current.push(ghostPt);
-        if (ghostPointsRef.current.length > 300) ghostPointsRef.current.shift();
-        ghostTrailRef.current?.setLatLngs(ghostPointsRef.current);
+        const ghostLat = idr_position.lat + (driftM * Math.cos(rad + Math.PI / 2)) / 111320;
+        const ghostLon = idr_position.lon + (driftM * Math.sin(rad + Math.PI / 2)) / (111320 * Math.cos((idr_position.lat * Math.PI) / 180));
+        ghostMarkerRef.current?.setLngLat([ghostLon, ghostLat]);
+        ghostMarkerRef.current?.getElement().style.setProperty('display', 'flex');
       } else {
-        ghostMarkerRef.current?.setOpacity(0);
-        ghostTrailRef.current?.setLatLngs([]);
+        ghostMarkerRef.current?.getElement().style.setProperty('display', 'none');
       }
     }
-    prevBlackoutStateRef.current = blackout_active;
+    prevBlackoutRef.current = blackout_active;
 
     // Vehicle marker state
-    const puckWrap = document.getElementById('nav-car-puck-wrap');
-    if (puckWrap) {
-      if (blackout_active) {
-        puckWrap.classList.add('blackout');
-      } else {
-        puckWrap.classList.remove('blackout');
-      }
-    }
-
-    // Uncertainty Circle
-    if (uncertaintyCircleRef.current) {
-      uncertaintyCircleRef.current.setLatLng(currPt);
-      uncertaintyCircleRef.current.setRadius(Math.max(2, technical_proof.uncertainty_m));
-      uncertaintyCircleRef.current.setStyle({
-        color: blackout_active ? '#00d2ff' : '#00f59b',
-        fillColor: blackout_active ? '#00d2ff' : '#00f59b'
-      });
+    const puck = document.getElementById('nav-car-puck-wrap');
+    if (puck) {
+      if (blackout_active) puck.classList.add('blackout');
+      else puck.classList.remove('blackout');
     }
   }, [telemetry, showGhostBaseline]);
 
-  // Re-center on vehicle
-  const handleFollowCar = () => {
-    setCameraMode('FOLLOW');
-    cameraModeRef.current = 'FOLLOW';
-    if (mapInstanceRef.current && animPosRef.current) {
-      mapInstanceRef.current.flyTo(animPosRef.current, 17, { duration: 0.6 });
+  // Toggle Camera Mode
+  const handleToggleMode = (mode3D: boolean) => {
+    setIs3DMode(mode3D);
+    is3DModeRef.current = mode3D;
+
+    if (!mapRef.current) return;
+    if (mode3D) {
+      mapRef.current.easeTo({
+        center: animPosRef.current,
+        bearing: animHeadingRef.current,
+        pitch: 60,
+        zoom: 17,
+        duration: 800
+      });
+    } else {
+      mapRef.current.easeTo({
+        pitch: 0,
+        bearing: 0,
+        duration: 600
+      });
     }
   };
 
-  const handleToggleCamera = (mode: 'FOLLOW' | 'FREECAM') => {
-    setCameraMode(mode);
-    cameraModeRef.current = mode;
-    if (mode === 'FOLLOW' && mapInstanceRef.current && animPosRef.current) {
-      mapInstanceRef.current.flyTo(animPosRef.current, 17, { duration: 0.6 });
-    }
+  const handleRecenter = () => {
+    handleToggleMode(true);
   };
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', cursor: appMode === 'CUSTOM_ROUTE' ? 'crosshair' : 'default' }}>
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Camera Mode Toggle (Top-Right of Map) */}
+      {/* Floating 3D Navigation Camera Controls (Top-Right) */}
       <div className="map-camera-controls glass-panel">
         <button
-          onClick={() => handleToggleCamera('FOLLOW')}
-          className={`btn-cam-mode ${cameraMode === 'FOLLOW' ? 'active-cam' : ''}`}
-          title="Keep camera centered and following the vehicle"
+          onClick={() => handleToggleMode(true)}
+          className={`btn-cam-mode ${is3DMode ? 'active-cam' : ''}`}
+          title="Apple Maps 3D Cockpit driving perspective with 3D buildings"
         >
-          <span className={cameraMode === 'FOLLOW' ? 'cam-dot-live' : 'cam-dot-off'} />
-          <span>Follow Car</span>
+          <span className={is3DMode ? 'cam-dot-live' : 'cam-dot-off'} />
+          <span>🏎️ 3D Cockpit</span>
         </button>
         <button
-          onClick={() => handleToggleCamera('FREECAM')}
-          className={`btn-cam-mode ${cameraMode === 'FREECAM' ? 'active-cam' : ''}`}
-          title="Freely pan, zoom, and inspect any road or junction"
+          onClick={() => handleToggleMode(false)}
+          className={`btn-cam-mode ${!is3DMode ? 'active-cam' : ''}`}
+          title="2D Top-down Freecam overview to inspect the road network"
         >
-          <span>Freecam</span>
+          <span>🗺️ 2D Freecam</span>
         </button>
       </div>
 
-      {/* Floating Re-center Action Button when in Freecam */}
-      {cameraMode === 'FREECAM' && (
+      {/* Floating Re-center Button when in Freecam */}
+      {!is3DMode && (
         <button
-          onClick={handleFollowCar}
+          onClick={handleRecenter}
           className="btn-recenter-car glass-panel"
-          title="Fly back and center camera on vehicle"
+          title="Re-center camera and return to 3D driving view"
         >
           <span className="recenter-target-icon">⌖</span>
-          <span>Re-center on Car</span>
+          <span>Re-center on Vehicle (3D)</span>
         </button>
       )}
     </div>
