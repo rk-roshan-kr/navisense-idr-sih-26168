@@ -38,6 +38,8 @@ class TechnicalProof(BaseModel):
     chunk_working_set_kb: Optional[float] = 28.4
     chunk_active_tiles: Optional[int] = 9
     off_road_prob: Optional[float] = 0.0
+    road_layer: Optional[int] = 0
+    is_on_service: Optional[bool] = False
 
 class TelemetryPacket(BaseModel):
     timestamp_s: float

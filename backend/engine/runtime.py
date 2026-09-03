@@ -266,8 +266,9 @@ class NaviSenseRuntime:
             veh_psi = self.estimator.x[3]
             speed_mps = float(self.estimator.x[2])
 
-            # Query nearest road candidate from dynamic spatial chunks
-            res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=speed_mps)
+            # Query nearest road candidate from dynamic spatial chunks with multi-level & anti-service-lane gating
+            pitch_deg = float(np.degrees(self.seg_data["gpit"][i]))
+            res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=speed_mps, pitch_deg=pitch_deg)
             found, r_y, r_psi, psi_road, n_unit, prob = res
             map_prob = float(prob)
             map_ry = float(r_y)
@@ -374,7 +375,9 @@ class NaviSenseRuntime:
                 map_heading_diff_deg=round(map_rpsi_deg, 1),
                 chunk_working_set_kb=self.chunk_manager.get_working_set_memory_kb(),
                 chunk_active_tiles=len(self.chunk_manager.active_chunks),
-                off_road_prob=round(self.off_road_prob, 2)
+                off_road_prob=round(self.off_road_prob, 2),
+                road_layer=self.chunk_manager.current_layer,
+                is_on_service=self.chunk_manager.is_on_service
             )
         )
 

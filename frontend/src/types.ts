@@ -30,6 +30,8 @@ export interface TechnicalProof {
   chunk_working_set_kb?: number;
   chunk_active_tiles?: number;
   off_road_prob?: number;
+  road_layer?: number;
+  is_on_service?: boolean;
 }
 
 export interface TelemetryPacket {

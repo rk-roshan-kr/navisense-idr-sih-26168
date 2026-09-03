@@ -153,6 +153,18 @@ export const TechnicalProofDrawer: React.FC<TechnicalProofDrawerProps> = ({ tele
                 <span className="proof-key">Partition Grid:</span>
                 <span className="proof-val">500m × 500m Cells</span>
               </div>
+              <div className="proof-row-kv mono">
+                <span className="proof-key">Road Level:</span>
+                <span className="proof-val">
+                  {p.road_layer === 1 ? 'Elevated Flyover (L1)' : p.road_layer === -1 ? 'Tunnel / Underpass (L-1)' : 'Surface Road (L0)'}
+                </span>
+              </div>
+              <div className="proof-row-kv mono">
+                <span className="proof-key">Road Track:</span>
+                <span className="proof-val" style={{ color: p.is_on_service ? '#ea580c' : 'var(--idr-blue)', fontWeight: 800 }}>
+                  {p.is_on_service ? 'Service Lane (Exit)' : 'Main Highway (Locked)'}
+                </span>
+              </div>
             </div>
           </div>
 
