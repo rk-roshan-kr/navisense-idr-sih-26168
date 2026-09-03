@@ -91,15 +91,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     });
 
     map.on('load', () => {
-      // Atmospheric Horizon Fog: Culls distant clutter and renders a clean Apple Maps sky
-      if (typeof (map as any).setFog === 'function') {
-        (map as any).setFog({
-          color: '#f8fafc',
-          range: [1.0, 8.0],
-          'horizon-blend': 0.15
-        });
-      }
-
       // 1. Add 3D Extruded Buildings Layer (Culls distant clutter, only renders onscreen within local range)
       const layers = map.getStyle().layers;
       const labelLayer = layers ? layers.find((l: any) => l.type === 'symbol' && l.layout && l.layout['text-field']) : null;

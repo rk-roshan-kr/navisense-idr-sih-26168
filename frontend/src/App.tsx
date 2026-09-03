@@ -39,6 +39,63 @@ export const App: React.FC = () => {
   const customTimerRef = useRef<any>(null);
   const autoDemoTimersRef = useRef<any[]>([]);
 
+  // Mode 2: Handle Map Clicks for Option 2 (Choose 2 Points)
+  const handleMapClick = async (lat: number, lon: number) => {
+    if (appMode !== 'CUSTOM_ROUTE') return;
+
+    if (!customOrigin) {
+      const originPt: [number, number] = [lat, lon];
+      setCustomOrigin(originPt);
+      setCustomStatusMsg('Point A (Origin) set. Now click on the map to set Point B (Destination)');
+    } else if (!customDestination) {
+      const destPt: [number, number] = [lat, lon];
+      setCustomDestination(destPt);
+      setCustomStatusMsg('Calculating route from offline road network...');
+
+      try {
+        const path = await customSimRef.current.fetchRoute(customOrigin, destPt);
+        setCustomRoutePath(path);
+        setCustomStatusMsg('Route ready! Click START SIMULATION to begin navigation');
+        const firstPkt = customSimRef.current.step();
+        if (firstPkt) setTelemetry(firstPkt);
+      } catch (err: any) {
+        setCustomStatusMsg(`Routing error: ${err.message}`);
+      }
+    }
+  };
+
+  const handleSetOrigin = (pt: [number, number]) => {
+    setCustomOrigin(pt);
+    setCustomStatusMsg('Origin set from vehicle. Now click on the map to set Destination (Point B)');
+  };
+
+  const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string) => {
+    if (customTimerRef.current) clearInterval(customTimerRef.current);
+    customSimRef.current.reset();
+    setCustomOrigin(origin);
+    setCustomDestination(dest);
+    setCustomStatusMsg(`Calculating route for ${name}...`);
+    try {
+      const path = await customSimRef.current.fetchRoute(origin, dest);
+      setCustomRoutePath(path);
+      setCustomStatusMsg(`${name} loaded. Click START SIMULATION to begin navigation!`);
+      const firstPkt = customSimRef.current.step();
+      if (firstPkt) setTelemetry(firstPkt);
+    } catch (err: any) {
+      setCustomStatusMsg(`Routing error: ${err.message}`);
+    }
+  };
+
+  const handleClearCustomPoints = () => {
+    if (customTimerRef.current) clearInterval(customTimerRef.current);
+    customSimRef.current.reset();
+    setCustomOrigin(null);
+    setCustomDestination(null);
+    setCustomRoutePath([]);
+    setCustomStatusMsg('Click on the map to choose Origin (Point A)');
+    setIsPlaying(false);
+  };
+
   // Automatically initialize with 2-Point Road Corridor on launch
   useEffect(() => {
     const p0 = ROUTE_PRESETS[0];
@@ -104,64 +161,6 @@ export const App: React.FC = () => {
       if (wsRef.current) wsRef.current.close();
     };
   }, [appMode]);
-
-  // Mode 2: Handle Map Clicks for Option 2 (Choose 2 Points)
-  const handleMapClick = async (lat: number, lon: number) => {
-    if (appMode !== 'CUSTOM_ROUTE') return;
-
-    if (!customOrigin) {
-      const originPt: [number, number] = [lat, lon];
-      setCustomOrigin(originPt);
-      setCustomStatusMsg('Point A (Origin) set. Now click on the map to set Point B (Destination)');
-    } else if (!customDestination) {
-      const destPt: [number, number] = [lat, lon];
-      setCustomDestination(destPt);
-      setCustomStatusMsg('Calculating route from offline road network...');
-
-      try {
-        const path = await customSimRef.current.fetchRoute(customOrigin, destPt);
-        setCustomRoutePath(path);
-        setCustomStatusMsg('Route ready! Click START SIMULATION to begin navigation');
-        const firstPkt = customSimRef.current.step();
-        if (firstPkt) setTelemetry(firstPkt);
-      } catch (err: any) {
-        setCustomStatusMsg(`Routing error: ${err.message}`);
-      }
-    }
-  };
-
-  const handleSetOrigin = (pt: [number, number]) => {
-    setCustomOrigin(pt);
-    setCustomStatusMsg('Origin set from vehicle. Now click on the map to set Destination (Point B)');
-  };
-
-
-  const handleSelectPreset = async (origin: [number, number], dest: [number, number], name: string) => {
-    if (customTimerRef.current) clearInterval(customTimerRef.current);
-    customSimRef.current.reset();
-    setCustomOrigin(origin);
-    setCustomDestination(dest);
-    setCustomStatusMsg(`Calculating route for ${name}...`);
-    try {
-      const path = await customSimRef.current.fetchRoute(origin, dest);
-      setCustomRoutePath(path);
-      setCustomStatusMsg(`${name} loaded. Click START SIMULATION to begin navigation!`);
-      const firstPkt = customSimRef.current.step();
-      if (firstPkt) setTelemetry(firstPkt);
-    } catch (err: any) {
-      setCustomStatusMsg(`Routing error: ${err.message}`);
-    }
-  };
-
-  const handleClearCustomPoints = () => {
-    if (customTimerRef.current) clearInterval(customTimerRef.current);
-    customSimRef.current.reset();
-    setCustomOrigin(null);
-    setCustomDestination(null);
-    setCustomRoutePath([]);
-    setCustomStatusMsg('Click on the map to choose Origin (Point A)');
-    setIsPlaying(false);
-  };
 
   // Mode Switch
   const handleToggleMode = (mode: AppMode) => {

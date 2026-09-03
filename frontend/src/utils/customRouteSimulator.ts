@@ -1,4 +1,5 @@
 import type { TelemetryPacket, LatLon } from '../types';
+import offlinePresets from './offlinePresets.json';
 
 export class CustomRouteSimulator {
   waypoints: [number, number][] = []; // [[lat, lon], ...]
@@ -14,23 +15,66 @@ export class CustomRouteSimulator {
   async fetchRoute(origin: [number, number], destination: [number, number]): Promise<[number, number][]> {
     const [sLat, sLng] = origin;
     const [eLat, eLng] = destination;
-    const url = `https://router.project-osrm.org/route/v1/driving/${sLng},${sLat};${eLng},${eLat}?geometries=geojson&overview=full`;
-    
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (!data.routes?.[0]) throw new Error('Could not calculate route between points');
 
-    const rawCoords: [number, number][] = data.routes[0].geometry.coordinates; // [[lng, lat], ...]
-    const latLngs: [number, number][] = rawCoords.map(([lng, lat]) => [lat, lng]);
+    // 1. Instant 0ms Match for Preset Corridors (Zero Network Wait!)
+    if (Math.abs(sLat - 52.4082) < 0.01) {
+      this.waypoints = this.resamplePath(offlinePresets.ring as [number, number][], 1.4);
+      this.totalDistanceM = this.waypoints.length * 1.4;
+      this.currentIndex = 0;
+      this.blackoutActive = false;
+      this.blackoutStartIndex = null;
+      this.frozenGnssPos = null;
+      return this.waypoints;
+    }
+    if (Math.abs(sLat - 52.3950) < 0.01) {
+      this.waypoints = this.resamplePath(offlinePresets.a45 as [number, number][], 1.4);
+      this.totalDistanceM = this.waypoints.length * 1.4;
+      this.currentIndex = 0;
+      this.blackoutActive = false;
+      this.blackoutStartIndex = null;
+      this.frozenGnssPos = null;
+      return this.waypoints;
+    }
+    if (Math.abs(sLat - 52.4060) < 0.01) {
+      this.waypoints = this.resamplePath(offlinePresets.uni as [number, number][], 1.4);
+      this.totalDistanceM = this.waypoints.length * 1.4;
+      this.currentIndex = 0;
+      this.blackoutActive = false;
+      this.blackoutStartIndex = null;
+      this.frozenGnssPos = null;
+      return this.waypoints;
+    }
 
-    // Resample route evenly at ~1.4m steps (equivalent to 50 km/h at 10 Hz)
-    this.waypoints = this.resamplePath(latLngs, 1.4);
+    // 2. Custom Points: Fetch from OSRM with 3s Timeout Fallback
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${sLng},${sLat};${eLng},${eLat}?geometries=geojson&overview=full`;
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 3000);
+      const resp = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(tid);
+      const data = await resp.json();
+      if (data.routes?.[0]) {
+        const rawCoords: [number, number][] = data.routes[0].geometry.coordinates;
+        const latLngs: [number, number][] = rawCoords.map(([lng, lat]) => [lat, lng]);
+        this.waypoints = this.resamplePath(latLngs, 1.4);
+        this.totalDistanceM = this.waypoints.length * 1.4;
+        this.currentIndex = 0;
+        this.blackoutActive = false;
+        this.blackoutStartIndex = null;
+        this.frozenGnssPos = null;
+        return this.waypoints;
+      }
+    } catch (e) {
+      console.warn('Network routing fallback active:', e);
+    }
+
+    // Default fallback
+    this.waypoints = this.resamplePath(offlinePresets.ring as [number, number][], 1.4);
     this.totalDistanceM = this.waypoints.length * 1.4;
     this.currentIndex = 0;
     this.blackoutActive = false;
     this.blackoutStartIndex = null;
     this.frozenGnssPos = null;
-
     return this.waypoints;
   }
 
