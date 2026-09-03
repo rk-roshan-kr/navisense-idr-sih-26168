@@ -200,42 +200,60 @@ class NaviSenseRuntime:
         self.can_speed = speed_profile
 
 
-        # Synthesize realistic 10 Hz IMU physical dynamics
-        ax = np.clip(np.gradient(self.can_speed) / self.dt, -3.0, 3.0)
+        # ── IMU Noise calibrated from real IO-VNBD S-S1 dataset ─────────────
+        # Measured from S-S1.csv (Driver A, Session 1):
+        #   ax std=1.060 m/s², ay std=1.066 m/s², az std=0.513 m/s²
+        #   gx(yaw) std=0.100 rad/s, gy(pitch) std=0.142 rad/s, gz(roll) std=0.052 rad/s
+        #   Sample rate: 100ms ±0.8ms (matches our dt=0.1s exactly)
+        # Previous values were 50x-3x too small: neural net saw distribution it was NEVER trained on
+
+        # Deterministic physics signals from route geometry
+        ax = np.clip(np.gradient(self.can_speed) / self.dt, -3.0, 3.0)  # longitudinal accel
         rad_head = np.radians(self.can_head)
         d_head = np.diff(np.unwrap(rad_head), prepend=rad_head[0])
-        # C003 FIX: clip raised from ±0.35 to ±1.5 rad/s
-        # ±0.35 rad/s = min turn radius 40m at 50 km/h — all urban turns were invisible to the net!
-        # ±1.5 rad/s = min turn radius 9m at 50 km/h — covers all realistic urban maneuvers
+        # Clip at +-1.5 rad/s: covers all realistic urban turns (min radius ~9m at 50 km/h)
         gyaw = np.clip(d_head / self.dt, -1.5, 1.5)
-        ay = np.clip(self.can_speed * gyaw, -8.0, 8.0)   # raised lateral g limit accordingly
-        # C006 FIX: add road-vibration noise to az so normalization matches IO-VNBD training distribution
-        # IO-VNBD real sensor has ~0.15 m/s² RMS road vibration in az channel
-        az = np.full_like(ax, 9.81)
+        ay = np.clip(self.can_speed * gyaw, -8.0, 8.0)  # lateral accel = v * omega
+        az = np.full_like(ax, 9.81)                      # gravity on z axis
 
-        rng = np.random.default_rng(42)   # local RNG, not global state
-        noise_ax = rng.normal(0, 0.02, size=self.total_steps)
-        noise_ay = rng.normal(0, 0.02, size=self.total_steps)
-        noise_az = rng.normal(0, 0.15, size=self.total_steps)   # C006: road vibration noise
-        noise_yaw = rng.normal(0, 0.003, size=self.total_steps)
-        # C007 FIX: add road-bank coupling to roll/pitch channels.
-        # In real driving, lateral acceleration causes phone to tilt → roll sensor reads coupling.
-        # gx (roll) sees ~5% of lateral accel as a tilt-induced signal; gy (pitch) sees ~3% of ax.
-        ay_clean = self.can_speed * gyaw  # raw lateral accel before noise
-        noise_gx = rng.normal(0, 0.002, size=self.total_steps) + 0.05 * ay_clean / 9.81
-        noise_gy = rng.normal(0, 0.004, size=self.total_steps) + 0.03 * ax / 9.81
+        rng = np.random.default_rng(42)
+
+
+        # Accelerometer noise — real phones have 1.0+ m/s² vibration from road/engine
+        noise_ax = rng.normal(0, 1.06, size=self.total_steps)
+        noise_ay = rng.normal(0, 1.07, size=self.total_steps)
+        noise_az = rng.normal(0, 0.51, size=self.total_steps)
+
+        # Gyroscope noise — measured from real dataset
+        # gx channel (phone 'Yaw'): real std=0.100 rad/s
+        # gy channel (phone 'Pitch'): real std=0.142 rad/s — NOTE: in IO-VNBD, pitch
+        #   has 0.93 correlation with vehicle yaw rate (phone mounted sideways in car)
+        # gz channel (phone 'Roll'): real std=0.052 rad/s
+        # Our row5=gz carries the actual route yaw rate; rows 3,4 add realistic cross-axis noise.
+        ay_clean = self.can_speed * gyaw  # raw lateral accel before noise (for coupling)
+        noise_gx = rng.normal(0, 0.100, size=self.total_steps) + 0.05 * ay_clean / 9.81
+        noise_gy = rng.normal(0, 0.142, size=self.total_steps) + 0.03 * ax / 9.81
+        noise_gz = rng.normal(0, 0.052, size=self.total_steps)  # on top of actual gyaw
+
+        # Magnetometer noise — measured from real dataset (mx/my/mz)
+        # Real dataset: mx std≈12.3 µT, my std≈2.9 µT, mz std≈13.0 µT
+        # These are non-zero and the model may use them, feed realistic values
+        noise_mx = rng.normal(-15.9, 12.3, size=self.total_steps)
+        noise_my = rng.normal(-27.9, 2.9,  size=self.total_steps)
+        noise_mz = rng.normal( 17.0, 13.0, size=self.total_steps)
 
         self.raw_imu = np.stack([
-            (ax + noise_ax).astype(np.float32),          # row 0: ax
-            (ay + noise_ay).astype(np.float32),          # row 1: ay (lateral)
-            (az + noise_az).astype(np.float32),          # row 2: az (gravity + vibration)
-            noise_gx.astype(np.float32),                 # row 3: gx (roll)
-            noise_gy.astype(np.float32),                 # row 4: gy (pitch)
-            (gyaw + noise_yaw).astype(np.float32),       # row 5: gz (yaw rate) ← DRIVES HEADING
-            np.zeros(self.total_steps, dtype=np.float32), # row 6: mx
-            np.zeros(self.total_steps, dtype=np.float32), # row 7: my
-            np.zeros(self.total_steps, dtype=np.float32)  # row 8: mz
+            (ax + noise_ax).astype(np.float32),           # row 0: ax (m/s²)
+            (ay + noise_ay).astype(np.float32),           # row 1: ay lateral (m/s²)
+            (az + noise_az).astype(np.float32),           # row 2: az gravity+vibration (m/s²)
+            noise_gx.astype(np.float32),                  # row 3: gx phone-Yaw (rad/s)
+            noise_gy.astype(np.float32),                  # row 4: gy phone-Pitch (rad/s, corr w/ veh yaw in real data)
+            (gyaw + noise_gz).astype(np.float32),         # row 5: gz route yaw rate + noise ← DRIVES HEADING
+            noise_mx.astype(np.float32),                  # row 6: mx (µT)
+            noise_my.astype(np.float32),                  # row 7: my (µT)
+            noise_mz.astype(np.float32)                   # row 8: mz (µT)
         ], axis=0)
+
 
         # WGS84 projection
         self.projector = WGS84LocalProjector(self.can_lat[0], self.can_lon[0])
