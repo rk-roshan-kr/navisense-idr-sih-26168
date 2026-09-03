@@ -56,6 +56,7 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
   const hasOrigin = !!customOrigin;
   const hasDestination = !!customDestination;
   const hasRoute = customRoutePath.length > 0;
+  const hasTwoPoints = (hasOrigin && hasDestination) || hasRoute;
 
   const currentCarPos: [number, number] | null = telemetry
     ? [telemetry.idr_position.lat, telemetry.idr_position.lon]
@@ -138,10 +139,12 @@ export const RoutePlannerWidget: React.FC<RoutePlannerWidgetProps> = ({
       <div className="planner-footer-actions">
         <button
           onClick={onStartSimulation}
-          disabled={!hasRoute}
-          className={`btn-primary-slate ${hasRoute ? 'btn-active' : 'btn-disabled'}`}
+          disabled={!hasTwoPoints}
+          className={`btn-primary-slate ${hasTwoPoints ? 'btn-active' : 'btn-disabled'}`}
+          style={!hasTwoPoints ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          title={hasTwoPoints ? "Begin Navigation" : "Select Point A (Origin) and Point B (Destination) to Start"}
         >
-          {isPlaying ? 'PAUSE NAVIGATION' : 'START NAVIGATION'}
+          {isPlaying ? 'PAUSE NAVIGATION' : hasTwoPoints ? 'START NAVIGATION' : 'SET 2 POINTS TO START'}
         </button>
         <button onClick={onClearPoints} className="btn-secondary-outline" title="Reset points">
           CLEAR

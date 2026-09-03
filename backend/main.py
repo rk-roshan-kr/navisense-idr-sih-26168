@@ -141,7 +141,16 @@ async def websocket_telemetry_stream(websocket: WebSocket):
                 try:
                     data = json.loads(msg)
                     cmd = data.get("command")
-                    if cmd == "toggle_blackout":
+                    if cmd == "play":
+                        runtime.is_playing = True
+                        print(f"[WS] Playback STARTED! Step {runtime.current_step}")
+                    elif cmd == "pause":
+                        runtime.is_playing = False
+                        print(f"[WS] Playback PAUSED! Step {runtime.current_step}")
+                    elif cmd == "toggle_play":
+                        runtime.is_playing = not runtime.is_playing
+                        print(f"[WS] Playback TOGGLED: {runtime.is_playing}")
+                    elif cmd == "toggle_blackout":
                         runtime.toggle_blackout()
                     elif cmd == "set_blackout":
                         runtime.toggle_blackout(data.get("active", False))
@@ -149,7 +158,7 @@ async def websocket_telemetry_stream(websocket: WebSocket):
                         runtime.playback_speed = float(data.get("speed", 1.0))
                     elif cmd == "select_scenario":
                         runtime.is_playing = False
-                        runtime.load_scenario(data.get("scenario_id", "highway"))
+                        runtime.load_scenario(data.get("scenario_id", "bangalore"))
                         await websocket.send_text(json.dumps({
                             "type": "scenario_info",
                             "data": runtime.get_scenario_info().model_dump()

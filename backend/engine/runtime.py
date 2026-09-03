@@ -114,22 +114,71 @@ class NaviSenseRuntime:
         self.current_scenario_id = scenario_id
         cfg = SCENARIOS[scenario_id]
 
-        print(f"[RUNTIME] Loading Preset Corridor '{cfg['name']}'...")
-        segs = repair_and_resample_sequence(cfg["file"])
-        self.seg_data = max(segs, key=lambda s: len(s["time_s"]))
+        print(f"[RUNTIME] Loading Indian Preset Corridor '{cfg['name']}'...")
+        preset_file = ROOT_DIR / "frontend/src/utils/indianPresetRoutes.json"
+        with open(preset_file, "r", encoding="utf-8") as f:
+            all_routes = json.load(f)
+            preset_data = all_routes.get(scenario_id, all_routes["bangalore"])
 
-        # Build raw IMU array
-        self.raw_imu = np.stack([
-            self.seg_data["ax"], self.seg_data["ay"], self.seg_data["az"],
-            self.seg_data["gyaw"], self.seg_data["gpit"], self.seg_data["grol"],
-            self.seg_data["gx"], self.seg_data["gy"], self.seg_data["gz"]
-        ], axis=0).astype(np.float32)
+        raw_coords = preset_data["coordinates"]
 
-        self.can_speed = self.seg_data["spd_ms"].astype(np.float32)
-        self.can_head  = self.seg_data["head_deg"].astype(np.float32)
-        self.can_lat   = self.seg_data["lat"]
-        self.can_lon   = self.seg_data["lon"]
+        # Interpolate coordinates to 10 Hz (0.1s dt) at realistic road speeds
+        interp_lat = []
+        interp_lon = []
+        interp_head = []
+        interp_spd = []
+
+        for k in range(len(raw_coords) - 1):
+            p1 = raw_coords[k]
+            p2 = raw_coords[k + 1]
+            d_lat = (p2[0] - p1[0]) * 111139.0
+            d_lon = (p2[1] - p1[1]) * 111139.0 * math.cos(math.radians((p1[0] + p2[0]) / 2.0))
+            dist = math.hypot(d_lat, d_lon)
+            sub_steps = max(1, int(round(dist / 1.38)))
+            head = (math.degrees(math.atan2(d_lon, d_lat)) + 360.0) % 360.0
+
+            for s in range(sub_steps):
+                frac = s / float(sub_steps)
+                interp_lat.append(p1[0] + frac * (p2[0] - p1[0]))
+                interp_lon.append(p1[1] + frac * (p2[1] - p1[1]))
+                interp_head.append(head)
+                interp_spd.append(13.8 + math.sin(len(interp_lat) * 0.05) * 1.2)
+
+        interp_lat.append(raw_coords[-1][0])
+        interp_lon.append(raw_coords[-1][1])
+        interp_head.append(interp_head[-1] if interp_head else 0.0)
+        interp_spd.append(13.8)
+
+        self.can_lat = np.array(interp_lat, dtype=np.float64)
+        self.can_lon = np.array(interp_lon, dtype=np.float64)
+        self.can_head = np.array(interp_head, dtype=np.float32)
+        self.can_speed = np.array(interp_spd, dtype=np.float32)
         self.total_steps = len(self.can_speed)
+
+        # Synthesize realistic 10 Hz IMU physical dynamics
+        ax = np.gradient(self.can_speed) / self.dt
+        rad_head = np.radians(self.can_head)
+        d_head = np.diff(np.unwrap(rad_head), prepend=rad_head[0])
+        gyaw = d_head / self.dt
+        ay = self.can_speed * gyaw
+        az = np.full_like(ax, 9.81)
+
+        np.random.seed(42)
+        noise_ax = np.random.normal(0, 0.02, size=self.total_steps)
+        noise_ay = np.random.normal(0, 0.02, size=self.total_steps)
+        noise_yaw = np.random.normal(0, 0.002, size=self.total_steps)
+
+        self.raw_imu = np.stack([
+            (ax + noise_ax).astype(np.float32),
+            (ay + noise_ay).astype(np.float32),
+            az.astype(np.float32),
+            (gyaw + noise_yaw).astype(np.float32),
+            np.zeros(self.total_steps, dtype=np.float32),
+            np.zeros(self.total_steps, dtype=np.float32),
+            np.zeros(self.total_steps, dtype=np.float32),
+            np.zeros(self.total_steps, dtype=np.float32),
+            np.zeros(self.total_steps, dtype=np.float32)
+        ], axis=0)
 
         # WGS84 projection
         self.projector = WGS84LocalProjector(self.can_lat[0], self.can_lon[0])
@@ -284,7 +333,7 @@ class NaviSenseRuntime:
             speed_mps = float(self.estimator.x[2])
 
             # Query nearest road candidate from dynamic spatial chunks with multi-level & anti-service-lane gating
-            pitch_deg = float(np.degrees(self.seg_data["gpit"][i]))
+            pitch_deg = float(np.degrees(self.raw_imu[4, i]))
             res = self.chunk_manager.query_candidate(pos_enu, veh_psi, speed_mps=speed_mps, pitch_deg=pitch_deg)
             found, r_y, r_psi, psi_road, n_unit, prob = res
 

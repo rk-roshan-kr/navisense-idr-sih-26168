@@ -31,9 +31,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Camera Mode: 3D Cockpit (Apple Maps style) vs 2D Freecam
-  const [is3DMode, setIs3DMode] = useState<boolean>(true);
-  const is3DModeRef = useRef<boolean>(true);
+  // Camera Mode: 2D Top-Down View by Default (per user instruction: "dont start with 3d view start with 2 always")
+  const [is3DMode, setIs3DMode] = useState<boolean>(false);
+  const is3DModeRef = useRef<boolean>(false);
+  const isFollowingRef = useRef<boolean>(true);
 
   // Segmented MultiLineString coordinates (Guarantees zero green line across blackout and zero spiderweb jumps!)
   const gnssSegmentsRef = useRef<[number, number][][]>([]);
@@ -77,8 +78,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       container: mapContainerRef.current,
       style: 'https://tiles.openfreemap.org/styles/liberty', // 3D Vector Map with building extrusions
       center: [initialLon, initialLat],
-      zoom: 16.5,
-      pitch: 68, // Low-angle cockpit navigation perspective to see far down the road
+      zoom: 15.5,
+      pitch: 0, // Starts in 2D Top-Down View by default per user directive
       bearing: 0,
       maxPitch: 85,
       attributionControl: false,
@@ -200,10 +201,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       onMapClick(e.lngLat.lat, e.lngLat.lng);
     });
 
-    // Google Maps Gesture Controls: Auto-unlock camera on user drag or wheel
+    // Auto-unlock camera follow on user manual drag
     const unlockToFreecam = () => {
-      setIs3DMode(false);
-      is3DModeRef.current = false;
+      isFollowingRef.current = false;
     };
 
     map.on('dragstart', unlockToFreecam);
@@ -245,12 +245,18 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         arrow.style.transform = is3DModeRef.current ? 'rotate(0deg)' : `rotate(${animHeadingRef.current}deg)`;
       }
 
-      // In 3D Cockpit Mode: camera tracks vehicle in low-angle 3D perspective along road
+      // Camera tracking: In 3D Cockpit mode pitch 68 + bearing; in 2D mode, follow vehicle smoothly with pitch 0
       if (mapRef.current && is3DModeRef.current) {
         mapRef.current.jumpTo({
           center: [newLon, newLat],
           bearing: animHeadingRef.current,
           pitch: 68
+        });
+      } else if (mapRef.current && !is3DModeRef.current && isFollowingRef.current) {
+        mapRef.current.jumpTo({
+          center: [newLon, newLat],
+          pitch: 0,
+          bearing: 0
         });
       }
 
@@ -433,6 +439,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const handleToggleMode = (mode3D: boolean) => {
     setIs3DMode(mode3D);
     is3DModeRef.current = mode3D;
+    isFollowingRef.current = true;
 
     if (!mapRef.current) return;
     if (mode3D) {
@@ -445,15 +452,35 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       });
     } else {
       mapRef.current.easeTo({
+        center: animPosRef.current,
         pitch: 0,
         bearing: 0,
+        zoom: 15.5,
         duration: 600
       });
     }
   };
 
   const handleRecenter = () => {
-    handleToggleMode(true);
+    isFollowingRef.current = true;
+    if (!mapRef.current) return;
+    if (is3DModeRef.current) {
+      mapRef.current.easeTo({
+        center: animPosRef.current,
+        bearing: animHeadingRef.current,
+        pitch: 68,
+        zoom: 16.5,
+        duration: 600
+      });
+    } else {
+      mapRef.current.easeTo({
+        center: animPosRef.current,
+        pitch: 0,
+        bearing: 0,
+        zoom: 15.5,
+        duration: 600
+      });
+    }
   };
 
   const handleZoomIn = () => {

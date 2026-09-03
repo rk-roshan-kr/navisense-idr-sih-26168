@@ -7,13 +7,15 @@ interface ActionControlProps {
   onToggleBlackout: () => void;
   isPlaying?: boolean;
   onTogglePlay?: () => void;
+  hasActivePoints?: boolean;
 }
 
 export const ActionControl: React.FC<ActionControlProps> = ({
   telemetry,
   onToggleBlackout,
   isPlaying,
-  onTogglePlay
+  onTogglePlay,
+  hasActivePoints = true
 }) => {
   const isBlackout = telemetry?.blackout_active ?? false;
 
@@ -21,9 +23,15 @@ export const ActionControl: React.FC<ActionControlProps> = ({
     <div className="bottom-dock-capsule">
       {/* Primary Simulation Button: Solid Slate #0F172A */}
       {onTogglePlay && (
-        <button onClick={onTogglePlay} className="btn-dock-slate" title="Toggle Navigation Play/Pause">
+        <button
+          onClick={hasActivePoints ? onTogglePlay : undefined}
+          disabled={!hasActivePoints}
+          className={`btn-dock-slate ${!hasActivePoints ? 'btn-disabled' : ''}`}
+          style={!hasActivePoints ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          title={hasActivePoints ? "Toggle Navigation Play/Pause" : "Select Point A (Origin) and Point B (Destination) on map to start"}
+        >
           {isPlaying ? <IconPause size={14} color="#ffffff" /> : <IconPlay size={14} color="#ffffff" />}
-          <span>{isPlaying ? 'PAUSE' : 'START SIMULATION'}</span>
+          <span>{isPlaying ? 'PAUSE' : hasActivePoints ? 'START SIMULATION' : 'SELECT 2 POINTS'}</span>
         </button>
       )}
 

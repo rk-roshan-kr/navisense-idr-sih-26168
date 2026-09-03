@@ -14,6 +14,7 @@ import { RoutePlannerWidget, ROUTE_PRESETS } from './components/RoutePlannerWidg
 export const App: React.FC = () => {
   // Mode state: 2-Point Road Navigation by Default (Always Point A -> Point B!)
   const [appMode, setAppMode] = useState<AppMode>('CUSTOM_ROUTE');
+  const [isPlannerVisible, setIsPlannerVisible] = useState<boolean>(true);
 
   // View state: Simplified by Default vs Detailed Telemetry
   const [viewMode, setViewMode] = useState<ViewMode>('SIMPLIFIED');
@@ -211,9 +212,29 @@ export const App: React.FC = () => {
     }
   };
 
+  // Check whether 2 points are active before allowing simulation to start
+  const hasActivePoints = (customOrigin !== null && customDestination !== null) || (scenario !== null) || (customRoutePath.length > 0);
+
   const handleTogglePlay = () => {
+    if (!hasActivePoints && !isPlaying) {
+      alert("Please select Point A (Origin) and Point B (Destination) to start navigation simulation.");
+      return;
+    }
+
     const nextState = !isPlaying;
     setIsPlaying(nextState);
+
+    // Send immediately via WebSocket to Python runtime
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: nextState ? 'play' : 'pause' }));
+    }
+
+    // Also notify HTTP API endpoint
+    fetch('http://127.0.0.1:8000/api/playback/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: nextState ? 'play' : 'pause' })
+    }).catch(console.error);
 
     if (appMode === 'CUSTOM_ROUTE') {
       if (nextState) {
@@ -229,12 +250,6 @@ export const App: React.FC = () => {
       } else {
         if (customTimerRef.current) clearInterval(customTimerRef.current);
       }
-    } else {
-      fetch('http://127.0.0.1:8000/api/playback/control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: nextState ? 'play' : 'pause' })
-      }).catch(console.error);
     }
   };
 
@@ -339,8 +354,8 @@ export const App: React.FC = () => {
           {/* Flash Alert Banner */}
           <AlertBanner telemetry={telemetry} />
 
-          {/* Custom 2-Location Route Planner Card (Easy Waypoint Selection & Presets) */}
-          {appMode === 'CUSTOM_ROUTE' && (
+          {/* 2-Location Route Corridor Planner Card (Can be minimized without changing mode) */}
+          {isPlannerVisible ? (
             <RoutePlannerWidget
               customOrigin={customOrigin}
               customDestination={customDestination}
@@ -350,10 +365,18 @@ export const App: React.FC = () => {
               onSelectPreset={handleSelectPreset}
               onClearPoints={handleClearCustomPoints}
               onStartSimulation={handleTogglePlay}
-              onClose={() => handleToggleMode('CANONICAL_DATASET')}
+              onClose={() => setIsPlannerVisible(false)}
               telemetry={telemetry}
               isPlaying={isPlaying}
             />
+          ) : (
+            <button
+              onClick={() => setIsPlannerVisible(true)}
+              className="planner-expand-pill"
+              title="Expand Route Corridor Planner"
+            >
+              <span>Route Planner</span>
+            </button>
           )}
 
           {/* SIMPLIFIED VIEW (DEFAULT): Cockpit HUD with Vehicle Speed Dial */}
@@ -365,6 +388,7 @@ export const App: React.FC = () => {
             onToggleBlackout={handleToggleBlackout}
             isPlaying={isPlaying}
             onTogglePlay={handleTogglePlay}
+            hasActivePoints={hasActivePoints}
           />
 
           {/* Subtle Technical Proof Drawer */}
