@@ -77,9 +77,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       style: 'https://tiles.openfreemap.org/styles/liberty',
       center: [initialLon, initialLat],
       zoom: 17.2,
-      pitch: 60, // 3D Perspective Cockpit Tilt
+      pitch: 50, // Optimal Apple Maps 3D navigation perspective
       bearing: 0,
-      maxPitch: 85,
+      maxPitch: 75,
       attributionControl: false,
       // Google Maps Gesture Controls & Kinetic Physics
       dragRotate: true,
@@ -90,7 +90,16 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     });
 
     map.on('load', () => {
-      // 1. Add 3D Extruded Buildings Layer (Apple Maps 3D City View)
+      // Atmospheric Horizon Fog: Culls distant clutter and renders a clean Apple Maps sky
+      if (typeof (map as any).setFog === 'function') {
+        (map as any).setFog({
+          color: '#f8fafc',
+          range: [1.0, 8.0],
+          'horizon-blend': 0.15
+        });
+      }
+
+      // 1. Add 3D Extruded Buildings Layer (Culls distant clutter, only renders onscreen within local range)
       const layers = map.getStyle().layers;
       const labelLayer = layers ? layers.find((l: any) => l.type === 'symbol' && l.layout && l.layout['text-field']) : null;
       const labelLayerId = labelLayer ? labelLayer.id : undefined;
@@ -102,31 +111,38 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             source: 'openmaptiles',
             'source-layer': 'building',
             type: 'fill-extrusion',
-            minzoom: 14,
+            minzoom: 15.8, // Only extrude buildings in the immediate local vicinity
             paint: {
               'fill-extrusion-color': [
                 'interpolate',
                 ['linear'],
                 ['get', 'render_height'],
-                0, '#e2e8f0',
-                20, '#cbd5e1',
-                50, '#94a3b8'
+                0, '#f1f5f9',
+                20, '#e2e8f0',
+                50, '#cbd5e1'
               ],
               'fill-extrusion-height': [
                 'interpolate',
                 ['linear'],
                 ['zoom'],
-                14, 0,
-                14.5, ['get', 'render_height']
+                15.8, 0,
+                16.5, ['get', 'render_height']
               ],
               'fill-extrusion-base': [
                 'interpolate',
                 ['linear'],
                 ['zoom'],
-                14, 0,
-                14.5, ['get', 'render_min_height']
+                15.8, 0,
+                16.5, ['get', 'render_min_height']
               ],
-              'fill-extrusion-opacity': 0.72
+              'fill-extrusion-opacity': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                15.8, 0.0,
+                16.5, 0.45,
+                17.5, 0.65
+              ]
             }
           },
           labelLayerId
@@ -269,7 +285,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         mapRef.current.jumpTo({
           center: [newLon, newLat],
           bearing: animHeadingRef.current,
-          pitch: 60
+          pitch: 50
         });
       }
 
@@ -432,7 +448,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       mapRef.current.easeTo({
         center: animPosRef.current,
         bearing: animHeadingRef.current,
-        pitch: 60,
+        pitch: 50,
         zoom: 17.2,
         duration: 800
       });
