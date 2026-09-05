@@ -3,6 +3,8 @@ data/
 *.zip
 *.tar.gz
 *.7z
+*.apk
+*.aab
 
 # Python
 __pycache__/
@@ -30,9 +32,32 @@ wheels/
 .installed.cfg
 *.egg
 
+# Android & React Native builds
+node_modules/
+**/node_modules/
+.expo/
+**/.expo/
+android/.gradle/
+**/android/.gradle/
+android/app/build/
+**/android/app/build/
+android/build/
+**/build/
+**/.gradle/
+*.png
+
+# NIDR ML raw data & checkpoints
+NIDR-ML/data/
+NIDR-ML/checkpoints/
+
+# Reference materials & archives
+reffernce/
+neural_clone/
+
 # IDE & OS
 .vscode/
 .idea/
+**/.idea/
 *.swp
 *.swo
 .DS_Store
