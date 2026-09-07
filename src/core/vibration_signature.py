@@ -59,25 +59,57 @@ class VehicleVibrationProfiler:
         self.accel_clip_mps2 = float(accel_clip_mps2)
         self.robust_sigma = float(robust_sigma)
         self.profile = VibrationProfile()
+        self.accel_profile = self.profile
+        self.gyro_profile = VibrationProfile()
         self._last_accel: Optional[np.ndarray] = None
 
     def reset(self) -> None:
         self.profile = VibrationProfile()
+        self.accel_profile = self.profile
+        self.gyro_profile = VibrationProfile()
         self._last_accel = None
 
-    def update_profile(self, accel: np.ndarray, stationary: bool) -> None:
+    def update_profile(self, accel: np.ndarray, gyro: Optional[np.ndarray] = None, stationary: bool = True) -> None:
         """Update noise statistics only during trusted stationary samples."""
-        x = np.asarray(accel, dtype=np.float64)
-        if x.shape != (3,) or not np.all(np.isfinite(x)) or not stationary:
+        if not stationary:
             return
 
-        p = self.profile
-        p.samples += 1
-        delta = x - p.mean
-        p.mean += delta / p.samples
-        delta2 = x - p.mean
-        p.m2 += delta * delta2
-        p.abs_peak = np.maximum(p.abs_peak, np.abs(x - p.mean))
+        x = np.asarray(accel, dtype=np.float64)
+        if x.shape == (3,) and np.all(np.isfinite(x)):
+            p = self.accel_profile
+            p.samples += 1
+            delta = x - p.mean
+            p.mean += delta / p.samples
+            delta2 = x - p.mean
+            p.m2 += delta * delta2
+            p.abs_peak = np.maximum(p.abs_peak, np.abs(x - p.mean))
+
+        if gyro is not None:
+            g = np.asarray(gyro, dtype=np.float64)
+            if g.shape == (3,) and np.all(np.isfinite(g)):
+                pg = self.gyro_profile
+                pg.samples += 1
+                delta_g = g - pg.mean
+                pg.mean += delta_g / pg.samples
+                delta_g2 = g - pg.mean
+                pg.m2 += delta_g * delta_g2
+                pg.abs_peak = np.maximum(pg.abs_peak, np.abs(g - pg.mean))
+
+    def get_adaptive_zupt_thresholds(self) -> tuple[float, float]:
+        """
+        Returns empirical (accel_var_threshold, gyro_var_threshold) derived from
+        the online stationary distribution Q_99(sigma^2_idle) + margin.
+        If fewer than 10 stationary samples have been collected, returns safe defaults.
+        """
+        if self.accel_profile.samples >= 10 and self.gyro_profile.samples >= 10:
+            accel_thresh = float(np.sum(self.accel_profile.variance) * 2.5 + 0.03)
+            gyro_thresh  = float(np.max(self.gyro_profile.variance) * 2.5 + 0.00008)
+            accel_thresh = float(np.clip(accel_thresh, 0.04, 0.16))
+            gyro_thresh  = float(np.clip(gyro_thresh, 0.00008, 0.00028))
+            return accel_thresh, gyro_thresh
+        return 0.08, 0.00022
+
+
 
     def condition_accel(self, accel: np.ndarray) -> tuple[np.ndarray, bool]:
         """Return causally conditioned acceleration and an impulse flag.
