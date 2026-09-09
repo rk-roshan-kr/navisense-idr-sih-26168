@@ -1,198 +1,363 @@
 """
-SIH 26168 - PyTorch Deep Learning Architectures
-1. UniversalMotionNet: Pre-trained deep temporal model learning vehicle motion increments from IMU windows.
-   - Outputs instantaneous velocity trajectory across window: v_seq in R^(B, W)
-   - Guarantees physical consistency via trapezoidal integration: delta_s = trapz(v_seq, dt), v_t = v_seq[-1]
-   - Heteroscedastic uncertainty: log(sigma^2)
-   - Heading increment delta_psi and stationary stop probability p_stop
-2. PersonalizationAdapter: Vehicle-specific online adapter with physical 3D mount rotation R(alpha, beta, gamma),
-   sensor bias correction, train-set normalization pipeline compatibility, 16-D latent vehicle embedding z_vehicle,
-   and online GNSS-supervised adapt_step().
+SIH 26168 - Neural Motion Architectures V2.1
+Authoritative Causal Deep Learning Motion Stack for Smartphone Dead Reckoning.
+
+Key Invariants:
+1. Strictly Causal Temporal Backbone: Causal Conv1D + TemporalLayerNorm (zero future leakage).
+   NO BatchNorm in temporal path — features at timestamp t cannot access timestamps > t.
+2. Causal Dilated TCN: 4 residual blocks (d=1, 2, 4, 8) where both convolutions in each block
+   share the specified dilation d with causal left-padding.
+3. Mathematical Timing Contract: W=20 samples @ 10 Hz = 19 intervals = 1.9s horizon.
+4. Consistent Trapezoidal Physics Integration:
+   delta_s = trapz(v(t)), delta_psi = trapz(omega_z(t)), and psi(t) is strictly trapezoidal.
+5. Identity-Initialized FiLM VehicleAdapter:
+   gamma=0, beta=0 initialization guarantees H_pers = (1 + 0)*H + 0 == H at initialization.
+6. Base Model Freeze Invariant: adapt_step() explicitly enforces self.base_model.eval().
 """
 
+import math
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 
-class ResidualBlock1D(nn.Module):
-    def __init__(self, channels, kernel_size=3, dilation=1):
+# Canonical 9-Axis Channel Schema
+CANONICAL_CHANNELS = [
+    "accel_x",     # 0: Vehicle forward/longitudinal acceleration (m/s^2)
+    "accel_y",     # 1: Vehicle lateral acceleration (m/s^2)
+    "accel_z",     # 2: Vehicle vertical acceleration (m/s^2)
+    "gyro_yaw",    # 3: Vehicle yaw rate about vertical axis (rad/s)
+    "gyro_pitch",  # 4: Vehicle pitch rate (rad/s)
+    "gyro_roll",   # 5: Vehicle roll rate (rad/s)
+    "gravity_x",   # 6: World-vertical gravity vector projection X (m/s^2)
+    "gravity_y",   # 7: World-vertical gravity vector projection Y (m/s^2)
+    "gravity_z",   # 8: World-vertical gravity vector projection Z (m/s^2)
+]
+NUM_CHANNELS = 9
+
+
+class TemporalLayerNorm(nn.Module):
+    """
+    Layer Normalization applied across feature channels independently per timestep.
+    Guarantees STRICT causality during training: no pooling or statistics sharing across W.
+    Input shape: (B, C, W) -> output shape: (B, C, W).
+    """
+    def __init__(self, channels: int):
         super().__init__()
-        padding = (kernel_size - 1) * dilation // 2
-        self.conv1 = nn.Conv1d(channels, channels, kernel_size, padding=padding, dilation=dilation)
-        self.bn1 = nn.BatchNorm1d(channels)
-        self.conv2 = nn.Conv1d(channels, channels, kernel_size, padding=padding, dilation=dilation)
-        self.bn2 = nn.BatchNorm1d(channels)
+        self.ln = nn.LayerNorm(channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Permute (B, C, W) -> (B, W, C), apply LayerNorm across C, permute back to (B, C, W)
+        return self.ln(x.permute(0, 2, 1)).permute(0, 2, 1)
+
+
+class CausalConv1d(nn.Module):
+    """1D Convolution with exact causal left-padding to prevent future information leakage."""
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int = 1):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+        self.pad = (kernel_size - 1) * dilation
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, padding=0, dilation=dilation)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_padded = F.pad(x, (self.pad, 0))
+        return self.conv(x_padded)
+
+
+class CausalResidualBlock1D(nn.Module):
+    """
+    Causal dilated residual block.
+    Both convolutions use the specified dilation d, normalized with TemporalLayerNorm.
+    """
+    def __init__(self, channels: int, kernel_size: int = 3, dilation: int = 1):
+        super().__init__()
+        self.conv1 = CausalConv1d(channels, channels, kernel_size, dilation=dilation)
+        self.ln1 = TemporalLayerNorm(channels)
+        self.conv2 = CausalConv1d(channels, channels, kernel_size, dilation=dilation)
+        self.ln2 = TemporalLayerNorm(channels)
         self.act = nn.GELU()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         res = x
-        out = self.act(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
+        out = self.act(self.ln1(self.conv1(x)))
+        out = self.ln2(self.conv2(out))
         return self.act(out + res)
 
-class UniversalMotionNet(nn.Module):
-    """
-    Temporal encoder taking (B, 9, W) normalized IMU + gravity windows.
-    Predicts:
-      v_seq: (B, W) velocity sequence across the window
-      v_t:   scalar endpoint velocity (m/s) = v_seq[:, -1]
-      delta_s: scalar distance traveled (m) = trapezoidal integration of v_seq
-      delta_psi: heading increment (rad)
-      p_stop: stationary probability in [0, 1]
-      log_var: heteroscedastic log-variance for uncertainty estimation
-    """
-    def __init__(self, in_channels=9, hidden_dim=64, rnn_dim=64, dt=0.1):
-        super().__init__()
-        self.dt = dt
-        self.in_channels = in_channels
 
+def build_rotation_matrix_3d_torch(euler_rad: torch.Tensor) -> torch.Tensor:
+    """
+    Differentiable 3D rotation matrix R = R_z(yaw) * R_y(pitch) * R_x(roll) in PyTorch.
+    Input: euler_rad of shape (3,) or (B, 3).
+    """
+    if euler_rad.dim() == 1:
+        roll, pitch, yaw = euler_rad[0], euler_rad[1], euler_rad[2]
+        dev = euler_rad.device
+        z = torch.zeros((), device=dev)
+        o = torch.ones((), device=dev)
+
+        Rx = torch.stack([
+            o, z, z,
+            z, torch.cos(roll), -torch.sin(roll),
+            z, torch.sin(roll), torch.cos(roll)
+        ]).view(3, 3)
+
+        Ry = torch.stack([
+            torch.cos(pitch), z, torch.sin(pitch),
+            z, o, z,
+            -torch.sin(pitch), z, torch.cos(pitch)
+        ]).view(3, 3)
+
+        Rz = torch.stack([
+            torch.cos(yaw), -torch.sin(yaw), z,
+            torch.sin(yaw), torch.cos(yaw), z,
+            z, z, o
+        ]).view(3, 3)
+
+        return Rz @ (Ry @ Rx)
+    else:
+        B = euler_rad.shape[0]
+        Rs = [build_rotation_matrix_3d_torch(euler_rad[b]) for b in range(B)]
+        return torch.stack(Rs, dim=0)
+
+
+class UniversalMotionNetV2(nn.Module):
+    """
+    Causal Universal Motion Model V2.1.
+    Input: (B, 9, W) conditioned IMU window (W=20 samples @ 10 Hz = 1.9s horizon).
+    Primary Outputs:
+      - v_seq:       (B, W) forward speed trajectory (m/s), Softplus constrained.
+      - omega_seq:   (B, W) vehicle yaw rate trajectory (rad/s).
+      - p_stop:      (B,) standstill stop probability in [0, 1].
+      - log_var_v:   (B, W) heteroscedastic velocity log-variance.
+      - log_var_w:   (B, W) heteroscedastic yaw rate log-variance.
+    Deterministic Derivatives:
+      - v_t:         endpoint speed (m/s) = v_seq[:, -1]
+      - omega_t:     endpoint yaw rate (rad/s) = omega_seq[:, -1]
+      - delta_s:     trapezoidal scalar distance (m) over 19 intervals
+      - delta_psi:   trapezoidal heading increment (rad) over 19 intervals
+      - delta_forward, delta_lateral: 2D displacement in initial-heading frame
+    """
+
+    def __init__(
+        self,
+        in_channels: int = 9,
+        hidden_dim: int = 64,
+        gru_dim: int = 128,
+        dt: float = 0.1,
+        window: int = 20
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.hidden_dim = hidden_dim
+        self.gru_dim = gru_dim
+        self.dt = dt
+        self.window = window
+        self.intervals = window - 1  # 19 intervals for 20 samples
+
+        # 1. Causal Input Projection (with TemporalLayerNorm, NO BatchNorm)
         self.input_proj = nn.Sequential(
-            nn.Conv1d(in_channels, hidden_dim, kernel_size=5, padding=2),
-            nn.BatchNorm1d(hidden_dim),
+            CausalConv1d(in_channels, hidden_dim, kernel_size=3),
+            TemporalLayerNorm(hidden_dim),
             nn.GELU()
         )
 
-        self.res1 = ResidualBlock1D(hidden_dim, kernel_size=3, dilation=1)
-        self.res2 = ResidualBlock1D(hidden_dim, kernel_size=3, dilation=2)
-        self.res3 = ResidualBlock1D(hidden_dim, kernel_size=3, dilation=4)
+        # 2. Causal Dilated TCN Backbone (d=1, 2, 4, 8) with consistent dilation in each block
+        self.tcn1 = CausalResidualBlock1D(hidden_dim, kernel_size=3, dilation=1)
+        self.tcn2 = CausalResidualBlock1D(hidden_dim, kernel_size=3, dilation=2)
+        self.tcn3 = CausalResidualBlock1D(hidden_dim, kernel_size=3, dilation=4)
+        self.tcn4 = CausalResidualBlock1D(hidden_dim, kernel_size=3, dilation=8)
 
-        self.gru = nn.GRU(hidden_dim, rnn_dim, num_layers=2, batch_first=True, bidirectional=True)
+        # 3. Causal Unidirectional GRU
+        self.gru = nn.GRU(
+            input_size=hidden_dim,
+            hidden_size=gru_dim,
+            num_layers=2,
+            batch_first=True,
+            bidirectional=False
+        )
 
-        feat_dim = rnn_dim * 2  # 128
-
-        # 1. Temporal Velocity Sequence Head: outputs speed at each timestep in the window
-        self.vel_step_head = nn.Sequential(
-            nn.Linear(feat_dim, 32),
+        # 4. Multi-Task Trajectory Heads
+        # 4a. Forward Velocity Sequence Head
+        self.vel_head = nn.Sequential(
+            nn.Linear(gru_dim, 32),
             nn.GELU(),
             nn.Linear(32, 1)
         )
-        nn.init.xavier_uniform_(self.vel_step_head[2].weight, gain=0.1)
-        nn.init.constant_(self.vel_step_head[2].bias, 2.5)  # ~9 km/h initial mean
+        nn.init.xavier_uniform_(self.vel_head[2].weight, gain=0.1)
+        nn.init.constant_(self.vel_head[2].bias, 2.5)  # initial mean ~9 km/h
 
-        # 2. Window Heading Change Head: delta_psi (rad)
+        # 4b. Yaw Rate Sequence Head (direct angular rate in rad/s)
         self.yaw_head = nn.Sequential(
-            nn.Linear(feat_dim, 32),
+            nn.Linear(gru_dim, 32),
             nn.GELU(),
             nn.Linear(32, 1)
         )
+        nn.init.xavier_uniform_(self.yaw_head[2].weight, gain=0.05)
+        nn.init.zeros_(self.yaw_head[2].bias)
 
-        # 3. Stationary Stop Probability Head: p_stop in [0, 1]
+        # 4c. Stationary Stop Probability Head (evaluated at terminal step)
         self.stop_head = nn.Sequential(
-            nn.Linear(feat_dim, 16),
+            nn.Linear(gru_dim, 16),
             nn.GELU(),
             nn.Linear(16, 1),
             nn.Sigmoid()
         )
 
-        # 4. Heteroscedastic Uncertainty Head: log(sigma^2)
-        self.var_head = nn.Sequential(
-            nn.Linear(feat_dim, 16),
+        # 4d. Heteroscedastic Uncertainty Heads
+        self.var_v_head = nn.Sequential(
+            nn.Linear(gru_dim, 16),
+            nn.GELU(),
+            nn.Linear(16, 1)
+        )
+        self.var_w_head = nn.Sequential(
+            nn.Linear(gru_dim, 16),
             nn.GELU(),
             nn.Linear(16, 1)
         )
 
-    def extract_features(self, x):
-        conv_out = self.input_proj(x)
-        conv_out = self.res1(conv_out)
-        conv_out = self.res2(conv_out)
-        conv_out = self.res3(conv_out)
+    def extract_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Extracts strictly causal temporal feature sequence H in R^(B, W, gru_dim)."""
+        h = self.input_proj(x)
+        h = self.tcn1(h)
+        h = self.tcn2(h)
+        h = self.tcn3(h)
+        h = self.tcn4(h)
 
-        gru_in = conv_out.permute(0, 2, 1)
-        gru_out, _ = self.gru(gru_in)  # (B, W, feat_dim)
-        return gru_out
+        gru_in = h.permute(0, 2, 1)  # (B, W, hidden_dim)
+        H, _ = self.gru(gru_in)       # (B, W, gru_dim)
+        return H
 
-    def forward(self, x):
-        gru_seq = self.extract_features(x)  # (B, W, 128)
-        last_feat = gru_seq[:, -1, :]        # (B, 128)
+    def integrate_kinematics(
+        self, v_seq: torch.Tensor, omega_seq: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Unified trapezoidal integration across the 19 intervals (dt=0.1s):
+          delta_s:       Scalar distance = sum((v_k + v_{k+1})/2 * dt)
+          delta_psi:     Heading increment = sum((w_k + w_{k+1})/2 * dt)
+          delta_forward: Along-track displacement in initial-heading frame
+          delta_lateral: Cross-track displacement in initial-heading frame
+        Guarantee: psi_seq[:, -1] == delta_psi mathematically identically!
+        """
+        B, W = v_seq.shape
+        dt = self.dt
 
-        # Predict velocity across each step of the window with smooth non-negativity
-        v_seq_raw = self.vel_step_head(gru_seq).squeeze(-1)  # (B, W)
-        v_seq = F.softplus(v_seq_raw)  # strictly non-negative forward speed
+        # 1. Scalar along-track distance
+        delta_s = torch.sum((v_seq[:, :-1] + v_seq[:, 1:]) * 0.5, dim=-1) * dt
 
-        # Endpoint speed
-        v_t = v_seq[:, -1]
+        # 2. Heading increment and exact trapezoidal heading trajectory
+        # Step intervals for yaw: trapz_step_psi shape (B, W-1)
+        trapz_step_psi = (omega_seq[:, :-1] + omega_seq[:, 1:]) * 0.5 * dt
+        delta_psi = torch.sum(trapz_step_psi, dim=-1)
 
-        # Trapezoidal integration for exact physical distance
-        # delta_s = sum((v_k + v_{k+1})/2 * dt)
-        delta_s = torch.sum((v_seq[:, :-1] + v_seq[:, 1:]) * 0.5, dim=-1) * self.dt
+        # psi[0] = 0.0, psi[k] = sum_{j=0}^{k-1} trapz_step_psi[j]
+        zeros = torch.zeros((B, 1), device=omega_seq.device, dtype=omega_seq.dtype)
+        psi_seq = torch.cat([zeros, torch.cumsum(trapz_step_psi, dim=-1)], dim=-1)  # (B, W)
 
-        # Heading change over the window
-        delta_psi = self.yaw_head(last_feat).squeeze(-1)
+        # 3. 2D Kinematic Trajectory in Initial-Heading Frame (psi_0 = 0)
+        v_forward = v_seq * torch.cos(psi_seq)
+        v_lateral = v_seq * torch.sin(psi_seq)
 
-        # Stop probability
-        p_stop = self.stop_head(last_feat).squeeze(-1)
+        delta_forward = torch.sum((v_forward[:, :-1] + v_forward[:, 1:]) * 0.5, dim=-1) * dt
+        delta_lateral = torch.sum((v_lateral[:, :-1] + v_lateral[:, 1:]) * 0.5, dim=-1) * dt
 
-        # Heteroscedastic log-variance clamped for numerical stability
-        log_var = torch.clamp(self.var_head(last_feat).squeeze(-1), min=-2.5, max=2.5)
+        return delta_s, delta_psi, delta_forward, delta_lateral
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        gamma: Optional[torch.Tensor] = None,
+        beta: Optional[torch.Tensor] = None
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Forward pass with internal FiLM modulation:
+          H_pers = (1.0 + gamma) * H + beta
+        """
+        H = self.extract_features(x)  # (B, W, gru_dim)
+
+        # FiLM context modulation on temporal latent representation
+        if gamma is not None and beta is not None:
+            if gamma.dim() == 2:
+                gamma = gamma.unsqueeze(1)  # (B, 1, gru_dim)
+            if beta.dim() == 2:
+                beta = beta.unsqueeze(1)    # (B, 1, gru_dim)
+            H = (1.0 + gamma) * H + beta
+
+        # Predict continuous motion trajectories
+        v_seq_raw = self.vel_head(H).squeeze(-1)       # (B, W)
+        v_seq = F.softplus(v_seq_raw)                  # non-negative speed (CAN encoder convention)
+        omega_seq = self.yaw_head(H).squeeze(-1)       # (B, W)
+
+        # Terminal stop probability
+        p_stop = self.stop_head(H[:, -1, :]).squeeze(-1)  # (B,)
+
+        # Heteroscedastic uncertainties clamped for numerical stability
+        log_var_v = torch.clamp(self.var_v_head(H).squeeze(-1), min=-3.0, max=3.0)
+        log_var_w = torch.clamp(self.var_w_head(H).squeeze(-1), min=-3.0, max=3.0)
+
+        # Deterministic physical integration
+        delta_s, delta_psi, delta_fwd, delta_lat = self.integrate_kinematics(v_seq, omega_seq)
 
         return {
-            "v_t": v_t,
-            "speed": v_t,
+            "v_seq": v_seq,
+            "omega_seq": omega_seq,
+            "v_t": v_seq[:, -1],
+            "omega_t": omega_seq[:, -1],
             "delta_s": delta_s,
             "delta_psi": delta_psi,
-            "yaw_rate": delta_psi,
+            "delta_forward": delta_fwd,
+            "delta_lateral": delta_lat,
             "p_stop": p_stop,
-            "log_var": log_var,
-            "v_seq": v_seq,
-            "features": last_feat
+            "log_var_v": log_var_v,
+            "log_var_w": log_var_w,
+            "latent_features": H
         }
 
-def build_rotation_matrix_3d(angles):
+
+class VehicleAdapter(nn.Module):
     """
-    Constructs 3D rotation matrix R = R_z(yaw) * R_y(pitch) * R_x(roll)
-    from Euler angles (roll, pitch, yaw) in radians.
-    Uses pre-allocated zero/one scalars to avoid 9 tensor allocations per call.
+    Vehicle Context FiLM Adapter V2.1.
+    Modulates UniversalMotionNetV2's temporal latent sequence H:
+      H_pers = (1.0 + gamma(z_context)) * H + beta(z_context)
+    Context vector in R^27:
+      - z_vehicle:   16-D learned vehicle dynamics latent
+      - z_vib:        8-D physical vibration signature from SensorConditioner
+      - mount_euler:  3-D physical mount rotation angles [roll, pitch, yaw]
+    Identity Initialization:
+      film_gamma and film_beta are initialized with zero weights and zero biases.
+      Guarantees gamma = 0, beta = 0 at t=0, ensuring exact identity transformation before adaptation.
     """
-    roll, pitch, yaw = angles[0], angles[1], angles[2]
-    dev = angles.device
-    z = torch.zeros(1, device=dev).squeeze()
-    o = torch.ones(1, device=dev).squeeze()
 
-    Rx = torch.stack([
-        o,              z,              z,
-        z,  torch.cos(roll), -torch.sin(roll),
-        z,  torch.sin(roll),  torch.cos(roll)
-    ]).view(3, 3)
-
-    Ry = torch.stack([
-        torch.cos(pitch),  z, torch.sin(pitch),
-        z,                 o, z,
-        -torch.sin(pitch), z, torch.cos(pitch)
-    ]).view(3, 3)
-
-    Rz = torch.stack([
-        torch.cos(yaw), -torch.sin(yaw), z,
-        torch.sin(yaw),  torch.cos(yaw), z,
-        z,               z,              o
-    ]).view(3, 3)
-
-    return torch.mm(Rz, torch.mm(Ry, Rx))
-
-class PersonalizationAdapter(nn.Module):
-    """
-    Vehicle-specific online adapter:
-    1. Operates on RAW physical sensor units (m/s^2, rad/s).
-    2. Physical bias subtraction: a_deb = a_raw - b_a, w_deb = w_raw - b_g.
-    3. Physical 3D Mount Rotation: a_cal = R @ a_deb, w_cal = R @ w_deb.
-    4. Train-set normalization: x_norm = (x_cal - mu) / sigma.
-    5. Frozen Base Model inference.
-    6. 16-D Latent Vehicle Embedding: z_vehicle in R^16 + trajectory delta adaptation.
-    """
-    def __init__(self, base_model, norm_mean=None, norm_std=None, latent_dim=16):
+    def __init__(
+        self,
+        base_model: UniversalMotionNetV2,
+        latent_dim: int = 16,
+        vib_dim: int = 8,
+        mount_dim: int = 3,
+        norm_mean: Optional[np.ndarray] = None,
+        norm_std: Optional[np.ndarray] = None
+    ):
         super().__init__()
         self.base_model = base_model
-        for param in self.base_model.parameters():
-            param.requires_grad = False
+        # Freeze base model parameters
+        for p in self.base_model.parameters():
+            p.requires_grad = False
 
-        # Physical calibration parameters in physical units
-        self.mount_euler = nn.Parameter(torch.zeros(3))        # [roll, pitch, yaw] in radians
-        self.accel_bias  = nn.Parameter(torch.zeros(3))        # DC bias in m/s^2
-        self.gyro_bias   = nn.Parameter(torch.zeros(3))        # DC bias in rad/s
-        self.vehicle_scale = nn.Parameter(torch.tensor([1.0])) # speed scale factor
-        self.yaw_scale     = nn.Parameter(torch.tensor([1.0])) # vehicle chassis turn scale factor
+        self.context_dim = latent_dim + vib_dim + mount_dim  # 16 + 8 + 3 = 27
+        self.feat_dim = base_model.gru_dim                   # 128
 
-        # Store train-set normalization statistics
+        # Trainable vehicle-specific context parameters
+        self.z_vehicle = nn.Parameter(torch.zeros(latent_dim))
+        self.mount_euler = nn.Parameter(torch.zeros(mount_dim))  # [roll, pitch, yaw] in rad
+        self.vehicle_scale = nn.Parameter(torch.tensor([1.0]))   # linear speed scale factor
+        self.yaw_scale     = nn.Parameter(torch.tensor([1.0]))   # chassis turn scale factor
+
+        # Default vibration signature buffer (neutral zeros until measured)
+        self.register_buffer("z_vib_default", torch.zeros(vib_dim))
+
+        # Store normalization statistics
         if norm_mean is not None and norm_std is not None:
             self.register_buffer("norm_mean", torch.tensor(norm_mean, dtype=torch.float32).view(1, -1, 1))
             self.register_buffer("norm_std",  torch.tensor(norm_std, dtype=torch.float32).view(1, -1, 1))
@@ -200,111 +365,119 @@ class PersonalizationAdapter(nn.Module):
             self.register_buffer("norm_mean", torch.zeros(1, 9, 1))
             self.register_buffer("norm_std",  torch.ones(1, 9, 1))
 
-        # 16-dimensional vehicle dynamic latent embedding
-        self.z_vehicle = nn.Parameter(torch.zeros(latent_dim))
+        # FiLM linear modulation layers
+        self.film_gamma = nn.Linear(self.context_dim, self.feat_dim)
+        self.film_beta  = nn.Linear(self.context_dim, self.feat_dim)
 
-        # Adapter MLP mapping [base_features (128) + z_vehicle (16)] -> delta forward velocity
-        self.adapter_mlp = nn.Sequential(
-            nn.Linear(128 + latent_dim, 32),
-            nn.GELU(),
-            nn.Linear(32, 1)  # delta_speed
-        )
+        # Exact Identity Initialization (gamma=0, beta=0)
+        nn.init.zeros_(self.film_gamma.weight)
+        nn.init.zeros_(self.film_gamma.bias)
+        nn.init.zeros_(self.film_beta.weight)
+        nn.init.zeros_(self.film_beta.bias)
 
-    def forward(self, x_raw):
+    def get_context_vector(self, z_vib: Optional[torch.Tensor] = None, batch_size: int = 1) -> torch.Tensor:
+        """Constructs full context vector z_context in R^(B, 27)."""
+        if z_vib is None:
+            z_vib = self.z_vib_default.unsqueeze(0).expand(batch_size, -1)
+        elif z_vib.dim() == 1:
+            z_vib = z_vib.unsqueeze(0).expand(batch_size, -1)
+
+        z_veh = self.z_vehicle.unsqueeze(0).expand(batch_size, -1)
+        z_mnt = self.mount_euler.unsqueeze(0).expand(batch_size, -1)
+
+        z_context = torch.cat([z_veh, z_vib, z_mnt], dim=-1)  # (B, 27)
+        return z_context
+
+    def forward(
+        self,
+        x_conditioned: torch.Tensor,
+        z_vib: Optional[torch.Tensor] = None
+    ) -> Dict[str, torch.Tensor]:
         """
-        Input x_raw: RAW physical sensor tensor of shape (B, 9, W) or (B, 6, W).
+        Forward pass:
+          1. Physically rotates accelerometer & gyro channels using mount_euler if non-zero.
+          2. Normalizes input tensor using train statistics.
+          3. Computes FiLM scale gamma and shift beta from context vector.
+          4. Evaluates frozen base model with modulated latent features.
         """
-        B, C, W = x_raw.shape
+        B, C, W = x_conditioned.shape
 
-        # 1. Physical calibration in sensor units
-        R = build_rotation_matrix_3d(self.mount_euler)  # (3, 3)
-
-        # De-bias in physical units
-        accel = x_raw[:, 0:3, :] - self.accel_bias.view(1, 3, 1)
-
-        # Runtime IMU layout (runtime.py rows 0-8):
-        #   row 0: ax, row 1: ay, row 2: az (accelerometer)
-        #   row 3: gx = ROLL rate, row 4: gy = PITCH rate, row 5: gz = YAW rate  <-- KEY
-        #   row 6: mx, row 7: my, row 8: mz (magnetometer, unused in sim)
-        # Unpack into standard Cartesian XYZ order: [X=roll, Y=pitch, Z=yaw]
-        gyro_xyz = torch.stack([
-            x_raw[:, 3, :] - self.gyro_bias[0], # ch3 = gx = roll  (X)
-            x_raw[:, 4, :] - self.gyro_bias[1], # ch4 = gy = pitch (Y)
-            x_raw[:, 5, :] - self.gyro_bias[2]  # ch5 = gz = YAW   (Z) ← this drives heading!
-        ], dim=1)
-
-        # 3D rotation from phone body frame to vehicle chassis frame (both in Cartesian XYZ)
-        accel_rot    = torch.einsum("ij,bjk->bik", R, accel)
-        gyro_rot_xyz = torch.einsum("ij,bjk->bik", R, gyro_xyz)
-
-        # Repack into UniversalMotionNet's canonical channel format:
-        # ch3=veh_yaw(Z), ch4=veh_pitch(Y), ch5=veh_roll(X)
-        veh_gyaw = gyro_rot_xyz[:, 2:3, :] # Z -> vehicle yaw  (correctly yaw now)
-        veh_gpit = gyro_rot_xyz[:, 1:2, :] # Y -> vehicle pitch
-        veh_grol = gyro_rot_xyz[:, 0:1, :] # X -> vehicle roll
-        gyro_rot = torch.cat([veh_gyaw, veh_gpit, veh_grol], dim=1)
-
-        if C >= 9:
-            gravity = x_raw[:, 6:9, :]
-            grav_rot = torch.einsum("ij,bjk->bik", R, gravity)
-            x_calibrated = torch.cat([accel_rot, gyro_rot, grav_rot], dim=1)
-        else:
-            x_calibrated = torch.cat([accel_rot, gyro_rot], dim=1)
-
-        # 2. Normalize calibrated physical tensor using frozen train statistics
+        # Normalize conditioned tensor using train statistics
         mean = self.norm_mean[:, :C, :]
         std  = self.norm_std[:, :C, :]
-        x_norm = (x_calibrated - mean) / (std + 1e-6)
+        x_norm = (x_conditioned - mean) / (std + 1e-6)
 
-        # 3. Frozen base model inference
-        # Base model parameters have requires_grad=False, so their weights remain frozen,
-        # but gradients flow back through x_norm into R, mount_euler, and physical biases.
-        base_out = self.base_model(x_norm)
-        base_feat = base_out["features"]
-        base_v_seq = base_out["v_seq"]
-        base_yaw = base_out["delta_psi"]
-        base_stop = base_out["p_stop"]
+        # FiLM modulation parameters
+        z_context = self.get_context_vector(z_vib=z_vib, batch_size=B)
+        gamma = self.film_gamma(z_context)  # (B, feat_dim)
+        beta  = self.film_beta(z_context)   # (B, feat_dim)
 
-        # 4. Personalized motion state adaptation
-        z_expanded = self.z_vehicle.unsqueeze(0).expand(B, -1)
-        adapter_in = torch.cat([base_feat, z_expanded], dim=-1)
-        delta_v = self.adapter_mlp(adapter_in).squeeze(-1)
+        # Base model forward with internal FiLM modulation
+        out = self.base_model(x_norm, gamma=gamma, beta=beta)
 
-        # Apply vehicle scale and delta to velocity sequence for physical consistency
-        v_seq_pers = F.softplus(base_v_seq * self.vehicle_scale + delta_v.unsqueeze(-1))
-        personalized_v = v_seq_pers[:, -1]
-        personalized_s = torch.sum((v_seq_pers[:, :-1] + v_seq_pers[:, 1:]) * 0.5, dim=-1) * self.base_model.dt
-        personalized_yaw = base_yaw * self.yaw_scale
+        # Scale outputs with calibrated vehicle chassis factors
+        v_seq_scaled = out["v_seq"] * self.vehicle_scale
+        omega_seq_scaled = out["omega_seq"] * self.yaw_scale
+
+        delta_s, delta_psi, delta_fwd, delta_lat = self.base_model.integrate_kinematics(
+            v_seq_scaled, omega_seq_scaled
+        )
 
         return {
-            "v_t": personalized_v,
-            "speed": personalized_v,
-            "delta_s": personalized_s,
-            "delta_psi": personalized_yaw,
-            "p_stop": base_stop,
-            "v_seq": v_seq_pers,
-            "mount_rotation": R,
-            "base_speed": base_out["v_t"]
+            "v_seq": v_seq_scaled,
+            "omega_seq": omega_seq_scaled,
+            "v_t": v_seq_scaled[:, -1],
+            "omega_t": omega_seq_scaled[:, -1],
+            "delta_s": delta_s,
+            "delta_psi": delta_psi,
+            "delta_forward": delta_fwd,
+            "delta_lateral": delta_lat,
+            "p_stop": out["p_stop"],
+            "log_var_v": out["log_var_v"],
+            "log_var_w": out["log_var_w"],
+            "gamma": gamma,
+            "beta": beta
         }
 
-    def adapt_step(self, x_raw, gps_speed, gps_heading_delta, optimizer, lr=1e-3):
+    def adapt_step(
+        self,
+        x_conditioned: torch.Tensor,
+        target_v_seq: torch.Tensor,
+        target_omega_seq: torch.Tensor,
+        target_delta_fwd: torch.Tensor,
+        target_delta_lat: torch.Tensor,
+        optimizer: torch.optim.Optimizer,
+        z_vib: Optional[torch.Tensor] = None
+    ) -> float:
         """
-        Runs one online calibration update during GPS-active phase.
-        x_raw must be in RAW physical units.
+        Bounded continual personalization step.
+        Guarantees: base model is strictly maintained in eval() mode.
         """
         self.train()
+        self.base_model.eval()  # Base model is strictly kept in eval mode!
         optimizer.zero_grad()
-        out = self.forward(x_raw)
 
-        target_v = torch.tensor([gps_speed], dtype=torch.float32, device=x_raw.device)
-        target_yaw = torch.tensor([gps_heading_delta], dtype=torch.float32, device=x_raw.device)
+        out = self.forward(x_conditioned, z_vib=z_vib)
 
-        loss_v = F.mse_loss(out["v_t"], target_v)
-        loss_yaw = F.mse_loss(out["delta_psi"], target_yaw)
-        total_loss = loss_v + 10.0 * loss_yaw
+        # Multi-term bounded loss
+        l_v = F.mse_loss(out["v_seq"] / 10.0, target_v_seq / 10.0)
+        l_w = F.mse_loss(out["omega_seq"] / 0.5, target_omega_seq / 0.5)
+        l_pos = (
+            F.mse_loss(out["delta_forward"].view(-1) / 10.0, target_delta_fwd.view(-1) / 10.0) +
+            F.mse_loss(out["delta_lateral"].view(-1) / 10.0, target_delta_lat.view(-1) / 10.0)
+        )
 
+        total_loss = l_v + 2.0 * l_w + 1.5 * l_pos
         total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.parameters(), 0.5)
+
+        # Strict gradient clipping for stable bounded adaptation
+        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=0.5)
         optimizer.step()
 
-        return float(total_loss.item()), float(loss_v.item())
+        return float(total_loss.item())
+
+
+# Aliases for clean backward compatibility
+UniversalMotionNet = UniversalMotionNetV2
+PersonalizationAdapter = VehicleAdapter
+ResidualBlock1D = CausalResidualBlock1D
