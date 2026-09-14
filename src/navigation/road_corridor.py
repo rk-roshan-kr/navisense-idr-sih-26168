@@ -38,10 +38,34 @@ class RoadCorridorNetwork:
         
         # Segment bearing clockwise from North (psi_road in [0, 2*pi))
         self.seg_bearings = np.arctan2(self.diffs[:, 0], self.diffs[:, 1]) % (2.0 * np.pi)
+        self.active_idx = 0
 
-    def query_candidate(self, pos_enu: np.ndarray, vehicle_psi: float):
+    def sync_progress(self, pos_enu: np.ndarray):
+        """Synchronize active_idx to closest waypoint when GNSS is locked."""
+        p = np.asarray(pos_enu, dtype=np.float64)
+        N = len(self.seg_starts)
+        if N > 0:
+            if N > 500 and self.active_idx > 0:
+                # Fast local window search (+- 150 waypoints around active progress)
+                w_start = max(0, self.active_idx - 50)
+                w_end = min(N, self.active_idx + 150)
+                local_dists = np.linalg.norm(self.seg_starts[w_start:w_end] - p, axis=1)
+                min_idx = int(np.argmin(local_dists))
+                if local_dists[min_idx] < 60.0:
+                    self.active_idx = w_start + min_idx
+                    return
+            dists = np.linalg.norm(self.seg_starts - p, axis=1)
+            self.active_idx = int(np.argmin(dists))
+
+    def reset(self):
+        """Reset progress tracker for new scenario or rewind."""
+        self.active_idx = 0
+
+    def query_candidate(self, pos_enu: np.ndarray, vehicle_psi: float, window_ahead: int = 25, window_behind: int = 6):
         """
         Finds the most plausible road segment candidate for current position and heading.
+        Restricts candidate search to a local forward window around active_idx to
+        enforce monotonic route progression and eliminate loop cross-talk / spikes.
         Returns:
           - match_found: bool
           - r_y: signed lateral cross-track error (metres)
@@ -50,66 +74,62 @@ class RoadCorridorNetwork:
           - normal_unit: 2D lateral unit vector [n_E, n_N]
         """
         p = np.asarray(pos_enu, dtype=np.float64)
-        
+        K = len(self.diffs)
+        if K == 0:
+            return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
+
+        # Monotonic windowed candidate search: strictly excludes old loops / distant segments
+        start_k = max(0, self.active_idx - window_behind)
+        end_k = min(K, self.active_idx + window_ahead)
+        slice_indices = np.arange(start_k, end_k)
+
+        diffs_sub = self.diffs[slice_indices]
+        lengths_sub = self.lengths[slice_indices]
+        seg_starts_sub = self.seg_starts[slice_indices]
+        seg_bearings_sub = self.seg_bearings[slice_indices]
+
         # Vector from start of each segment to p
-        v_to_p = p - self.seg_starts # (K, 2)
-        
-        # Projection factor along each segment: u in [0, 1]
-        dot = np.sum(v_to_p * self.diffs, axis=1)
-        u = np.clip(dot / (self.lengths ** 2), 0.0, 1.0)
-        
-        # Closest points on segments
-        closest_pts = self.seg_starts + u[:, None] * self.diffs
-        
-        # Perpendicular distance to each segment
+        v_to_p = p - seg_starts_sub
+        dot = np.sum(v_to_p * diffs_sub, axis=1)
+        u = np.clip(dot / (lengths_sub ** 2), 0.0, 1.0)
+        closest_pts = seg_starts_sub + u[:, None] * diffs_sub
         dist_vecs = p - closest_pts
         dists = np.linalg.norm(dist_vecs, axis=1)
-        
-        # Heading compatibility
-        heading_diffs = np.abs(wrap_angle(vehicle_psi - self.seg_bearings))
-        
-        # Candidate score: penalize distance + angular mismatch
-        # Only consider segments within corridor width and reasonable heading
+
+        heading_diffs = np.abs(wrap_angle(vehicle_psi - seg_bearings_sub))
         valid_mask = (dists < self.max_width) & (heading_diffs < self.max_heading_diff)
-        
         if not np.any(valid_mask):
             return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
-            
-        valid_indices = np.where(valid_mask)[0]
-        
-        # Probabilistic Multi-Hypothesis Scoring
-        # S_i = M_p + M_psi + M_motion
-        # M_p = d_perp^2 / sigma_p^2, M_psi = d_psi^2 / sigma_psi^2
-        sigma_p_sq = 4.0 ** 2 # 4m tolerance
-        sigma_psi_sq = np.radians(6.0) ** 2 # 6 deg tolerance
-        
-        scores = (dists[valid_indices] ** 2) / sigma_p_sq + (heading_diffs[valid_indices] ** 2) / sigma_psi_sq
-        
-        # Softmax probability distribution over candidates: P(e_i) propto exp(-0.5 * S_i)
+
+        valid_local_indices = np.where(valid_mask)[0]
+        sigma_p_sq = 4.0 ** 2
+        sigma_psi_sq = np.radians(10.0) ** 2
+
+        scores = (dists[valid_local_indices] ** 2) / sigma_p_sq + (heading_diffs[valid_local_indices] ** 2) / sigma_psi_sq
         min_s = np.min(scores)
         exp_neg = np.exp(-0.5 * (scores - min_s))
         probs = exp_neg / np.sum(exp_neg)
-        
-        best_local_idx = int(np.argmax(probs))
-        best_prob = float(probs[best_local_idx])
-        best_score = float(scores[best_local_idx])
-        best_idx = valid_indices[best_local_idx]
-        
-        # C017 FIX: Threshold lowered from 0.55 to 0.30
-        # With 0.55: ANY road with a parallel competitor (prob=0.5 each) → always rejected!
-        # This silently disabled road matching at intersections and parallel roads.
-        # The Mahalanobis score gate (best_score > 12.0) is the real safety gate.
-        if best_score > 12.0:
+
+        best_sub_idx = int(np.argmax(probs))
+        best_prob = float(probs[best_sub_idx])
+        best_score = float(scores[best_sub_idx])
+        best_local_idx = valid_local_indices[best_sub_idx]
+        best_global_idx = int(slice_indices[best_local_idx])
+
+        if best_score > 15.0:
             return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
-            
-        best_psi_road = self.seg_bearings[best_idx]
-        best_d_vec = dist_vecs[best_idx]
-        
+
+        # Advance active progress monotonically
+        self.active_idx = max(self.active_idx, best_global_idx)
+
+        best_psi_road = seg_bearings_sub[best_local_idx]
+        best_d_vec = dist_vecs[best_local_idx]
         normal_unit = np.array([np.cos(best_psi_road), -np.sin(best_psi_road)], dtype=np.float64)
         r_y = float(np.dot(best_d_vec, normal_unit))
         r_psi = float(wrap_angle(vehicle_psi - best_psi_road))
-        
+
         return True, r_y, r_psi, best_psi_road, normal_unit, best_prob
+
 
     def emergency_recovery_query(self, pos_enu: np.ndarray, vehicle_psi: float, max_dist_m: float = 80.0):
         """
@@ -118,23 +138,26 @@ class RoadCorridorNetwork:
         Finds the absolute nearest route segment regardless of vehicle heading.
         Returns gentle corrections proportional to lateral error, capped to avoid snapping.
         """
-        p = np.asarray(pos_enu, dtype=np.float64)
-        v_to_p = p - self.seg_starts
-        dot = np.sum(v_to_p * self.diffs, axis=1)
-        u = np.clip(dot / (self.lengths ** 2), 0.0, 1.0)
-        closest_pts = self.seg_starts + u[:, None] * self.diffs
+        start_k = max(0, self.active_idx - 5)
+        p = pos_enu[:2]
+        v_to_p = p - self.seg_starts[start_k:]
+        dot = np.sum(v_to_p * self.diffs[start_k:], axis=1)
+        u = np.clip(dot / (self.lengths[start_k:] ** 2), 0.0, 1.0)
+        closest_pts = self.seg_starts[start_k:] + u[:, None] * self.diffs[start_k:]
         dist_vecs = p - closest_pts
         dists = np.linalg.norm(dist_vecs, axis=1)
 
-        best_idx = int(np.argmin(dists))
-        min_dist = float(dists[best_idx])
+        best_rel_idx = int(np.argmin(dists))
+        best_idx = start_k + best_rel_idx
+        min_dist = float(dists[best_rel_idx])
 
         if min_dist > max_dist_m:
             return False, 0.0, 0.0, 0.0, np.zeros(2), 0.0
 
+        self.active_idx = max(self.active_idx, best_idx)
         best_psi_road = float(self.seg_bearings[best_idx])
         normal_unit = np.array([np.cos(best_psi_road), -np.sin(best_psi_road)], dtype=np.float64)
-        r_y = float(np.dot(dist_vecs[best_idx], normal_unit))
+        r_y = float(np.dot(dist_vecs[best_rel_idx], normal_unit))
         r_psi = float(wrap_angle(vehicle_psi - best_psi_road))
         # Confidence: decays with distance (0→max_dist_m → prob 1.0→0)
         prob = float(np.exp(-min_dist / 25.0))
@@ -228,7 +251,12 @@ def apply_graph_corridor_constraint(
     
     dx = K @ y
     estimator.x += dx
-    estimator.x[3] = estimator.x[3] % (2.0 * np.pi)
-    estimator.P = (np.eye(10) - K @ H) @ P
+    # BUG-8a FIX: use arctan2 wrap (not %) to avoid discontinuity spike at heading=0°(North)/360°
+    estimator.x[3] = float(np.arctan2(np.sin(estimator.x[3]), np.cos(estimator.x[3])))
+    # BUG-8b FIX: Joseph form for numerical stability: was simplified (I-KH)P which goes
+    # asymmetric/negative-definite after ~200 steps. Use (I-KH)P(I-KH)^T + KRK^T.
+    IKH = np.eye(10) - K @ H
+    estimator.P = IKH @ P @ IKH.T + K @ R_map @ K.T
+    estimator.P = 0.5 * (estimator.P + estimator.P.T)  # enforce symmetry
     
     return True, edge_id, r_y, r_psi

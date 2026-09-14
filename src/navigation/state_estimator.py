@@ -12,8 +12,10 @@ Provides:
 """
 
 from dataclasses import dataclass
+from typing import Optional
 import numpy as np
 from src.core.idr_core import IMUConditioner
+from src.core.vibration_signature import VehicleVibrationProfiler
 
 # WGS84 Constants
 WGS84_A = 6378137.0          # semi-major axis (metres)
@@ -74,16 +76,28 @@ class NavigationStateEstimator:
       x = [E, N, v, psi, b_ax, b_ay, b_az, b_gx, b_gy, b_gz]
     Integrates learned motion increments from UniversalMotionNet.
     """
-    def __init__(self, init_lat: float, init_lon: float, init_speed: float = 0.0, init_heading_deg: float = 0.0, enable_zupt: bool = True):
-        self.projector = WGS84LocalProjector(init_lat, init_lon)
+    def __init__(
+        self,
+        init_lat: float,
+        init_lon: float,
+        init_speed: float = 0.0,
+        init_heading_deg: float = 0.0,
+        enable_zupt: bool = True,
+        projector: Optional[WGS84LocalProjector] = None
+    ):
+        if projector is not None:
+            self.projector = projector
+        else:
+            self.projector = WGS84LocalProjector(init_lat, init_lon)
         self.enable_zupt = bool(enable_zupt)
 
         # State vector: [E, N, v, psi (rad), b_ax, b_ay, b_az, b_gx, b_gy, b_gz]
         self.x = np.zeros(10, dtype=np.float64)
-        self.x[0] = 0.0                                          # East (m)
-        self.x[1] = 0.0                                          # North (m)
+        init_e, init_n = self.projector.geodetic_to_enu(init_lat, init_lon)
+        self.x[0] = float(init_e)                                # East (m)
+        self.x[1] = float(init_n)                                # North (m)
         self.x[2] = float(init_speed)                            # speed (m/s)
-        self.x[3] = np.radians(float(init_heading_deg))          # psi (rad, clockwise from North)
+        self.x[3] = float(np.arctan2(np.sin(np.radians(float(init_heading_deg))), np.cos(np.radians(float(init_heading_deg)))))  # psi in [-π,π]
 
         # Covariance Matrix P (10x10)
         self.P = np.diag([
@@ -106,10 +120,13 @@ class NavigationStateEstimator:
         # Pure Neural Model Dead-Reckoning State [E, N, v, psi]
         # Propagates independently from IMU to track true model accuracy vs GPS
         self.x_model = np.zeros(4, dtype=np.float64)
-        self.x_model[0] = 0.0
-        self.x_model[1] = 0.0
+        self.x_model[0] = float(init_e)
+        self.x_model[1] = float(init_n)
         self.x_model[2] = float(init_speed)
-        self.x_model[3] = np.radians(float(init_heading_deg))
+        # BUG-14 FIX: x_model heading must match x[3] arctan2 [-π,π] convention (BUG-10 fix).
+        # Previously np.radians() could produce [0,2π) → model track immediately diverges from
+        # main EKF on northbound headings (≥180°), corrupting model_error_m metric.
+        self.x_model[3] = float(np.arctan2(np.sin(np.radians(float(init_heading_deg))), np.cos(np.radians(float(init_heading_deg)))))
         self.model_error_m = 0.0
 
         # Reconvergence & Blackout state
@@ -125,6 +142,15 @@ class NavigationStateEstimator:
         self.is_stationary = False
         self.zupt_candidate_ticks = 0
         self.zupt_min_ticks = 2
+        self.launch_evidence_ticks = 0
+        self._stationary_pos_enu = None  # Standstill anchor: guarantees 0.00000m motion during ZUPT
+
+        # FP-suppression state (False Positive ZUPT prevention)
+        self._raw_v_ema = 0.0          # FP-4: exponential moving average of raw_v (α=0.3)
+        self._prev_delta_psi = 0.0     # FP-3: last window's raw gyro heading increment
+
+        # Adaptive Vehicle Vibration Profiler (0-5 Hz observable stationary noise envelope)
+        self.vibration_profiler = VehicleVibrationProfiler()
 
         # IMU Conditioners (Component 4 from idr_core.py — suspension damping + pothole rejection)
         # gz (yaw rate): gain=0.80 → τ ≈ 0.4s, fast enough for turns, damps road spikes
@@ -148,69 +174,140 @@ class NavigationStateEstimator:
         delta_psi = float(motion_pred["delta_psi"])
         p_stop = float(motion_pred.get("p_stop", 0.0))
         log_var = float(motion_pred.get("log_var", 0.0))
+        # TURN-BUG-1 FIX: raw_v is the unzeroed speed before stop clamping in runtime.py.
+        raw_v = float(motion_pred.get("raw_v", v_t))
+        # FP-1: p_turn from ManeuverSpecialistNet — a vehicle that is turning cannot be stopped
+        p_turn = float(motion_pred.get("p_turn", 0.0))
+
+        # ── FP-4: Exponential Moving Average of raw_v (α=0.3, ~5 window memory) ─────────────
+        # Prevents ZUPT triggering when NN speed dips for 1-2 ticks during corner approach.
+        # If the recent speed history shows motion, we assume motion even if current tick dips.
+        self._raw_v_ema = 0.3 * raw_v + 0.7 * self._raw_v_ema
+        effective_raw_v = max(raw_v, self._raw_v_ema)  # trust whichever is higher
 
         # Multi-signal physical sensor statistics
         recent_accel = imu_raw[:3, -10:]
         recent_gyro  = imu_raw[3:6, -10:]
-        accel_var = np.var(recent_accel, axis=1).sum()
-        gyro_var  = np.var(recent_gyro[0])  # yaw rate variance
-        mean_accel_norm = np.linalg.norm(np.mean(recent_accel, axis=1))
+        accel_var = float(np.var(recent_accel, axis=1).sum())
+        # Canonical 9-channel schema: row 0 of recent_gyro is channel 3 (Yaw Rate)
+        gyro_var  = float(np.var(recent_gyro[0]))
+        mean_accel_norm = float(np.linalg.norm(np.mean(recent_accel, axis=1)))
         grav_err = abs(mean_accel_norm - 9.80665)
+        gyro_mag = float(np.linalg.norm(np.mean(recent_gyro, axis=1)))
 
-        cond_model = p_stop > 0.70
-        cond_accel = accel_var < 0.035
-        cond_gyro  = gyro_var < 0.001
-        cond_grav  = grav_err < 0.35
-        cond_speed = v_t < 0.6
+        # ── FP-3: Heading Coherence Check ─────────────────────────────────────────────────────
+        # Canonical channel 3 is yaw rate: recent_gyro[0]
+        step_yaw_deg = abs(np.degrees(float(recent_gyro[0, -1]) * dt))
+        heading_changing = (step_yaw_deg > 0.5) or (gyro_mag > 0.04)
+        self._prev_delta_psi = float(recent_gyro[0, -1]) * dt
 
-        # Robust multi-condition evidence
-        is_candidate_stop = (cond_model or cond_speed) and cond_accel and cond_gyro and cond_grav
+        accel_thresh, gyro_thresh = self.vibration_profiler.get_adaptive_zupt_thresholds()
 
-        is_still = False
+        # Incline-invariant physical standstill detection (all physical conditions must hold)
+        physical_still = (
+            (gyro_var < gyro_thresh) and
+            (gyro_mag < 0.04) and
+            (accel_var < (accel_thresh * 1.5)) and
+            (grav_err < 0.35) and
+            not heading_changing
+        )
+        cond_model = p_stop > 0.65
+        cond_speed = effective_raw_v < 0.4
+        is_candidate_stop = physical_still and (cond_model or cond_speed)
+
+        # High-confidence soft stop path (requires physical standstill)
+        soft_zupt_thresh = 0.97 if p_turn > 0.20 else 0.85
+        high_conf_stop = (p_stop > soft_zupt_thresh) and (effective_raw_v < 0.5) and physical_still
+        is_candidate_stop = is_candidate_stop or high_conf_stop
+
+        # Composite motion override: specialist p_turn can ONLY override if vehicle is actually moving!
+        clear_motion = (
+            (p_turn > 0.35 and effective_raw_v > 0.8) or
+            (gyro_mag > 0.04) or
+            heading_changing
+        )
+        if clear_motion:
+            is_candidate_stop = False
+            high_conf_stop = False
+
+        # ── 4-State Persistent FSM: MOVING <-> POSSIBLE_STOP -> STATIONARY -> POSSIBLE_LAUNCH -> MOVING ──
+        if not hasattr(self, 'fsm_state'):
+            self.fsm_state = "MOVING"
+
         if self.enable_zupt:
-            if is_candidate_stop:
-                self.zupt_candidate_ticks += 1
-                if self.zupt_candidate_ticks >= self.zupt_min_ticks:
-                    is_still = True
-                    self.is_stationary = True
+            if self.fsm_state in ("MOVING", "POSSIBLE_STOP"):
+                if is_candidate_stop:
+                    self.fsm_state = "POSSIBLE_STOP"
+                    self.zupt_candidate_ticks += 1
+                    # Persistent confirmation: require 3 consecutive candidate ticks
+                    if self.zupt_candidate_ticks >= 3:
+                        self.fsm_state = "STATIONARY"
+                        self.is_stationary = True
+                        self.stationary_ticks = 1
+                        self.launch_evidence_ticks = 0
+                        self._stationary_pos_enu = self.x[:2].copy()
+                else:
+                    self.fsm_state = "MOVING"
+                    self.zupt_candidate_ticks = 0
+                    self.is_stationary = False
+            elif self.fsm_state in ("STATIONARY", "POSSIBLE_LAUNCH"):
+                # Vehicle is in confirmed stationary state.
+                # Check for genuine persistent launch evidence vs single shock (pothole, door slam, bump)
+                sensor_motion = (gyro_mag > 0.04) or (accel_var > accel_thresh * 2.0) or (grav_err > 0.40)
+                model_motion = (p_stop < 0.45) and (effective_raw_v > 0.8)
+                fast_breakout = (raw_v > 2.0)
+
+                # Genuine launch requires model velocity rising OR sustained sensor motion
+                launch_evidence = (sensor_motion and model_motion) or fast_breakout or (model_motion and effective_raw_v > 1.2)
+
+                if launch_evidence:
+                    self.launch_evidence_ticks += 1
+                    self.fsm_state = "POSSIBLE_LAUNCH"
+                    # Require 2 consecutive ticks of verified launch evidence (or 1 tick for fast emergency breakout)
+                    if self.launch_evidence_ticks >= (1 if fast_breakout else 2):
+                        self.fsm_state = "MOVING"
+                        self.is_stationary = False
+                        self.zupt_candidate_ticks = 0
+                        self.launch_evidence_ticks = 0
+                        self.stationary_ticks = 0
+                        self._stationary_pos_enu = None
+                else:
+                    self.fsm_state = "STATIONARY"
+                    self.launch_evidence_ticks = 0
                     self.stationary_ticks += 1
-                    # Recursive gyro YAW bias state update (x[9] = b_gz, imu_raw[5] = gz = yaw rate)
-                    # CRITICAL: must use channel 5 (yaw), NOT channel 3 (roll)
+                    self.vibration_profiler.update_profile(imu_raw[:3, -1], imu_raw[3:6, -1], stationary=True)
+                    wz_current = float(imu_raw[3, -1])  # channel 3 = yaw rate
                     alpha = 0.02
-                    wz_current = float(imu_raw[5, -1])   # gz = yaw rate axis
                     self.x[9] = (1.0 - alpha) * self.x[9] + alpha * wz_current
                     self.P[9, 9] = max(1e-8, (1.0 - alpha) * self.P[9, 9])
-            else:
-                self.zupt_candidate_ticks = 0
-                self.is_stationary = False
+                    self.P[2, 2] = min(self.P[2, 2], 0.01)
         else:
+            self.fsm_state = "MOVING"
             self.is_stationary = False
 
-        # ── 2. De-bias & Scale Window Heading Increment ──────────────────────
+        is_still = self.is_stationary
+
+        # ── 2. One-Step Endpoint Heading Increment & Uncertainty ─────────────
         W = float(imu_raw.shape[1])
         bgz = self.x[9]
-        # De-bias window heading change: delta_psi_clean = delta_psi - bgz * (W * dt)
-        clean_delta_psi = delta_psi - bgz * (W * dt)
-        model_step_dpsi = (clean_delta_psi / W) if not is_still else 0.0
+        if "step_dpsi" in motion_pred:
+            model_step_dpsi = float(motion_pred["step_dpsi"])
+        else:
+            clean_delta_psi = delta_psi - bgz * (W * dt)
+            model_step_dpsi = (clean_delta_psi / W) if not is_still else 0.0
 
-        # C011 FIX: Blend direct instantaneous gyro with model window prediction.
-        # The model produces delta_psi over a 2-second window — always 1-2s stale on sharp turns.
-        # Direct gyro (imu_raw[5] = gz = yaw rate) gives instant turn response.
-        # Blend: 70% direct gyro (immediate), 30% model window (stable on straights).
-        # Both are de-biased with the same gyro bias x[9].
         if not is_still:
-            wz_raw = float(imu_raw[5, -1]) - bgz        # de-biased raw yaw rate (rad/s)
-            wz_instant = self.imu_cond_gz.condition(wz_raw)  # pothole-damped yaw rate
-            gyro_step_dpsi = wz_instant * dt             # heading change this step from conditioned gyro
-            GYRO_WEIGHT = 0.70
-            step_dpsi = GYRO_WEIGHT * gyro_step_dpsi + (1.0 - GYRO_WEIGHT) * model_step_dpsi
+            step_dpsi = model_step_dpsi
         else:
             step_dpsi = 0.0
 
-
         # ── 3. State Kinematics Integration (ENU) ────────────────────────────
-        # Per-step displacement from window delta_s: step_ds = delta_s / W
-        step_ds = (delta_s / W) if not is_still else 0.0
+        # Authoritative standstill invariant: zero displacement, zero speed, zero heading drift
+        effective_v = v_t if not is_still else 0.0
+        if "step_ds" in motion_pred:
+            step_ds = float(motion_pred["step_ds"]) if not is_still else 0.0
+        else:
+            step_ds = float(motion_pred.get("delta_s", effective_v * dt)) if not is_still else 0.0
         current_psi = self.x[3]
         half_turn = current_psi + step_dpsi * 0.5
 
@@ -218,27 +315,46 @@ class NavigationStateEstimator:
         dE = step_ds * np.sin(half_turn)
         dN = step_ds * np.cos(half_turn)
 
-        # Update Kalman fused navigation state
-        self.x[0] += dE
-        self.x[1] += dN
-        self.x[2] = v_t if not is_still else 0.0
-        self.x[3] = (current_psi + step_dpsi) % (2.0 * np.pi)
+        # Update Kalman fused navigation state & pure neural dead reckoning
+        if is_still and self._stationary_pos_enu is not None:
+            self.x[:2] = self._stationary_pos_enu.copy()
+            self.x_model[:2] = self._stationary_pos_enu.copy()
+        else:
+            self.x[0] += dE
+            self.x[1] += dN
+            self.x_model[0] += dE
+            self.x_model[1] += dN
 
-        # Update pure neural model dead reckoning state independently
-        self.x_model[0] += dE
-        self.x_model[1] += dN
-        self.x_model[2] = v_t if not is_still else 0.0
-        self.x_model[3] = (self.x_model[3] + step_dpsi) % (2.0 * np.pi)
+        self.x[2] = effective_v
+        self.x[3] = float(np.arctan2(np.sin(current_psi + step_dpsi), np.cos(current_psi + step_dpsi)))
+        self.x_model[2] = effective_v
+        self.x_model[3] = float(np.arctan2(np.sin(self.x_model[3] + step_dpsi), np.cos(self.x_model[3] + step_dpsi)))
 
-        # ── 4. Covariance Growth ─────────────────────────────────────────────
-        # Propagate positional uncertainty with model's learned heteroscedastic sigma
-        v_sigma = np.sqrt(np.exp(np.clip(log_var, -2.5, 2.5)))
-        pos_noise = (v_sigma * dt) ** 2 if not self.is_stationary else 1e-6
+        # ── 4. Covariance Growth: Bridged from Learned Uncertainty ───────────
+        # Standstill invariant: suppress positional, velocity, and heading covariance growth
+        log_var_v = float(motion_pred.get("log_var_v", motion_pred.get("log_var", 0.0)))
+        log_var_w = float(motion_pred.get("log_var_w", 0.0))
+        v_sigma = float(np.sqrt(np.exp(np.clip(log_var_v, -2.5, 2.5))))
+        w_sigma = float(np.sqrt(np.exp(np.clip(log_var_w, -2.5, 2.5))))
 
-        self.P[0, 0] += pos_noise + self.Q_base[0, 0] * dt
-        self.P[1, 1] += pos_noise + self.Q_base[1, 1] * dt
-        self.P[2, 2] += self.Q_base[2, 2] * dt
-        self.P[3, 3] += self.Q_base[3, 3] * dt
+        pos_noise = (v_sigma * dt) ** 2 if not is_still else 1e-6
+        # Responsive turning: increase heading covariance when specialist detects cornering
+        psi_mult = 2.5 if p_turn > 0.4 else 1.0
+        heading_noise = (w_sigma * dt) ** 2 * psi_mult if not is_still else 1e-8
+
+        self.P[0, 0] += pos_noise + (self.Q_base[0, 0] * dt if not is_still else 0.0)
+        self.P[1, 1] += pos_noise + (self.Q_base[1, 1] * dt if not is_still else 0.0)
+        self.P[2, 2] = (v_sigma ** 2) * dt if not is_still else 1e-4
+        self.P[3, 3] += heading_noise + (self.Q_base[3, 3] * dt if not is_still else 0.0)
+
+        if is_still:
+            # Standstill covariance decoupling: zero out off-diagonal cross-correlations
+            # between position and dynamic states (velocity, heading) to eliminate numerical drag.
+            self.P[0, 2] = self.P[2, 0] = 0.0
+            self.P[1, 2] = self.P[2, 1] = 0.0
+            self.P[0, 3] = self.P[3, 0] = 0.0
+            self.P[1, 3] = self.P[3, 1] = 0.0
+
 
         # ── 5. Smooth Reconvergence Blend Decay ──────────────────────────────
         if self.blend_remaining_s > 0.0:
@@ -256,23 +372,6 @@ class NavigationStateEstimator:
         meas_e, meas_n = self.projector.geodetic_to_enu(gnss_lat, gnss_lon)
         meas_psi = np.radians(gnss_heading_deg)
 
-        # Compute TRUE error of our neural model vs GPS (Innovation Error!)
-        self.model_error_m = float(np.linalg.norm(self.x_model[:2] - np.array([meas_e, meas_n])))
-
-        # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
-        if self.is_blackout or self.pending_reconvergence:
-            self.is_blackout = False
-            self.pending_reconvergence = False
-            # Discrepancy between where dead-reckoning was and where GNSS truly is
-            jump_e = self.x[0] - meas_e
-            jump_n = self.x[1] - meas_n
-            # Store offset to decay smoothly over 3.5 seconds
-            self.blend_offset_enu = np.array([jump_e, jump_n], dtype=np.float64)
-            self.blend_remaining_s = self.blend_total_s
-            # Reset model anchor to GPS position upon recovery
-            self.x_model[0] = meas_e
-            self.x_model[1] = meas_n
-
         # Standard Kalman Measurement Update
         z = np.array([meas_e, meas_n, gnss_speed, meas_psi], dtype=np.float64)
         H = np.zeros((4, 10))
@@ -284,6 +383,33 @@ class NavigationStateEstimator:
         y = z - H @ self.x
         y[3] = np.arctan2(np.sin(y[3]), np.cos(y[3]))
 
+        # Compute TRUE innovation error of our neural model prediction vs GPS on this step
+        self.model_error_m = float(np.linalg.norm(y[:2]))
+
+        # Synchronize model dead-reckoning state to GPS during GNSS-locked operation
+        self.x_model[0] = meas_e
+        self.x_model[1] = meas_n
+        self.x_model[2] = self.x[2]
+        self.x_model[3] = self.x[3]
+
+        # ── Handle GNSS Recovery (No Teleportation Jump!) ─────────────────────
+        recovering = False
+        if self.is_blackout or self.pending_reconvergence:
+            self.is_blackout = False
+            self.pending_reconvergence = False
+            recovering = True
+            pre_update_pos = getattr(self, "_pre_recovery_display_pos", None)
+            if pre_update_pos is None:
+                pre_update_pos = self.get_display_enu().copy()
+            self._pre_recovery_display_pos = None
+
+        if self.is_stationary:
+            # Standstill Invariant: reject GPS multipath jitter while verified stopped
+            y[0] = 0.0
+            y[1] = 0.0
+            y[2] = 0.0 - self.x[2]
+            y[3] = 0.0
+
         R = np.diag([
             gnss_accuracy**2, gnss_accuracy**2,
             0.2**2,
@@ -294,12 +420,31 @@ class NavigationStateEstimator:
         K = self.P @ H.T @ np.linalg.inv(S)
 
         self.x = self.x + K @ y
+        # BUG-15 FIX: Re-wrap heading to [-π,π] after Kalman update. Without this, a large
+        # heading innovation (e.g. K*y adds +0.5 rad to x[3] near π) pushes x[3] past [-π,π]
+        # bounds, causing the next predict() step to compute incorrect dE/dN displacements.
+        self.x[3] = float(np.arctan2(np.sin(self.x[3]), np.cos(self.x[3])))
         # Use Joseph form for numerical stability: P = (I-KH)P(I-KH)ᵀ + KRKᵀ
         # This prevents P from becoming asymmetric/negative-definite over long routes
         IKH = np.eye(10) - K @ H
         self.P = IKH @ self.P @ IKH.T + K @ R @ K.T
         # Enforce exact symmetry to eliminate floating-point drift
         self.P = 0.5 * (self.P + self.P.T)
+
+        if recovering:
+            # Offset = pre_update_pos - new_kalman_pos, guaranteeing display_enu matches pre_update_pos identically
+            self.blend_offset_enu = pre_update_pos - self.x[:2]
+            self.blend_remaining_s = self.blend_total_s
+            self.x_model[0] = meas_e
+            self.x_model[1] = meas_n
+
+        if self.is_stationary and self._stationary_pos_enu is not None:
+            self.x[:2] = self._stationary_pos_enu.copy()
+            self.x[2] = 0.0
+            self.P[0, 2] = self.P[2, 0] = 0.0
+            self.P[1, 2] = self.P[2, 1] = 0.0
+            self.P[0, 3] = self.P[3, 0] = 0.0
+            self.P[1, 3] = self.P[3, 1] = 0.0
 
     def get_display_enu(self) -> np.ndarray:
         """
@@ -321,16 +466,15 @@ class NavigationStateEstimator:
         elif not is_blackout and self.is_blackout:
             self.is_blackout = False
             self.pending_reconvergence = True
+            self._pre_recovery_display_pos = self.get_display_enu().copy()
 
     def get_pseudo_gnss_packet(self, timestamp: float) -> PseudoGNSSPacket:
         """
         Emits standard PseudoGNSSPacket consumed identically by navigation layer.
         """
         # Blend offset applied to position for smooth visualization
-        effective_e = self.x[0] - self.blend_offset_enu[0]
-        effective_n = self.x[1] - self.blend_offset_enu[1]
-
-        lat, lon = self.projector.enu_to_geodetic(effective_e, effective_n)
+        disp_enu = self.get_display_enu()
+        lat, lon = self.projector.enu_to_geodetic(disp_enu[0], disp_enu[1])
         pos_accuracy = np.sqrt(max(0.25, 0.5 * (self.P[0, 0] + self.P[1, 1])))
 
         # Confidence: 1.0 for high accuracy (< 5m), decays towards 0.1 at 100m error
