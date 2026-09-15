@@ -1,0 +1,65 @@
+# NaviSense PDR-Net V1 Configuration
+
+pipeline:
+  name: "navisense_pdr_v1"
+  data_dir: "data"
+  raw_dir: "data/raw"
+  canonical_dir: "data/canonical"
+  splits_dir: "data/splits"
+  results_dir: "results"
+  checkpoints_dir: "checkpoints"
+
+rates:
+  imu_canonical_hz: 100       # Model input rate (interpolated/synchronized)
+  prediction_hz: 20           # Output prediction step rate (50 ms per step)
+  gnss_min_accuracy_m: 15.0   # Discard GNSS fixes with horizontal accuracy worse than this
+
+frame_transforms:
+  gravity_m_s2: 9.80665
+  quaternion_scalar_first: true   # Internal convention [qw, qx, qy, qz]
+  canonical_hemisphere: true      # Enforce qw >= 0 to resolve antipodal ambiguity
+
+windowing:
+  rollout_steps: 200          # 200 steps @ 20 Hz = 10.0 seconds closed-loop sequence
+  step_stride: 40             # Window step stride during slicing (2.0s overlap)
+  min_session_duration_s: 5.0
+
+augmentation:
+  enabled: true
+  gyro_bias_std_rad_s: 0.002  # Gyro bias perturbation
+  accel_noise_std_m_s2: 0.05  # Accelerometer noise
+  scale_variation_min: 0.95
+  scale_variation_max: 1.05
+  yaw_perturbation_deg: 5.0
+
+model:
+  name: "NaviSensePDRNetV1"
+  in_channels: 13             # [ax, ay, az, gx, gy, gz, ag_x, ag_y, ag_z, qw, qx, qy, qz]
+  tcn_channels: [32, 64, 128]
+  tcn_kernel_size: 3
+  tcn_dropout: 0.1
+  gru_hidden_dim: 128
+  gru_layers: 2
+  gru_dropout: 0.1
+  num_regimes: 5              # 0: stationary, 1: steady walk, 2: turning, 3: accel/decel, 4: irregular
+
+loss_weights:
+  lambda_point: 1.0           # Trajectory position tracking
+  lambda_endpoint: 2.0        # Final destination error penalty
+  lambda_heading: 0.5         # Heading drift penalty
+  lambda_step: 0.2            # Local step motion consistency
+  lambda_regime: 0.1          # Motion classification cross-entropy
+  lambda_uncertainty: 0.05    # Heteroscedastic negative log-likelihood
+
+training:
+  epochs: 60
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  grad_clip_norm: 5.0
+  use_amp: true               # Mixed precision on CUDA GPU
+  device: "cuda"
+
+evaluation:
+  benchmark_distances_m: [10.0, 20.0, 30.0, 40.0]
+  quality_gate_max_drift_pct: 20.0

@@ -1,0 +1,91 @@
+# NaviSense IDR: Workstation-Scale Teacher & Distillation Configuration
+# Tailored for AMD Ryzen 9 9950X (16C/32T) + 64 GB DDR5 + NVIDIA RTX 5070 Ti (16 GB)
+
+pipeline:
+  name: "navisense_workstation_pipeline"
+  data_dir: "data"
+  raw_dir: "data/raw"
+  canonical_dir: "data/canonical"
+  splits_dir: "data/splits"
+  results_dir: "results"
+  checkpoints_dir: "checkpoints"
+
+rates:
+  imu_canonical_hz: 100       # Input sensor timeline
+  prediction_hz: 20           # Output displacement & heading rate (50 ms per step)
+  gnss_min_accuracy_m: 15.0   # Reference GNSS filter
+
+frame_transforms:
+  gravity_m_s2: 9.80665
+  quaternion_scalar_first: true
+  canonical_hemisphere: true
+  anchor_initial_heading: true # R_{phone->nav} = R_yaw(psi0) * R_gravity
+
+curriculum:
+  stages: 3
+  definitions:
+    stage_1: { steps: 150,  batch_size: 32, stride: 30,  checkpointing: false } # 5-10s
+    stage_2: { steps: 300,  batch_size: 24, stride: 60,  checkpointing: false } # 10-20s
+    stage_3: { steps: 600,  batch_size: 16, stride: 100, checkpointing: true  } # 20-40s
+    stage_4: { steps: 1000, batch_size: 12, stride: 150, checkpointing: true  } # 40-60s
+    stage_5: { steps: 1800, batch_size: 8,  stride: 200, checkpointing: true  } # 60-120s
+
+augmentation:
+  enabled: true
+  gyro_bias_std_rad_s: 0.003
+  accel_bias_std_m_s2: 0.02
+  accel_noise_std_m_s2: 0.03
+  gyro_noise_std_rad_s: 0.001
+  scale_variation_min: 0.98
+  scale_variation_max: 1.02
+  body_rotation_perturb_deg: 5.0 # Physically consistent joint 3D SO(3) perturbation
+
+models:
+  teacher:
+    in_channels: 13
+    tcn_channels: [64, 128, 192, 256, 256] # 63-step receptive field (3.15s @ 20 Hz)
+    gru_hidden_dim: 256
+    gru_layers: 3
+    dropout: 0.15
+    num_regimes: 5
+  student:
+    in_channels: 13
+    tcn_channels: [32, 48, 64, 96, 128]    # 63-step receptive field (3.15s @ 20 Hz)
+    gru_hidden_dim: 128
+    gru_layers: 2
+    dropout: 0.1
+    teacher_latent_dim: 256
+    num_regimes: 5
+
+training:
+  epochs: 30
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  grad_clip_norm: 5.0
+  device: "cuda"
+  use_amp: true
+
+distillation:
+  epochs: 30
+  batch_size: 32
+  learning_rate: 0.001
+  lambda_trajectory: 1.0      # Reference trajectory remains strictly authoritative
+  lambda_motion: 0.3          # Teacher displacement & signed heading imitation
+  lambda_latent: 0.15         # Teacher latent feature matching
+  lambda_regime_kd: 0.05      # Soft target temperature distillation
+  temperature: 2.0
+
+hardware:
+  device: "cuda"
+  use_amp: true               # PyTorch Automatic Mixed Precision (BF16/FP16)
+  use_tf32: true              # TensorFloat-32 on RTX 5070 Ti
+  num_workers: 4              # Multi-worker prefetching on Ryzen 9950X
+  pin_memory: true
+  persistent_workers: false
+
+evaluation:
+  benchmark_distances_m: [10.0, 20.0, 30.0, 40.0]
+  quality_gate_max_drift_pct: 20.0
+  require_min_physical_devices: 2
+  monte_carlo_runs: 1000
