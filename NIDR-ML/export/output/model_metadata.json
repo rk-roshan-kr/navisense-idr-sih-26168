@@ -1,0 +1,37 @@
+{
+  "model_name": "NaviSense PDR-Net V1",
+  "input_rate_hz": 100,
+  "output_rate_hz": 20,
+  "downsampling_ratio": 5,
+  "in_channels": 13,
+  "channel_names": [
+    "ax_body",
+    "ay_body",
+    "az_body",
+    "gx_body",
+    "gy_body",
+    "gz_body",
+    "ag_x_world",
+    "ag_y_world",
+    "ag_z_world",
+    "qw",
+    "qx",
+    "qy",
+    "qz"
+  ],
+  "output_names": [
+    "disp_forward_lateral_up_m",
+    "delta_yaw_rad",
+    "log_var",
+    "regime_logits"
+  ],
+  "motion_regimes": [
+    "stationary",
+    "steady_walk",
+    "turning",
+    "acceleration_braking",
+    "irregular"
+  ],
+  "validated_40m_drift_pct": 96.77912373799845,
+  "quality_gate_passed": false
+}

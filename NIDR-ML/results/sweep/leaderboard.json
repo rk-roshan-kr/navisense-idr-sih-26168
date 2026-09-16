@@ -1,0 +1,86 @@
+[
+  {
+    "variant_id": "exp_04_high_end",
+    "config": {
+      "id": "exp_04_high_end",
+      "tcn_channels": [
+        48,
+        64,
+        96,
+        128,
+        160
+      ],
+      "gru_dim": 160,
+      "lr": 0.0006,
+      "le": 3.0
+    },
+    "max_pointwise_error_m": 3.8782567977905273,
+    "p95_pointwise_error_m": 2.9086925983428955,
+    "mean_point_error_m": 1.9391283988952637,
+    "endpoint_error_m": 1.4354448715845745,
+    "mean_drift_pct": 0.0
+  },
+  {
+    "variant_id": "exp_03_compact",
+    "config": {
+      "id": "exp_03_compact",
+      "tcn_channels": [
+        32,
+        48,
+        64,
+        64,
+        96
+      ],
+      "gru_dim": 96,
+      "lr": 0.0012,
+      "le": 2.0
+    },
+    "max_pointwise_error_m": 13.392108917236328,
+    "p95_pointwise_error_m": 10.044081687927246,
+    "mean_point_error_m": 6.696054458618164,
+    "endpoint_error_m": 8.077789624532064,
+    "mean_drift_pct": 0.0
+  },
+  {
+    "variant_id": "exp_01_baseline",
+    "config": {
+      "id": "exp_01_baseline",
+      "tcn_channels": [
+        32,
+        48,
+        64,
+        96,
+        128
+      ],
+      "gru_dim": 128,
+      "lr": 0.001,
+      "le": 2.0
+    },
+    "max_pointwise_error_m": 14.690180778503418,
+    "p95_pointwise_error_m": 11.017635583877563,
+    "mean_point_error_m": 7.345090389251709,
+    "endpoint_error_m": 8.188265959421793,
+    "mean_drift_pct": 0.0
+  },
+  {
+    "variant_id": "exp_02_wide_gru",
+    "config": {
+      "id": "exp_02_wide_gru",
+      "tcn_channels": [
+        32,
+        48,
+        64,
+        96,
+        128
+      ],
+      "gru_dim": 192,
+      "lr": 0.0008,
+      "le": 2.5
+    },
+    "max_pointwise_error_m": 13.945263862609863,
+    "p95_pointwise_error_m": 10.458947896957397,
+    "mean_point_error_m": 6.972631931304932,
+    "endpoint_error_m": 10.795388221740723,
+    "mean_drift_pct": 0.0
+  }
+]
