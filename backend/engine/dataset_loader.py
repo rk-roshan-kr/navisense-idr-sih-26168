@@ -1,4 +1,4 @@
-﻿"""
+"""
 IOVNBDLoader — loads real phone sensor sessions from the IO-VNBD dataset
 for use in the 180s personalization calibration window (Phase 2).
 
@@ -20,8 +20,9 @@ Total S-S1 length: 51,746 samples = 5,174s ~ 86 minutes.
 import numpy as np
 from pathlib import Path
 
-# Verified column positions in S-S1.csv (0-indexed, after header row)
-_SENSOR_COLS = [9, 10, 11, 15, 16, 17, 18, 19, 20]
+# Verified column positions in S-S1.csv (0-indexed, after header row):
+# cols 9,10,11 = Accel(X,Y,Z), cols 12,13,14 = Gravity(X,Y,Z), cols 15,16,17 = Gyro(Yaw,Pitch,Roll)
+_SENSOR_COLS = [9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 _DEFAULT_PATH = (
     Path(__file__).resolve().parents[2]
@@ -38,8 +39,10 @@ _DEFAULT_PATH = (
 class IOVNBDLoader:
     """
     Loads real phone sensor data from IO-VNBD S-S1.csv for adapter calibration.
-    Provides sliding-window access to the (9, N) sensor array.
-    Falls back gracefully to None if the file is missing.
+    Provides sliding-window access to the (9, N) sensor array:
+      rows 0..2: Accel (X, Y, Z)
+      rows 3..5: Gyro (Roll, Pitch, Yaw) in Cartesian order
+      rows 6..8: Gravity (X, Y, Z)
     """
 
     def __init__(self, path: Path = None):
@@ -55,7 +58,9 @@ class IOVNBDLoader:
         try:
             import pandas as pd
             df = pd.read_csv(path, encoding="latin-1", usecols=_SENSOR_COLS)
-            arr = df.values.T.astype(np.float32)   # (9, N)
+            # Reorder from pandas file order [Accel(0..2), Grav(3..5), Gyro(6..8)]
+            # to pipeline format [Accel(0..2), Gyro(6..8), Grav(3..5)]
+            arr = df.iloc[:, [0, 1, 2, 6, 7, 8, 3, 4, 5]].values.T.astype(np.float32)
 
             # Sanitize NaNs per row
             for r in range(arr.shape[0]):
@@ -63,6 +68,11 @@ class IOVNBDLoader:
                 if nan_mask.any():
                     col_mean = float(np.nanmean(arr[r]))
                     arr[r, nan_mask] = col_mean
+
+            # Convert Gyro from dataset [Yaw, Pitch, Roll] to Cartesian [Roll, Pitch, Yaw]
+            # row 3 = Roll, row 4 = Pitch, row 5 = Yaw (matches PersonalizationAdapter convention)
+            arr[[3, 5]] = arr[[5, 3]]
+
 
             self.data = arr
             self.N = arr.shape[1]
