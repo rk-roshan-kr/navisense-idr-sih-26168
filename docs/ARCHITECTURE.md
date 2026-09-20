@@ -3,6 +3,9 @@
 **Theme:** Smart Vehicles | **Organization:** ISRO (Department of Space)  
 **System Name:** NaviSense IDR (Intelligent Dead Reckoning for Offline PNT)
 
+> **Architectural Note:**  
+> For the authoritative locked architecture delineating the **Internal Pedestrian Prototype (`NIDR APP`)** from the **Final SIH PS 26168 Vehicular Product**, refer to [NAVISENSE_COMPLETE_ARCHITECTURE.md](file:///d:/SIH%20prototype/docs/NAVISENSE_COMPLETE_ARCHITECTURE.md).
+
 ---
 
 ## 1. Executive Architecture Overview
