@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NaviSense Neural DR v3 — Visual Map Inspector | SIH 26168</title>
+  <meta name="description" content="Interactive visual map inspector for NaviSense Neural DR v3 experimental relative motion dead reckoning.">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.88);
+      --card-border: rgba(55, 65, 81, 0.6);
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Subproject Alert Banner */
+    #subproject-banner {
+      background: linear-gradient(90deg, #1e1b4b, #312e81, #1e1b4b);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 6px 16px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #c7d2fe;
+      z-index: 1001;
+      flex-shrink: 0;
+    }
+    #subproject-banner b { color: #a5b4fc; font-weight: 700; }
+    .badge-subproject {
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid #f59e0b;
+      color: #fbbf24;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    /* Top Navigation Bar */
+    #nav-bar {
+      height: 56px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1000;
+      flex-shrink: 0;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: #ffffff;
+    }
+    .brand-title span { color: var(--accent-blue); }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    select, button {
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      background: #1f2937;
+      color: #fff;
+      padding: 6px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    select:hover, button:hover {
+      border-color: var(--accent-blue);
+      background: #374151;
+    }
+
+    .btn-play {
+      background: #2563eb;
+      border-color: #3b82f6;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-play:hover { background: #1d4ed8; }
+
+    /* Main Container */
+    #app-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0b0f19;
+    }
+
+    /* Floating Telemetry Dashboard */
+    #hud-panel {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 360px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      z-index: 999;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .hud-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .grid-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: rgba(31, 41, 55, 0.6);
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    /* Drift Comparison Gauge */
+    .drift-highlight {
+      background: linear-gradient(135deg, rgba(30, 58, 138, 0.4), rgba(15, 23, 42, 0.8));
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .drift-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 800;
+      color: #60a5fa;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .drift-number span {
+      font-size: 13px;
+      font-weight: 600;
+      color: #93c5fd;
+    }
+
+    /* Playback Control Bar */
+    #bottom-scrubber {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(880px, 90%);
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 20px;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+    }
+
+    .scrubber-slider {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+    }
+
+    .legend-box {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      z-index: 999;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-bar {
+      width: 16px;
+      height: 4px;
+      border-radius: 2px;
+    }
+
+    #chart-container {
+      height: 110px;
+      width: 100%;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Subproject Banner -->
+  <div id="subproject-banner">
+    <div>
+      <span class="badge-subproject">SUBPROJECT / TESTBED</span>
+      <span style="margin-left:8px;"><b>NaviSense Neural DR v3</b>: Standalone Closed-Loop Relative Motion Dead Reckoning</span>
+    </div>
+    <div style="font-family:'JetBrains Mono', monospace; font-size:10px; opacity:0.8;">
+      PORT: 8080 • ISOLATED FROM BASE V2.2 PRODUCTION RUNTIME
+    </div>
+  </div>
+
+  <!-- Top Navigation & Controls -->
+  <header id="nav-bar">
+    <div class="brand-group">
+      <div class="brand-title">NaviSense <span>Neural DR v3</span></div>
+      <div style="font-size:11px; color:#6b7280; padding-left:4px; border-left:1px solid #374151;">Visual Map Inspector</div>
+    </div>
+
+    <div class="control-group">
+      <label style="font-size:11px; color:var(--text-muted);">Select Blackout Episode:</label>
+      <select id="episode-select" style="max-width: 320px;">
+        <option value="">Loading episodes...</option>
+      </select>
+
+      <button id="btn-tile-toggle">🛰️ Satellite View</button>
+      <button id="btn-fit-bounds">🎯 Recenter</button>
+    </div>
+  </header>
+
+  <!-- Map Canvas & Overlays -->
+  <div id="app-container">
+    <div id="map"></div>
+
+    <!-- Floating Telemetry HUD -->
+    <aside id="hud-panel">
+      <div class="hud-title">
+        <span>Autonomous Dead Reckoning</span>
+        <span id="badge-status" style="color:#10b981;">● OUTAGE ACTIVE</span>
+      </div>
+
+      <!-- Drift Highlight -->
+      <div class="drift-highlight">
+        <div class="stat-lbl" style="color:#93c5fd;">Current Position Drift vs Ground Truth</div>
+        <div class="drift-number" id="hud-drift-m">
+          0.00 <span id="hud-drift-pct">(0.0%)</span>
+        </div>
+      </div>
+
+      <!-- Key Gauges -->
+      <div class="grid-stats">
+        <div class="stat-card">
+          <div class="stat-val" id="hud-speed">0.0 <span style="font-size:11px;">km/h</span></div>
+          <div class="stat-lbl">Estimated Speed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="hud-heading">0.0°</div>
+          <div class="stat-lbl">Estimated Heading</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="hud-ate">0.00 m</div>
+          <div class="stat-lbl">Along-Track Error</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="hud-cte">0.00 m</div>
+          <div class="stat-lbl">Cross-Track Error</div>
+        </div>
+      </div>
+
+      <!-- Drift Mini Chart -->
+      <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-top:2px;">
+        Drift Error Accumulation (m)
+      </div>
+      <div id="chart-container">
+        <canvas id="mini-chart"></canvas>
+      </div>
+    </aside>
+
+    <!-- Map Legend -->
+    <div class="legend-box">
+      <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:2px;">Legend</div>
+      <div class="legend-item">
+        <span style="font-size:12px;">⭐</span>
+        <span>Last Trusted GNSS Anchor (P₀)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-bar" style="background:#10b981;"></div>
+        <span>Vehicle Ground Truth Path (CAN)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-bar" style="background:#3b82f6;"></div>
+        <span>Neural DR v3 Estimate (Model B)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-bar" style="background:#f59e0b; border-top:1px dashed #f59e0b;"></div>
+        <span>V2.2 Baseline (Ablation Ref)</span>
+      </div>
+    </div>
+
+    <!-- Scrubber & Playback Controls -->
+    <div id="bottom-scrubber">
+      <button class="btn-play" id="btn-play">▶ Play</button>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:11px; min-width:65px;" id="lbl-time">0.0s / 0.0s</span>
+      <input type="range" id="slider-progress" class="scrubber-slider" min="0" max="100" value="0">
+      <div style="display:flex; gap:6px;">
+        <button id="btn-spd-1" style="padding:4px 8px; font-weight:700; background:#374151;">1x</button>
+        <button id="btn-spd-2" style="padding:4px 8px;">2x</button>
+        <button id="btn-spd-5" style="padding:4px 8px;">5x</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Application State ──
+    let map = null;
+    let episodesData = [];
+    let currentEpisode = null;
+    let currentStep = 0;
+    let isPlaying = false;
+    let playSpeed = 1.0;
+    let playInterval = null;
+    let miniChart = null;
+    let isSatellite = false;
+
+    // Map Layer References
+    let anchorMarker = null;
+    let vehicleMarker = null;
+    let gtPolyline = null;
+    let v3Polyline = null;
+    let v2Polyline = null;
+    let preGnssPolyline = null;
+    let darkTileLayer = null;
+    let satTileLayer = null;
+
+    // Initialize Map
+    function initMap() {
+      map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([52.3720, -1.2565], 16);
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      darkTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      satTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19
+      });
+    }
+
+    // Toggle Satellite Tile Layer
+    document.getElementById('btn-tile-toggle').addEventListener('click', () => {
+      isSatellite = !isSatellite;
+      if (isSatellite) {
+        map.removeLayer(darkTileLayer);
+        satTileLayer.addTo(map);
+        document.getElementById('btn-tile-toggle').innerText = "🗺️ Street View";
+      } else {
+        map.removeLayer(satTileLayer);
+        darkTileLayer.addTo(map);
+        document.getElementById('btn-tile-toggle').innerText = "🛰️ Satellite View";
+      }
+    });
+
+    // Initialize Mini Chart
+    function initChart() {
+      const ctx = document.getElementById('mini-chart').getContext('2d');
+      miniChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Drift Error (m)',
+            data: [],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.2,
+            borderWidth: 2,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: {
+              grid: { color: 'rgba(75, 85, 99, 0.2)' },
+              ticks: { color: '#9ca3af', font: { size: 9, family: 'JetBrains Mono' } }
+            }
+          }
+        }
+      });
+    }
+
+    // Load Episode Data
+    async function loadData() {
+      try {
+        const resp = await fetch('/api/episodes');
+        const json = await resp.json();
+        episodesData = json.episodes || [];
+
+        const select = document.getElementById('episode-select');
+        select.innerHTML = '';
+        episodesData.forEach((ep, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.innerText = `${ep.title} (${ep.distance_m}m, ${ep.metrics.drift_pct}%)`;
+          select.appendChild(opt);
+        });
+
+        if (episodesData.length > 0) {
+          selectEpisode(0);
+        }
+      } catch (err) {
+        console.error("Failed to load map episode data:", err);
+      }
+    }
+
+    // Select & Render Episode
+    function selectEpisode(idx) {
+      pause();
+      currentEpisode = episodesData[idx];
+      currentStep = 0;
+
+      // Clear existing layers
+      if (anchorMarker) map.removeLayer(anchorMarker);
+      if (vehicleMarker) map.removeLayer(vehicleMarker);
+      if (gtPolyline) map.removeLayer(gtPolyline);
+      if (v3Polyline) map.removeLayer(v3Polyline);
+      if (v2Polyline) map.removeLayer(v2Polyline);
+      if (preGnssPolyline) map.removeLayer(preGnssPolyline);
+
+      const anchor = currentEpisode.anchor;
+      const gt = currentEpisode.gt_trajectory;
+      const v3 = currentEpisode.neural_dr_v3;
+      const v2 = currentEpisode.v2_baseline;
+
+      // 1. Draw Anchor P0 (Gold Star)
+      const starIcon = L.divIcon({
+        className: 'anchor-star',
+        html: `<div style="font-size:24px; filter:drop-shadow(0 0 6px #f59e0b);">⭐</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      anchorMarker = L.marker([anchor.lat, anchor.lon], { icon: starIcon })
+        .bindPopup(`<b>Last Trusted GNSS (P₀)</b><br>Lat: ${anchor.lat}<br>Lon: ${anchor.lon}<br>Speed: ${anchor.speed_kmh} km/h<br>Heading: ${anchor.heading_deg}°`)
+        .addTo(map);
+
+      // 2. Draw Pre-Blackout GNSS
+      if (currentEpisode.pre_blackout_gnss && currentEpisode.pre_blackout_gnss.length > 0) {
+        const prePts = currentEpisode.pre_blackout_gnss.map(p => [p.lat, p.lon]);
+        prePts.push([anchor.lat, anchor.lon]);
+        preGnssPolyline = L.polyline(prePts, {
+          color: '#10b981',
+          weight: 4,
+          opacity: 0.85
+        }).addTo(map);
+      }
+
+      // 3. Draw Ground Truth Path (CAN)
+      const gtPts = gt.map(p => [p.lat, p.lon]);
+      gtPolyline = L.polyline(gtPts, {
+        color: '#10b981',
+        weight: 3.5,
+        opacity: 0.95
+      }).addTo(map);
+
+      // 4. Draw V2.2 Baseline
+      const v2Pts = v2.map(p => [p.lat, p.lon]);
+      v2Polyline = L.polyline(v2Pts, {
+        color: '#f59e0b',
+        weight: 2.5,
+        dashArray: '6, 6',
+        opacity: 0.65
+      }).addTo(map);
+
+      // 5. Draw Neural DR v3 (Model B)
+      const v3Pts = v3.map(p => [p.lat, p.lon]);
+      v3Polyline = L.polyline(v3Pts, {
+        color: '#3b82f6',
+        weight: 3.5,
+        opacity: 0.95
+      }).addTo(map);
+
+      // Vehicle Marker
+      const vehIcon = L.divIcon({
+        className: 'veh-arrow',
+        html: `<div id="veh-cursor" style="width:14px;height:14px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #3b82f6;"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+      vehicleMarker = L.marker([anchor.lat, anchor.lon], { icon: vehIcon }).addTo(map);
+
+      // Fit map bounds to show entire trajectory
+      map.fitBounds(gtPolyline.getBounds(), { padding: [60, 60] });
+
+      // Configure Scrubber
+      const slider = document.getElementById('slider-progress');
+      slider.max = v3.length - 1;
+      slider.value = 0;
+
+      // Reset Chart
+      miniChart.data.labels = v3.map(p => `${p.time_s}s`);
+      miniChart.data.datasets[0].data = v3.map(p => p.drift_m);
+      miniChart.update();
+
+      updateTelemetry(0);
+    }
+
+    // Update Telemetry Displays
+    function updateTelemetry(step) {
+      if (!currentEpisode || step >= currentEpisode.neural_dr_v3.length) return;
+      const v3_pt = currentEpisode.neural_dr_v3[step];
+      const gt_pt = currentEpisode.gt_trajectory[step];
+
+      document.getElementById('hud-drift-m').innerHTML = `${v3_pt.drift_m.toFixed(2)}m <span id="hud-drift-pct">(${((v3_pt.drift_m / Math.max(currentEpisode.distance_m, 1)) * 100).toFixed(1)}%)</span>`;
+      document.getElementById('hud-speed').innerHTML = `${v3_pt.speed_kmh.toFixed(1)} <span style="font-size:11px;">km/h</span>`;
+      document.getElementById('hud-heading').innerText = `${v3_pt.heading_deg.toFixed(1)}°`;
+      document.getElementById('hud-ate').innerText = `${(currentEpisode.metrics.ate_m * (step / currentEpisode.neural_dr_v3.length)).toFixed(2)} m`;
+      document.getElementById('hud-cte').innerText = `${(currentEpisode.metrics.cte_m * (step / currentEpisode.neural_dr_v3.length)).toFixed(2)} m`;
+
+      document.getElementById('lbl-time').innerText = `${v3_pt.time_s.toFixed(1)}s / ${currentEpisode.duration_s.toFixed(1)}s`;
+      document.getElementById('slider-progress').value = step;
+
+      // Update vehicle marker position
+      if (vehicleMarker) {
+        vehicleMarker.setLatLng([v3_pt.lat, v3_pt.lon]);
+      }
+    }
+
+    // Playback Engine
+    function play() {
+      if (isPlaying) return;
+      isPlaying = true;
+      document.getElementById('btn-play').innerText = "⏸ Pause";
+      document.getElementById('btn-play').style.background = "#dc2626";
+
+      playInterval = setInterval(() => {
+        if (currentStep < currentEpisode.neural_dr_v3.length - 1) {
+          currentStep++;
+          updateTelemetry(currentStep);
+        } else {
+          pause();
+        }
+      }, 100 / playSpeed);
+    }
+
+    function pause() {
+      isPlaying = false;
+      if (playInterval) clearInterval(playInterval);
+      document.getElementById('btn-play').innerText = "▶ Play";
+      document.getElementById('btn-play').style.background = "#2563eb";
+    }
+
+    document.getElementById('btn-play').addEventListener('click', () => {
+      if (isPlaying) pause();
+      else play();
+    });
+
+    document.getElementById('slider-progress').addEventListener('input', (e) => {
+      currentStep = parseInt(e.target.value);
+      updateTelemetry(currentStep);
+    });
+
+    document.getElementById('episode-select').addEventListener('change', (e) => {
+      selectEpisode(parseInt(e.target.value));
+    });
+
+    document.getElementById('btn-fit-bounds').addEventListener('click', () => {
+      if (gtPolyline) map.fitBounds(gtPolyline.getBounds(), { padding: [60, 60] });
+    });
+
+    // Speed Multipliers
+    function setSpeed(spd, btnId) {
+      playSpeed = spd;
+      ['btn-spd-1', 'btn-spd-2', 'btn-spd-5'].forEach(id => {
+        document.getElementById(id).style.background = (id === btnId) ? '#374151' : '#1f2937';
+        document.getElementById(id).style.fontWeight = (id === btnId) ? '700' : '400';
+      });
+      if (isPlaying) {
+        pause();
+        play();
+      }
+    }
+    document.getElementById('btn-spd-1').addEventListener('click', () => setSpeed(1.0, 'btn-spd-1'));
+    document.getElementById('btn-spd-2').addEventListener('click', () => setSpeed(2.0, 'btn-spd-2'));
+    document.getElementById('btn-spd-5').addEventListener('click', () => setSpeed(5.0, 'btn-spd-5'));
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      initChart();
+      loadData();
+    });
+  </script>
+</body>
+</html>
