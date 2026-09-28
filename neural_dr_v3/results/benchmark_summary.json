@@ -1,0 +1,108 @@
+{
+  "horizons": {
+    "10s": {
+      "duration_s": 10.0,
+      "median_travel_m": 86.71829605102539,
+      "median_drift_m": 22.46653175354004,
+      "median_drift_pct": 31.145122584696374,
+      "median_ate_m": 7.125002932548523,
+      "median_cte_m": 2.02380676202476,
+      "num_episodes": 40
+    },
+    "30s": {
+      "duration_s": 30.0,
+      "median_travel_m": 246.34261322021484,
+      "median_drift_m": 144.14215087890625,
+      "median_drift_pct": 52.72844899002471,
+      "median_ate_m": 35.96629726278285,
+      "median_cte_m": 24.581920489575715,
+      "num_episodes": 40
+    },
+    "60s": {
+      "duration_s": 60.0,
+      "median_travel_m": 484.1427917480469,
+      "median_drift_m": 340.97206115722656,
+      "median_drift_pct": 73.9065357194529,
+      "median_ate_m": 117.775270642989,
+      "median_cte_m": 88.15892342340823,
+      "num_episodes": 40
+    },
+    "120s": {
+      "duration_s": 120.0,
+      "median_travel_m": 980.4560852050781,
+      "median_drift_m": 927.8648681640625,
+      "median_drift_pct": 85.12573498100714,
+      "median_ate_m": 263.28404005998124,
+      "median_cte_m": 211.35376035937497,
+      "num_episodes": 40
+    }
+  },
+  "head_to_head_y1": {},
+  "v2_baseline_reference": {
+    "Y1_60s": {
+      "v2_base_drift_pct": 34.61,
+      "v2_base_drift_m": 346.6,
+      "v2_pers_drift_pct": 23.04,
+      "v2_pers_drift_m": 230.71,
+      "v2_map_drift_pct": 15.0,
+      "v2_map_drift_m": 150.18
+    },
+    "S_multi_horizon": {
+      "10s": {
+        "v2_base_drift_pct": 128.49,
+        "v2_pers_drift_pct": 24.4
+      },
+      "30s": {
+        "v2_base_drift_pct": 82.55,
+        "v2_pers_drift_pct": 25.66
+      },
+      "60s": {
+        "v2_base_drift_pct": 71.28,
+        "v2_pers_drift_pct": 22.53
+      }
+    },
+    "recorded_four_way": {
+      "test_file": "S-Y1.csv",
+      "blackout_duration_s": 60.0,
+      "distance_travelled_m": 1001.4544677734375,
+      "ablation_results": [
+        {
+          "config": "A. Base + Estimator",
+          "e_30_m": 153.45854139687856,
+          "drift_30s_pct": 31.280944747375845,
+          "e_60_m": 346.60206780861097,
+          "drift_60s_pct": 34.609867843439886,
+          "throughput_hz": 20064.190420161467,
+          "zupt_triggers": 0
+        },
+        {
+          "config": "B. Personalized + Estimator",
+          "e_30_m": 99.27618764370187,
+          "drift_30s_pct": 20.236429410477385,
+          "e_60_m": 230.71452121206818,
+          "drift_60s_pct": 23.037944173839715,
+          "throughput_hz": 20526.03885663213,
+          "zupt_triggers": 0
+        },
+        {
+          "config": "C. Personalized + ZUPT",
+          "e_30_m": 99.17895389661709,
+          "drift_30s_pct": 20.21660931156042,
+          "e_60_m": 229.2959709683519,
+          "drift_60s_pct": 22.896295173374405,
+          "throughput_hz": 20702.741538620932,
+          "zupt_triggers": 6
+        },
+        {
+          "config": "D. Personalized + ZUPT + Map",
+          "e_30_m": 50.57356316315937,
+          "drift_30s_pct": 10.30890050553347,
+          "e_60_m": 150.17778663729996,
+          "drift_60s_pct": 14.995967512251909,
+          "throughput_hz": 20157.499140814212,
+          "zupt_triggers": 6
+        }
+      ]
+    }
+  }
+}
