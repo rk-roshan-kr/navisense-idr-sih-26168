@@ -1,0 +1,15 @@
+{
+  "_comment": "NAVISENSE NEURAL DR V3 - EXPERIMENTAL SENSOR PERTURBATION CONFIG (NOT PART OF BASE V2.2)",
+  "subproject": {
+    "name": "NaviSense Neural DR v3 Sensor Perturbation",
+    "status": "EXPERIMENTAL_RESEARCH_SUBPROJECT",
+    "is_production_v2": false
+  },
+  "accel_bias_bound_mps2": 0.25,
+  "gyro_bias_bound_rads": 0.015,
+  "accel_noise_std_mps2": 0.04,
+  "gyro_noise_std_rads": 0.003,
+  "scale_error_std": 0.03,
+  "mount_tilt_max_deg": 5.0,
+  "vibration_amplitude_max": 0.15
+}

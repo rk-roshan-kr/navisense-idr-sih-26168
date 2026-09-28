@@ -1,0 +1,38 @@
+{
+  "_comment": "NAVISENSE NEURAL DR V3 - EXPERIMENTAL RESEARCH SUBPROJECT CONFIG (NOT PART OF BASE V2.2)",
+  "subproject": {
+    "name": "NaviSense Neural DR v3",
+    "status": "EXPERIMENTAL_RESEARCH_SUBPROJECT",
+    "is_production_v2": false
+  },
+  "data": {
+    "sample_rate_hz": 10.0,
+    "dt": 0.1,
+    "imu_channels": 9,
+    "window_size": 20,
+    "blackout_durations_s": [5, 10, 20, 30, 60],
+    "test_blackout_durations_s": [10, 30, 60, 120]
+  },
+  "training": {
+    "batch_size": 32,
+    "rollout_steps": 50,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "epochs": 15,
+    "gradient_clip": 1.0,
+    "scheduled_sampling": {
+      "initial_prob": 0.0,
+      "final_prob": 0.8,
+      "warmup_epochs": 3
+    }
+  },
+  "loss_weights": {
+    "lambda_step": 1.0,
+    "lambda_traj": 2.0,
+    "lambda_final": 3.0,
+    "lambda_heading": 1.5,
+    "lambda_speed": 1.0,
+    "lambda_stop": 1.0,
+    "lambda_nll": 0.1
+  }
+}
