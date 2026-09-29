@@ -1,0 +1,55 @@
+{
+  "model_name": "NaviSense PDR-Net V1",
+  "model_version": "1.0.0",
+  "input_rate_hz": 100,
+  "output_rate_hz": 20,
+  "sample_rate_hz": 20,
+  "downsampling_ratio": 5,
+  "window_length": 100,
+  "in_channels": 13,
+  "channel_names": [
+    "ax_body",
+    "ay_body",
+    "az_body",
+    "gx_body",
+    "gy_body",
+    "gz_body",
+    "ag_x_world",
+    "ag_y_world",
+    "ag_z_world",
+    "qw",
+    "qx",
+    "qy",
+    "qz"
+  ],
+  "units": {
+    "acceleration": "m/s2",
+    "angular_velocity": "rad/s",
+    "world_gravity_accel": "m/s2",
+    "quaternion": "unitless"
+  },
+  "quaternion_order": "wxyz",
+  "axis_convention": "android_sensor_coords",
+  "coordinate_convention": "ENU",
+  "output_coordinate_frames": {
+    "displacement": "body",
+    "heading": "signed_yaw_increment_rad",
+    "variance": "navigation_enu"
+  },
+  "output_schema": {
+    "disp": 3,
+    "delta_yaw": 1,
+    "log_var_4d": 4,
+    "regime_logits": 5
+  },
+  "motion_regimes": [
+    "stationary",
+    "steady_walk",
+    "turning",
+    "acceleration_braking",
+    "irregular"
+  ],
+  "validated_40m_drift_pct": 8.5,
+  "quality_gate_passed": true,
+  "approved_for_deployment": true
+}
