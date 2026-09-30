@@ -28,6 +28,8 @@ interface TechnicalArchitectureDrawerProps {
   onSelectChaosOverride?: (o: ChaosStateOverride) => void;
   onRandomizeChaos?: () => void;
   onResetChaos?: () => void;
+  appExperienceMode?: 'COCKPIT_HUD' | 'GOOGLE_MAPS';
+  onSelectAppExperienceMode?: (mode: 'COCKPIT_HUD' | 'GOOGLE_MAPS') => void;
 }
 
 export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerProps> = ({
@@ -46,8 +48,10 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
   onSelectChaosOverride,
   onRandomizeChaos,
   onResetChaos,
+  appExperienceMode = 'COCKPIT_HUD',
+  onSelectAppExperienceMode,
 }) => {
-  const [activeTab, setActiveTab] = useState<'modules' | 'matrix' | 'lab' | 'live'>('modules');
+  const [activeTab, setActiveTab] = useState<'modules' | 'matrix' | 'lab' | 'live' | 'settings'>('modules');
 
   const effectiveTelemetry: TelemetryPacket = telemetry || {
     timestamp_s: 0,
@@ -146,6 +150,15 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
             >
               <Text style={[styles.tabText, activeTab === 'live' && styles.tabTextActive]}>
                 Live Watchdog
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'settings' && styles.tabItemActive]}
+              onPress={() => setActiveTab('settings')}
+            >
+              <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
+                ⚙️ Settings
               </Text>
             </TouchableOpacity>
           </View>
@@ -612,6 +625,103 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
                 </View>
               </>
             )}
+
+            {/* ══════════════ TAB 5: APP SETTINGS & MODES ══════════════ */}
+            {activeTab === 'settings' && (
+              <View style={styles.settingsTabContent}>
+                <View style={styles.sectionCard}>
+                  <View style={styles.badgeRow}>
+                    <View style={styles.moduleNumberBadge}>
+                      <Text style={styles.moduleNumberText}>EXPERIENCE MODE</Text>
+                    </View>
+                    <View style={styles.liveTag}>
+                      <View style={[styles.liveDot, { backgroundColor: theme.colors.idrBlue }]} />
+                      <Text style={styles.liveTagText}>UI THEME SWITCHER</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.sectionHeading}>Navigation UI & Exploration Mode</Text>
+                  <Text style={styles.sectionDesc}>
+                    Choose between full Google Maps search & exploration experience or native automotive Cockpit HUD driving mode:
+                  </Text>
+
+                  {/* Segmented Mode Selector */}
+                  <View style={styles.experienceModeToggleRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.experienceModeBtn,
+                        appExperienceMode === 'GOOGLE_MAPS' && styles.experienceModeBtnActiveMaps,
+                      ]}
+                      onPress={() => {
+                        if (onSelectAppExperienceMode) onSelectAppExperienceMode('GOOGLE_MAPS');
+                        onClose();
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          styles.experienceModeBtnTitle,
+                          appExperienceMode === 'GOOGLE_MAPS' && styles.experienceModeBtnTitleActive,
+                        ]}
+                      >
+                        🗺️ Google Maps Mode
+                      </Text>
+                      <Text style={styles.experienceModeBtnDesc}>
+                        Search destination, place chips, route ETA & "Start Driving" bottom sheet
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.experienceModeBtn,
+                        appExperienceMode === 'COCKPIT_HUD' && styles.experienceModeBtnActiveCockpit,
+                      ]}
+                      onPress={() => {
+                        if (onSelectAppExperienceMode) onSelectAppExperienceMode('COCKPIT_HUD');
+                        onClose();
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          styles.experienceModeBtnTitle,
+                          appExperienceMode === 'COCKPIT_HUD' && styles.experienceModeBtnTitleActive,
+                        ]}
+                      >
+                        🏎️ Cockpit HUD Mode
+                      </Text>
+                      <Text style={styles.experienceModeBtnDesc}>
+                        Automotive Dynamic Island turn HUD, digital speedometer & 6-grid telemetry
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* 3D Map Vector Engine Info */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionHeading}>3D Vector Graphics Engine</Text>
+                  <Text style={styles.sectionDesc}>
+                    Powered by WebGL MapLibre GL & OpenFreeMap 3D Vector Tiles. Features dynamic extruded building polygons, hardware camera pitch tilt up to 85°, continuous bearing rotation, and authentic multi-touch gestures.
+                  </Text>
+                  <View style={styles.telemetrySubCard}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoKey}>Camera Engine:</Text>
+                      <Text style={styles.infoVal}>MapLibre GL v4.7.1 WebGL</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoKey}>3D Extrusion Layer:</Text>
+                      <Text style={[styles.infoVal, { color: theme.colors.gnssEmerald, fontWeight: '800' }]}>
+                        fill-extrusion Active
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoKey}>Native Gestures:</Text>
+                      <Text style={styles.infoVal}>Pinch, 2-Finger Tilt, 2-Finger Rotate</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -1044,5 +1154,41 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: theme.colors.alertRose,
     fontWeight: '700',
+  },
+  settingsTabContent: {
+    paddingBottom: 24,
+  },
+  experienceModeToggleRow: {
+    gap: 10,
+    marginTop: 12,
+  },
+  experienceModeBtn: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+  },
+  experienceModeBtnActiveMaps: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#1a73e8',
+  },
+  experienceModeBtnActiveCockpit: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#059669',
+  },
+  experienceModeBtnTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  experienceModeBtnTitleActive: {
+    color: '#0f172a',
+  },
+  experienceModeBtnDesc: {
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: 16,
   },
 });

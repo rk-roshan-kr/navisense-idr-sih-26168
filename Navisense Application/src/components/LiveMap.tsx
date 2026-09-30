@@ -1,9 +1,9 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { theme } from '../theme';
 import type { TelemetryPacket, ScenarioInfo } from '../types';
-import { IconCrosshair, IconCompass, IconEye } from './Icons';
+import { IconCrosshair, IconCompass, IconEye, IconNavigation } from './Icons';
 
 interface LiveMapProps {
   telemetry: TelemetryPacket | null;
@@ -34,6 +34,19 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 }) => {
   const webViewRef = useRef<WebView>(null);
   const [internal3D, setInternal3D] = useState(is3DMode);
+  const [isTracking, setIsTracking] = useState(true);
+
+  // Keep latest props in refs so MAP_READY handler always has current state
+  const routeCoordinatesRef = useRef(routeCoordinates);
+  routeCoordinatesRef.current = routeCoordinates;
+  const telemetryRef = useRef(telemetry);
+  telemetryRef.current = telemetry;
+  const customOriginRef = useRef(customOrigin);
+  customOriginRef.current = customOrigin;
+  const customDestinationRef = useRef(customDestination);
+  customDestinationRef.current = customDestination;
+  const fitBoundsRef = useRef(fitBounds);
+  fitBoundsRef.current = fitBounds;
 
   // Sync external 3D mode changes
   useEffect(() => {
@@ -102,10 +115,43 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   };
 
   const centerOnVehicle = () => {
+    setIsTracking(true);
     if (webViewRef.current) {
       webViewRef.current.postMessage(
         JSON.stringify({
           type: 'RECENTER_VEHICLE',
+        })
+      );
+    }
+  };
+
+  const trackIn3D = () => {
+    setInternal3D(true);
+    setIsTracking(true);
+    if (onToggle3DMode && !internal3D) {
+      onToggle3DMode();
+    }
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'SET_CAMERA_MODE',
+          is3D: true,
+        })
+      );
+    }
+  };
+
+  const trackIn2D = () => {
+    setInternal3D(false);
+    setIsTracking(true);
+    if (onToggle3DMode && internal3D) {
+      onToggle3DMode();
+    }
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'SET_CAMERA_MODE',
+          is3D: false,
         })
       );
     }
@@ -117,15 +163,65 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       if (data.type === 'MAP_CLICK' && onMapClick) {
         onMapClick(data.lat, data.lon);
       }
+      if (data.type === 'TRACKING_STATE') {
+        setIsTracking(data.isTracking);
+      }
+      if (data.type === 'MAP_READY') {
+        if (routeCoordinatesRef.current.length > 0 && webViewRef.current) {
+          webViewRef.current.postMessage(
+            JSON.stringify({
+              type: 'ROUTE_UPDATE',
+              data: {
+                coordinates: routeCoordinatesRef.current,
+                origin: customOriginRef.current,
+                destination: customDestinationRef.current,
+                fitBounds: fitBoundsRef.current,
+              },
+            })
+          );
+        }
+        if (telemetryRef.current && webViewRef.current) {
+          webViewRef.current.postMessage(
+            JSON.stringify({
+              type: 'TELEMETRY_UPDATE',
+              data: {
+                carPos: [telemetryRef.current.idr_position.lat, telemetryRef.current.idr_position.lon],
+                gnssPos: telemetryRef.current.gnss_position ? [telemetryRef.current.gnss_position.lat, telemetryRef.current.gnss_position.lon] : null,
+                b1Pos: telemetryRef.current.b1_position ? [telemetryRef.current.b1_position.lat, telemetryRef.current.b1_position.lon] : null,
+                heading: telemetryRef.current.heading_deg,
+                speedKmh: telemetryRef.current.speed_kmh,
+                isBlackout: telemetryRef.current.blackout_active,
+                showGhost: showGhostBaseline,
+              },
+            })
+          );
+        }
+      }
     } catch (e) {
       console.warn('Map message parse error:', e);
     }
   };
 
-  // Generate self-contained HTML with MapLibre GL 3D Vector Map & Extruded Buildings
-  const initialCenter = routeCoordinates[0] || [28.6315, 77.2167];
+  // Generate self-contained HTML template ONCE so Android WebView NEVER reloads on 10 Hz telemetry updates!
+  const htmlContent = useMemo(() => {
+    const initCoords = routeCoordinates.length > 0 ? routeCoordinates : [[28.6315, 77.2167], [28.6325, 77.2164]];
+    const initialCenter = initCoords[0];
+    const initialHeading = telemetry?.heading_deg ?? 344;
+    const initialRouteGeoJSON = JSON.stringify(
+      initCoords.map((p) => [p[1], p[0]])
+    );
+    const initialOriginJSON = JSON.stringify(
+      customOrigin
+        ? [customOrigin[1], customOrigin[0]]
+        : [initialCenter[1], initialCenter[0]]
+    );
+    const initialDestJSON = JSON.stringify(
+      customDestination
+        ? [customDestination[1], customDestination[0]]
+        : [initCoords[initCoords.length - 1][1], initCoords[initCoords.length - 1][0]]
+    );
 
-  const htmlContent = `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -141,23 +237,24 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
     /* Custom 3D Vehicle Marker Element with Forward Direction Beam */
     .nav-car-wrap {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
+      pointer-events: none;
     }
     .nav-car-arrow {
-      width: 28px;
-      height: 28px;
-      transition: transform 0.1s linear;
-      filter: drop-shadow(0 4px 10px rgba(2, 132, 199, 0.7));
+      width: 32px;
+      height: 32px;
+      filter: drop-shadow(0 4px 8px rgba(2, 132, 199, 0.7));
+      transform-origin: center center;
     }
     .nav-car-halo {
       position: absolute;
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       background: rgba(2, 132, 199, 0.2);
       border: 1.5px solid rgba(56, 189, 248, 0.5);
@@ -228,10 +325,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   <script>
     var initialLon = ${initialCenter[1]};
     var initialLat = ${initialCenter[0]};
+    var initialRouteCoords = ${initialRouteGeoJSON};
+    var initialOrigin = ${initialOriginJSON};
+    var initialDest = ${initialDestJSON};
     var is3D = ${is3DMode ? 'true' : 'false'};
     var isFollowing = true;
-    var currentHeading = 0;
+    var currentHeading = ${initialHeading};
     var prevBlackout = false;
+    var mapIsLoaded = false;
+    var pendingRoute = null;
 
     // Initialize Real MapLibre GL 3D Vector Map with All Native Gestures (Apple/Google Maps)
     var map = new maplibregl.Map({
@@ -240,7 +342,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       center: [initialLon, initialLat],
       zoom: 16.5,
       pitch: is3D ? 60 : 0, // Real 3D Perspective Pitch
-      bearing: 0,
+      bearing: is3D ? currentHeading : 0,
       maxPitch: 85,
       attributionControl: false,
       dragPan: true,
@@ -264,17 +366,57 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     var carEl = document.createElement('div');
     carEl.id = 'carPuckWrap';
     carEl.className = 'nav-car-wrap';
-    carEl.innerHTML = '<div class="nav-car-halo"></div><svg id="carNavArrow" class="nav-car-arrow" viewBox="0 0 32 32"><path d="M16 3 L28 27 L16 21 L4 27 Z" fill="#0284c7" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round" /></svg>';
+    carEl.innerHTML = '<div class="nav-car-halo"></div><svg id="carNavArrow" class="nav-car-arrow" viewBox="0 0 32 32"><path d="M16 2 L28 27 L16 21 L4 27 Z" fill="#0284c7" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round" /></svg>';
 
     var ghostEl = document.createElement('div');
     ghostEl.className = 'ghost-puck';
 
-    // Disable auto-follow when user manually manipulates map
-    map.on('dragstart', function() { isFollowing = false; });
-    map.on('rotatestart', function() { isFollowing = false; });
-    map.on('pitchstart', function() { isFollowing = false; });
+    // MapLibre Marker with MAP rotation & pitch alignment for authentic road-aligned tracking
+    carMarker = new maplibregl.Marker({
+      element: carEl,
+      anchor: 'center',
+      rotationAlignment: 'map',
+      pitchAlignment: 'map'
+    })
+      .setLngLat([initialLon, initialLat])
+      .setRotation(currentHeading)
+      .addTo(map);
+
+    ghostMarker = new maplibregl.Marker({ element: ghostEl, anchor: 'center' });
+
+    function notifyTracking(state) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'TRACKING_STATE',
+          isTracking: state
+        }));
+      }
+    }
+
+    // Disable auto-follow ONLY when user manually interacts with map via touch/mouse
+    map.on('dragstart', function(e) {
+      if (e && e.originalEvent) {
+        isFollowing = false;
+        notifyTracking(false);
+      }
+    });
+    map.on('rotatestart', function(e) {
+      if (e && e.originalEvent) {
+        isFollowing = false;
+        notifyTracking(false);
+      }
+    });
+    map.on('pitchstart', function(e) {
+      if (e && e.originalEvent) {
+        isFollowing = false;
+        notifyTracking(false);
+      }
+    });
     map.on('zoomstart', function(e) {
-      if (e.originalEvent) isFollowing = false;
+      if (e && e.originalEvent) {
+        isFollowing = false;
+        notifyTracking(false);
+      }
     });
 
     // Tap on map
@@ -288,7 +430,106 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       }
     });
 
+    function applyRoute(data) {
+      var rawPts = data.coordinates;
+      if (!rawPts || rawPts.length === 0) return;
+      var geoPts = rawPts.map(function(p) { return [p[1], p[0]]; });
+
+      if (map.getSource('route-casing')) {
+        map.getSource('route-casing').setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: geoPts }
+        });
+      } else {
+        map.addSource('route-casing', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: geoPts } }
+        });
+        map.addLayer({
+          id: 'route-casing-line',
+          type: 'line',
+          source: 'route-casing',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#0284c7', 'line-width': 12, 'line-opacity': 0.38 }
+        });
+      }
+
+      if (map.getSource('route-polyline')) {
+        map.getSource('route-polyline').setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: geoPts }
+        });
+      } else {
+        map.addSource('route-polyline', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: geoPts } }
+        });
+        map.addLayer({
+          id: 'route-polyline-line',
+          type: 'line',
+          source: 'route-polyline',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#1a73e8', 'line-width': 7, 'line-opacity': 1.0 }
+        });
+      }
+
+      if (map.getSource('route-inner')) {
+        map.getSource('route-inner').setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: geoPts }
+        });
+      } else {
+        map.addSource('route-inner', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: geoPts } }
+        });
+        map.addLayer({
+          id: 'route-inner-line',
+          type: 'line',
+          source: 'route-inner',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#93c5fd', 'line-width': 2.5, 'line-opacity': 0.95 }
+        });
+      }
+
+      // Origin Marker
+      var orig = data.origin || rawPts[0];
+      if (orig) {
+        if (originMarker) originMarker.remove();
+        var origEl = document.createElement('div');
+        origEl.className = 'stop-pin pin-origin';
+        origEl.innerText = 'START';
+        originMarker = new maplibregl.Marker({ element: origEl, anchor: 'center' })
+          .setLngLat([orig[1], orig[0]])
+          .addTo(map);
+      }
+
+      // Destination Marker
+      var dest = data.destination || rawPts[rawPts.length - 1];
+      if (dest) {
+        if (destMarker) destMarker.remove();
+        var destEl = document.createElement('div');
+        destEl.className = 'stop-pin pin-dest';
+        destEl.innerText = 'FINISH';
+        destMarker = new maplibregl.Marker({ element: destEl, anchor: 'center' })
+          .setLngLat([dest[1], dest[0]])
+          .addTo(map);
+      }
+
+      if (geoPts.length > 1 && data.fitBounds !== false) {
+        var bounds = geoPts.reduce(function(b, coord) {
+          return b.extend(coord);
+        }, new maplibregl.LngLatBounds(geoPts[0], geoPts[0]));
+        map.fitBounds(bounds, { padding: 60, duration: 600, maxZoom: 17 });
+      }
+    }
+
     map.on('load', function() {
+      mapIsLoaded = true;
+
       // 1. Add 3D Extruded Buildings Layer (Architectural shading in 3D WebGL)
       var layers = map.getStyle().layers || [];
       var labelLayer = layers.find(function(l) {
@@ -325,33 +566,76 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         }, labelLayerId);
       }
 
-      // 2. Route Casing Glow Layer
-      map.addSource('route-casing', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
-      });
-      map.addLayer({
-        id: 'route-casing-line',
-        type: 'line',
-        source: 'route-casing',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#0369a1', 'line-width': 9, 'line-opacity': 0.28 }
-      });
+      // 2. Navigation Route Casing Glow (Cyan / Navy Blue outer glow)
+      if (!map.getSource('route-casing')) {
+        map.addSource('route-casing', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: initialRouteCoords }
+          }
+        });
+        map.addLayer({
+          id: 'route-casing-line',
+          type: 'line',
+          source: 'route-casing',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#0284c7',
+            'line-width': 12,
+            'line-opacity': 0.38
+          }
+        });
+      }
 
-      // 3. Navigation Route Polyline
-      map.addSource('route-polyline', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
-      });
-      map.addLayer({
-        id: 'route-polyline-line',
-        type: 'line',
-        source: 'route-polyline',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#0284c7', 'line-width': 5, 'line-opacity': 0.95 }
-      });
+      // 3. Navigation Route Polyline (Bold Google Maps Royal Blue #1a73e8)
+      if (!map.getSource('route-polyline')) {
+        map.addSource('route-polyline', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: initialRouteCoords }
+          }
+        });
+        map.addLayer({
+          id: 'route-polyline-line',
+          type: 'line',
+          source: 'route-polyline',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#1a73e8',
+            'line-width': 7,
+            'line-opacity': 1.0
+          }
+        });
+      }
 
-      // 4. Ghost B1 Trail
+      // 4. Navigation Route Inner Accent (Bright Core Line #93c5fd)
+      if (!map.getSource('route-inner')) {
+        map.addSource('route-inner', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: initialRouteCoords }
+          }
+        });
+        map.addLayer({
+          id: 'route-inner-line',
+          type: 'line',
+          source: 'route-inner',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#93c5fd',
+            'line-width': 2.5,
+            'line-opacity': 0.95
+          }
+        });
+      }
+
+      // 5. Ghost B1 Trail
       map.addSource('ghost-trail', {
         type: 'geojson',
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
@@ -364,12 +648,34 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         paint: { 'line-color': '#f97316', 'line-width': 3, 'line-dasharray': [4, 3], 'line-opacity': 0.85 }
       });
 
-      // Add Car Marker
-      carMarker = new maplibregl.Marker({ element: carEl, anchor: 'center' })
-        .setLngLat([initialLon, initialLat])
-        .addTo(map);
+      // Render initial START & FINISH pins
+      if (initialOrigin) {
+        var origEl = document.createElement('div');
+        origEl.className = 'stop-pin pin-origin';
+        origEl.innerText = 'START';
+        originMarker = new maplibregl.Marker({ element: origEl, anchor: 'center' })
+          .setLngLat(initialOrigin)
+          .addTo(map);
+      }
+      if (initialDest) {
+        var destEl = document.createElement('div');
+        destEl.className = 'stop-pin pin-dest';
+        destEl.innerText = 'FINISH';
+        destMarker = new maplibregl.Marker({ element: destEl, anchor: 'center' })
+          .setLngLat(initialDest)
+          .addTo(map);
+      }
 
-      ghostMarker = new maplibregl.Marker({ element: ghostEl, anchor: 'center' });
+      // If a route was received before load, apply it now
+      if (pendingRoute) {
+        applyRoute(pendingRoute);
+        pendingRoute = null;
+      }
+
+      // Notify React Native that Map is ready
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+      }
     });
 
     // Communication receiver
@@ -378,56 +684,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         var msg = JSON.parse(event.data);
 
         if (msg.type === 'ROUTE_UPDATE') {
-          var rawPts = msg.data.coordinates;
-          if (rawPts && rawPts.length > 0) {
-            // Convert [lat, lon] to GeoJSON [lon, lat]
-            var geoPts = rawPts.map(function(p) { return [p[1], p[0]]; });
-
-            if (map.getSource('route-casing')) {
-              map.getSource('route-casing').setData({
-                type: 'Feature',
-                properties: {},
-                geometry: { type: 'LineString', coordinates: geoPts }
-              });
-            }
-            if (map.getSource('route-polyline')) {
-              map.getSource('route-polyline').setData({
-                type: 'Feature',
-                properties: {},
-                geometry: { type: 'LineString', coordinates: geoPts }
-              });
-            }
-
-            if (geoPts.length > 1 && msg.data.fitBounds !== false) {
-              var bounds = geoPts.reduce(function(b, coord) {
-                return b.extend(coord);
-              }, new maplibregl.LngLatBounds(geoPts[0], geoPts[0]));
-              map.fitBounds(bounds, { padding: 50, duration: 600, maxZoom: 17 });
-            }
-
-            // Origin Marker
-            var orig = msg.data.origin || rawPts[0];
-            if (orig) {
-              if (originMarker) originMarker.remove();
-              var origEl = document.createElement('div');
-              origEl.className = 'stop-pin pin-origin';
-              origEl.innerText = 'START';
-              originMarker = new maplibregl.Marker({ element: origEl, anchor: 'center' })
-                .setLngLat([orig[1], orig[0]])
-                .addTo(map);
-            }
-
-            // Destination Marker
-            var dest = msg.data.destination || rawPts[rawPts.length - 1];
-            if (dest) {
-              if (destMarker) destMarker.remove();
-              var destEl = document.createElement('div');
-              destEl.className = 'stop-pin pin-dest';
-              destEl.innerText = 'FINISH';
-              destMarker = new maplibregl.Marker({ element: destEl, anchor: 'center' })
-                .setLngLat([dest[1], dest[0]])
-                .addTo(map);
-            }
+          if (!mapIsLoaded) {
+            pendingRoute = msg.data;
+          } else {
+            applyRoute(msg.data);
           }
         }
 
@@ -441,12 +701,12 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
           if (carMarker) {
             carMarker.setLngLat([lon, lat]);
+            carMarker.setRotation(heading);
           }
 
           var arrow = document.getElementById('carNavArrow');
           var puck = document.getElementById('carPuckWrap');
           if (arrow) {
-            arrow.style.transform = 'rotate(' + heading + 'deg)';
             var p = arrow.querySelector('path');
             if (p) {
               p.setAttribute('fill', isBlackout ? '#ef4444' : '#0284c7');
@@ -507,13 +767,13 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 bearing: heading,
                 pitch: 60,
                 zoom: 16.8,
-                duration: 120,
+                duration: 90,
                 easing: function(t) { return t; }
               });
             } else {
               map.easeTo({
                 center: [lon, lat],
-                duration: 120,
+                duration: 90,
                 easing: function(t) { return t; }
               });
             }
@@ -544,6 +804,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
         if (msg.type === 'RECENTER_VEHICLE') {
           isFollowing = true;
+          notifyTracking(true);
           if (carMarker) {
             var curLngLat = carMarker.getLngLat();
             if (is3D) {
@@ -552,14 +813,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 pitch: 60,
                 bearing: currentHeading || 0,
                 zoom: 16.8,
-                duration: 800
+                duration: 600
               });
             } else {
               map.flyTo({
                 center: curLngLat,
                 pitch: 0,
-                zoom: 15.5,
-                duration: 800
+                bearing: 0,
+                zoom: 16.5,
+                duration: 600
               });
             }
           }
@@ -574,7 +836,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   </script>
 </body>
 </html>
-  `;
+    `;
+  }, []);
+
+  const htmlSource = useMemo(() => ({ html: htmlContent }), [htmlContent]);
 
   const RNWebView = WebView as any;
 
@@ -583,7 +848,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       <RNWebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ html: htmlContent }}
+        source={htmlSource}
         onMessage={handleMessage}
         style={styles.webview}
         javaScriptEnabled={true}
@@ -591,6 +856,60 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         scalesPageToFit={true}
         scrollEnabled={false}
       />
+
+      {/* Floating Active Tracking Control (3D & 2D Car Follow) */}
+      <View style={styles.trackingFloatingWrap} pointerEvents="box-none">
+        {!isTracking ? (
+          <TouchableOpacity
+            style={styles.recenterBtn}
+            onPress={centerOnVehicle}
+            activeOpacity={0.8}
+          >
+            <IconCrosshair size={16} color="#ffffff" />
+            <Text style={styles.recenterBtnText}>🎯 RECENTER CAR</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.trackingSegment}>
+            <TouchableOpacity
+              style={[
+                styles.trackingSegmentBtn,
+                internal3D && styles.trackingSegmentBtnActive,
+              ]}
+              onPress={trackIn3D}
+              activeOpacity={0.8}
+            >
+              <IconNavigation size={13} color={internal3D ? '#ffffff' : '#64748b'} />
+              <Text
+                style={[
+                  styles.trackingSegmentText,
+                  internal3D && styles.trackingSegmentTextActive,
+                ]}
+              >
+                3D TRACK
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.trackingSegmentBtn,
+                !internal3D && styles.trackingSegmentBtnActive,
+              ]}
+              onPress={trackIn2D}
+              activeOpacity={0.8}
+            >
+              <IconCompass size={13} color={!internal3D ? '#ffffff' : '#64748b'} />
+              <Text
+                style={[
+                  styles.trackingSegmentText,
+                  !internal3D && styles.trackingSegmentTextActive,
+                ]}
+              >
+                2D TRACK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       {/* Floating Map Controls (Optional) */}
       {showFloatingControls && (
@@ -636,10 +955,78 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f172a',
   },
+  trackingFloatingWrap: {
+    position: 'absolute',
+    right: 14,
+    bottom: 82,
+    zIndex: 60,
+  },
+  recenterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 22,
+    backgroundColor: '#1a73e8',
+    borderColor: '#1557b0',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  recenterBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  trackingSegment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 22,
+    padding: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 2,
+  },
+  trackingSegmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 18,
+  },
+  trackingSegmentBtnActive: {
+    backgroundColor: '#1a73e8',
+    shadowColor: '#1a73e8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trackingSegmentText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.4,
+  },
+  trackingSegmentTextActive: {
+    color: '#ffffff',
+  },
   floatingControls: {
     position: 'absolute',
     right: 14,
-    bottom: 90,
+    bottom: 135,
     gap: 8,
     zIndex: 50,
   },

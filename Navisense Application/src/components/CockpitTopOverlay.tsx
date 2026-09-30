@@ -39,6 +39,7 @@ interface CockpitTopOverlayProps {
   customDestination?: [number, number] | null;
   chaosOverride?: ChaosStateOverride;
   isLandscape?: boolean;
+  onSwitchToMapsMode?: () => void;
 }
 
 export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
@@ -56,6 +57,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
   customOrigin,
   customDestination,
   isLandscape = false,
+  onSwitchToMapsMode,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -96,10 +98,8 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
     >
       {/* 1. Sleek Native Turn-by-Turn Dynamic Island (Compact HUD) */}
       {!isExpanded ? (
-        <TouchableOpacity
+        <View
           style={[styles.compactHud, isLandscape && styles.compactHudLandscape]}
-          activeOpacity={0.9}
-          onPress={() => setIsExpanded(true)}
         >
           {/* Turn Maneuver Box */}
           <View style={[styles.maneuverBox, isBlackout && styles.maneuverBoxOutage]}>
@@ -107,8 +107,12 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
             <Text style={styles.maneuverDist}>350m</Text>
           </View>
 
-          {/* Road & Navigation Status */}
-          <View style={styles.compactInfoCol}>
+          {/* Road & Navigation Status (Tappable to expand) */}
+          <TouchableOpacity
+            style={styles.compactInfoCol}
+            onPress={() => setIsExpanded(true)}
+            activeOpacity={0.8}
+          >
             <View style={styles.compactTitleRow}>
               <Text style={styles.compactRoadText} numberOfLines={1}>
                 {roadName || corridorTitle.split('➔')[0].trim()}
@@ -133,7 +137,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
                   : 'GNSS LOCKED • High Precision Fusion'}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Speed & Error Margin Cluster */}
           <View style={styles.compactSpeedCluster}>
@@ -158,15 +162,28 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
             </View>
           </View>
 
+          {/* Switch to Maps Mode */}
+          {onSwitchToMapsMode && (
+            <TouchableOpacity
+              style={styles.compactMapsBtn}
+              onPress={onSwitchToMapsMode}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.compactMapsBtnText}>MAPS</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Expand Details Trigger */}
           <TouchableOpacity
             style={styles.compactExpandBtn}
             onPress={() => setIsExpanded(true)}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <IconChevronDown size={18} color="#94a3b8" />
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
       ) : (
         /* 2. Expanded Engineering & Telemetry Deck */
         <View style={styles.expandedWrapper} pointerEvents="box-none">
@@ -176,13 +193,22 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
             <View style={styles.headerSubRow}>
               <View style={styles.brandDot} />
               <Text style={styles.brandText}>NAVISENSE IDR</Text>
+              {onSwitchToMapsMode && (
+                <TouchableOpacity
+                  style={styles.mapsHeaderBtn}
+                  onPress={onSwitchToMapsMode}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.mapsHeaderText}>🗺️ MAPS MODE</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.collapseHeaderBtn}
                 onPress={() => setIsExpanded(false)}
                 activeOpacity={0.7}
               >
                 <IconChevronUp size={16} color="#64748b" />
-                <Text style={styles.collapseHeaderText}>MINIMIZE HUD</Text>
+                <Text style={styles.collapseHeaderText}>MINIMIZE</Text>
               </TouchableOpacity>
             </View>
 
@@ -647,11 +673,24 @@ const styles = StyleSheet.create({
   compactAccTextNormal: {
     color: '#34d399',
   },
+  compactAccTextOutage: {
+    color: '#f87171',
+  },
   compactAccPillOutage: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
-  compactAccTextOutage: {
-    color: '#f87171',
+  compactMapsBtn: {
+    backgroundColor: '#1a73e8',
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginLeft: 4,
+  },
+  compactMapsBtnText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   compactExpandBtn: {
     width: 32,
@@ -676,6 +715,20 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  mapsHeaderBtn: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  mapsHeaderText: {
+    color: '#1a73e8',
+    fontSize: 9,
+    fontWeight: '800',
   },
   headerSubRow: {
     flexDirection: 'row',

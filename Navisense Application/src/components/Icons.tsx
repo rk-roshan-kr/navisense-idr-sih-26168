@@ -155,4 +155,34 @@ export const IconTurnLeft: React.FC<IconProps> = ({ size = 20, color = '#ffffff'
   </Svg>
 );
 
+export const IconSearch: React.FC<IconProps> = ({ size = 20, color = '#5f6368' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="11" cy="11" r="8" />
+    <Line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </Svg>
+);
+
+export const IconMic: React.FC<IconProps> = ({ size = 20, color = '#4285f4' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+    <Path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <Line x1="12" y1="19" x2="12" y2="23" />
+    <Line x1="8" y1="23" x2="16" y2="23" />
+  </Svg>
+);
+
+export const IconNavigation: React.FC<IconProps> = ({ size = 20, color = '#1a73e8' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="3 11 22 2 13 21 11 13 3 11" fill={color} />
+  </Svg>
+);
+
+export const IconMapPin: React.FC<IconProps> = ({ size = 20, color = '#ea4335' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <Circle cx="12" cy="10" r="3" fill={color} />
+  </Svg>
+);
+
+
 

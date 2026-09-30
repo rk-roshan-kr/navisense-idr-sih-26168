@@ -106,6 +106,7 @@ export const CockpitBottomBar: React.FC<CockpitBottomBarProps> = ({
         style={styles.settingsBtn}
         onPress={onOpenDiagnostics}
         activeOpacity={0.8}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         accessibilityLabel="Open Technical Architecture & Diagnostics"
       >
         <IconSettings size={18} color="#1e293b" />

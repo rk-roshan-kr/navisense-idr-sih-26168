@@ -28,6 +28,7 @@ import {
   type NetworkFault,
   type SensorFault,
 } from './src/engine/faultInjectionLab';
+import { GoogleMapsExploreOverlay } from './src/components/GoogleMapsExploreOverlay';
 
 export default function App() {
   // Core Engine References (Native-like Mission Core)
@@ -46,12 +47,17 @@ export default function App() {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
+  const [appExperienceMode, setAppExperienceMode] = useState<'COCKPIT_HUD' | 'GOOGLE_MAPS'>('COCKPIT_HUD');
 
   // Authoritative State Machine Signals & Dual Mode
   const [isLiveCarMode, setIsLiveCarMode] = useState<boolean>(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('delhi');
-  const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
-  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>([]);
+  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>(() => {
+    return simRef.current.loadPreset('delhi');
+  });
+  const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(() => {
+    return simRef.current.step();
+  });
   const [customOrigin, setCustomOrigin] = useState<[number, number] | null>(null);
   const [customDestination, setCustomDestination] = useState<[number, number] | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -74,13 +80,15 @@ export default function App() {
   const [showPreflightModal, setShowPreflightModal] = useState<boolean>(false);
   const [chaosOverride, setChaosOverride] = useState<ChaosStateOverride>('NONE');
 
-  // Initialize with Delhi preset route on load
+  // Ensure Delhi preset route is loaded if empty
   useEffect(() => {
-    const coords = simRef.current.loadPreset('delhi');
-    setRouteCoordinates(coords);
-    const initialPacket = simRef.current.step();
-    if (initialPacket) {
-      setTelemetry(initialPacket);
+    if (routeCoordinates.length === 0) {
+      const coords = simRef.current.loadPreset('delhi');
+      setRouteCoordinates(coords);
+      const initialPacket = simRef.current.step();
+      if (initialPacket) {
+        setTelemetry(initialPacket);
+      }
     }
   }, []);
 
@@ -539,43 +547,65 @@ export default function App() {
                 onToggleGhostBaseline={handleToggleGhostBaseline}
                 customOrigin={customOrigin}
                 customDestination={customDestination}
-                fitBounds={!isLiveCarMode}
+                fitBounds={!isLiveCarMode && appExperienceMode === 'GOOGLE_MAPS'}
                 is3DMode={is3DMode}
                 onToggle3DMode={() => setIs3DMode((prev) => !prev)}
               />
             </ScreenErrorBoundary>
 
-            {/* Top Floating Cockpit Overlay (Auto-adapts to Portrait and Landscape) */}
-            <CockpitTopOverlay
-              telemetry={telemetry}
-              isPlaying={isPlaying}
-              isBlackout={isBlackout}
-              blackoutElapsedS={blackoutElapsedS}
-              onTogglePlay={handleTogglePlay}
-              onClearPoints={handleClearPoints}
-              selectedPresetId={selectedPresetId}
-              onSelectPreset={handleSelectPreset}
-              isLiveCarMode={isLiveCarMode}
-              onToggleLiveCarMode={setIsLiveCarMode}
-              roadName={isLiveCarMode ? 'Real Road Navigation' : activePreset.name.split(':')[0]}
-              customOrigin={customOrigin}
-              customDestination={customDestination}
-              chaosOverride={chaosOverride}
-              isLandscape={isLandscape}
-            />
+            {/* Conditional Navigation Experience: Google Maps Search Mode vs Automotive Cockpit HUD Mode */}
+            {appExperienceMode === 'GOOGLE_MAPS' ? (
+              <GoogleMapsExploreOverlay
+                selectedPresetId={selectedPresetId}
+                onSelectPreset={handleSelectPreset}
+                onStartDriving={() => {
+                  setAppExperienceMode('COCKPIT_HUD');
+                  setIs3DMode(true);
+                  if (!isPlaying) handleTogglePlay();
+                }}
+                onSwitchToCockpitHud={() => setAppExperienceMode('COCKPIT_HUD')}
+                onOpenSettings={() => setShowDiagnostics(true)}
+                isLandscape={isLandscape}
+                destinationCoord={customDestination}
+                originCoord={customOrigin}
+                onClearRoute={handleClearPoints}
+              />
+            ) : (
+              <>
+                {/* Top Floating Cockpit Overlay (Auto-adapts to Portrait and Landscape) */}
+                <CockpitTopOverlay
+                  telemetry={telemetry}
+                  isPlaying={isPlaying}
+                  isBlackout={isBlackout}
+                  blackoutElapsedS={blackoutElapsedS}
+                  onTogglePlay={handleTogglePlay}
+                  onClearPoints={handleClearPoints}
+                  selectedPresetId={selectedPresetId}
+                  onSelectPreset={handleSelectPreset}
+                  isLiveCarMode={isLiveCarMode}
+                  onToggleLiveCarMode={setIsLiveCarMode}
+                  roadName={isLiveCarMode ? 'Real Road Navigation' : activePreset.name.split(':')[0]}
+                  customOrigin={customOrigin}
+                  customDestination={customDestination}
+                  chaosOverride={chaosOverride}
+                  isLandscape={isLandscape}
+                  onSwitchToMapsMode={() => setAppExperienceMode('GOOGLE_MAPS')}
+                />
 
-            {/* Bottom Floating Action Bar: 3D Cockpit / 2D Freecam + Pause/Start + Outage Action + Settings */}
-            <CockpitBottomBar
-              isPlaying={isPlaying}
-              onTogglePlay={handleTogglePlay}
-              isBlackout={isBlackout}
-              onToggleBlackout={handleToggleBlackout}
-              is3DMode={is3DMode}
-              onToggle3DMode={() => setIs3DMode((prev) => !prev)}
-              onOpenDiagnostics={() => setShowDiagnostics(true)}
-              isLiveCarMode={isLiveCarMode}
-              isLandscape={isLandscape}
-            />
+                {/* Bottom Floating Action Bar: 3D Cockpit / 2D Freecam + Pause/Start + Outage Action + Settings */}
+                <CockpitBottomBar
+                  isPlaying={isPlaying}
+                  onTogglePlay={handleTogglePlay}
+                  isBlackout={isBlackout}
+                  onToggleBlackout={handleToggleBlackout}
+                  is3DMode={is3DMode}
+                  onToggle3DMode={() => setIs3DMode((prev) => !prev)}
+                  onOpenDiagnostics={() => setShowDiagnostics(true)}
+                  isLiveCarMode={isLiveCarMode}
+                  isLandscape={isLandscape}
+                />
+              </>
+            )}
           </View>
 
           {/* 4. Underlying Technical Architecture & Failure Lab Drawer */}
@@ -596,6 +626,8 @@ export default function App() {
               onSelectChaosOverride={handleSelectChaosOverride}
               onRandomizeChaos={handleRandomizeChaos}
               onResetChaos={handleResetChaos}
+              appExperienceMode={appExperienceMode}
+              onSelectAppExperienceMode={setAppExperienceMode}
             />
           </ScreenErrorBoundary>
 
