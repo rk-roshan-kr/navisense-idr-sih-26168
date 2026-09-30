@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { theme } from './src/theme';
 import type { TelemetryPacket } from './src/types';
-import { TopBar } from './src/components/TopBar';
-import { NavigationCard } from './src/components/NavigationCard';
+import { CockpitTopOverlay } from './src/components/CockpitTopOverlay';
+import { CockpitBottomBar } from './src/components/CockpitBottomBar';
 import { LiveMap } from './src/components/LiveMap';
 import { TechnicalArchitectureDrawer } from './src/components/TechnicalArchitectureDrawer';
 import { RoutePlannerModal } from './src/components/RoutePlannerModal';
 import { PreflightCheckModal } from './src/components/PreflightCheckModal';
 import { CustomRouteSimulator, PRESET_ROUTES } from './src/utils/customRouteSimulator';
+import { LiveVehicleTracker } from './src/services/liveVehicleTracker';
 
 import { AppErrorBoundary } from './src/components/AppErrorBoundary';
 import { ScreenErrorBoundary } from './src/components/ScreenErrorBoundary';
@@ -31,6 +32,7 @@ import {
 export default function App() {
   // Core Engine References (Native-like Mission Core)
   const simRef = useRef<CustomRouteSimulator>(new CustomRouteSimulator());
+  const liveTrackerRef = useRef<LiveVehicleTracker>(new LiveVehicleTracker());
   const watchdogRef = useRef<SensorWatchdog>(new SensorWatchdog(10));
   const validatorRef = useRef<OutputValidator>(new OutputValidator());
   const supervisorRef = useRef<NavigationSupervisor>(new NavigationSupervisor());
@@ -40,7 +42,13 @@ export default function App() {
   const autoDemoTimersRef = useRef<any[]>([]);
   const simIntervalRef = useRef<any>(null);
 
-  // Authoritative State Machine Signals
+  // Automotive Screen Orientation & View Modes
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+  const [is3DMode, setIs3DMode] = useState<boolean>(true);
+
+  // Authoritative State Machine Signals & Dual Mode
+  const [isLiveCarMode, setIsLiveCarMode] = useState<boolean>(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('delhi');
   const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>([]);
@@ -76,9 +84,9 @@ export default function App() {
     }
   }, []);
 
-  // 10 Hz State Machine & Telemetry Tick
+  // 10 Hz State Machine & Telemetry Tick (Only active in Benchmark Mode)
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && !isLiveCarMode) {
       simIntervalRef.current = setInterval(() => {
         const monotonicNow = Date.now();
 
@@ -156,7 +164,62 @@ export default function App() {
         clearInterval(simIntervalRef.current);
       }
     };
-  }, [isPlaying, activeGnssFault, activeSensorFault]);
+  }, [isPlaying, isLiveCarMode, activeGnssFault, activeSensorFault]);
+
+  // Dual-Mode Lifecycle Manager: Benchmark Simulator vs Real Car Drive
+  useEffect(() => {
+    if (isLiveCarMode) {
+      // 1. Terminate simulation tick
+      if (simIntervalRef.current) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
+      }
+      simRef.current.isPlaying = false;
+      autoDemoTimersRef.current.forEach(clearTimeout);
+      autoDemoTimersRef.current = [];
+
+      setIsPlaying(true);
+      supervisorRef.current.setNavigationState('NAVIGATING');
+      setStatusMsg('Starting Live Car Drive: Initializing phone GPS & sensors...');
+
+      // 2. Wire live telemetry callback to UI state
+      liveTrackerRef.current.setTelemetryCallback((packet: TelemetryPacket) => {
+        setTelemetry(packet);
+        const crumbs = liveTrackerRef.current.getRouteBreadcrumbs();
+        if (crumbs.length > 0) {
+          setRouteCoordinates([...crumbs]);
+        }
+      });
+
+      // 3. Request permissions and begin hardware polling
+      liveTrackerRef.current.start().then((granted) => {
+        if (!granted) {
+          setStatusMsg('GPS permission denied. Enable location access for Live Car Drive.');
+        } else {
+          setStatusMsg('Live Car Drive: Connected to phone GPS & 50Hz IMU.');
+        }
+      });
+    } else {
+      // Stop physical sensors and GPS subscription
+      liveTrackerRef.current.stop();
+
+      // Reload active benchmark preset corridor
+      const coords = simRef.current.loadPreset(selectedPresetId);
+      setRouteCoordinates(coords);
+      const initialPacket = simRef.current.step();
+      if (initialPacket) {
+        setTelemetry(initialPacket);
+      }
+      setIsPlaying(false);
+      supervisorRef.current.setNavigationState('IDLE');
+      const active = PRESET_ROUTES.find((p) => p.id === selectedPresetId) || PRESET_ROUTES[0];
+      setStatusMsg(`${active.name} loaded. Ready to navigate.`);
+    }
+
+    return () => {
+      liveTrackerRef.current.stop();
+    };
+  }, [isLiveCarMode]);
 
   // Optional WebSocket connection to backend python server (127.0.0.1:8000)
   useEffect(() => {
@@ -208,6 +271,24 @@ export default function App() {
 
   // Handlers
   const handleTogglePlay = () => {
+    if (isLiveCarMode) {
+      if (isPlaying) {
+        liveTrackerRef.current.stop();
+        setIsPlaying(false);
+        supervisorRef.current.setNavigationState('IDLE');
+        setStatusMsg('Live GPS Tracking Paused.');
+      } else {
+        liveTrackerRef.current.start().then((ok) => {
+          setIsPlaying(ok);
+          if (ok) {
+            supervisorRef.current.setNavigationState('NAVIGATING');
+            setStatusMsg('Live GPS Tracking Resumed.');
+          }
+        });
+      }
+      return;
+    }
+
     if (!isPlaying) {
       setIsPlaying(true);
       simRef.current.isPlaying = true;
@@ -238,14 +319,22 @@ export default function App() {
   const handleReset = () => {
     autoDemoTimersRef.current.forEach(clearTimeout);
     autoDemoTimersRef.current = [];
-    setIsPlaying(false);
-    simRef.current.reset();
     watchdogRef.current.reset();
     validatorRef.current.reset();
     faultLabRef.current.resetAllFaults();
     setActiveGnssFault('NONE');
     setActiveNetworkFault('ONLINE');
     setActiveSensorFault('NONE');
+
+    if (isLiveCarMode) {
+      liveTrackerRef.current.resetRoute();
+      setRouteCoordinates([]);
+      setStatusMsg('Live vehicle route reset.');
+      return;
+    }
+
+    setIsPlaying(false);
+    simRef.current.reset();
 
     const packet = simRef.current.step();
     if (packet) setTelemetry(packet);
@@ -256,6 +345,17 @@ export default function App() {
   };
 
   const handleToggleBlackout = () => {
+    if (isLiveCarMode) {
+      const next = liveTrackerRef.current.toggleBlackout();
+      setActiveGnssFault(next ? 'BLACKOUT' : 'NONE');
+      setStatusMsg(
+        next
+          ? '⚠️ REAL GNSS OUTAGE: Switched to 50Hz Phone IMU Dead Reckoning'
+          : '✅ REAL GNSS RESTORED: Reconverging position'
+      );
+      return;
+    }
+
     const next = simRef.current.toggleBlackout();
     setActiveGnssFault(next ? 'BLACKOUT' : 'NONE');
 
@@ -286,6 +386,9 @@ export default function App() {
   };
 
   const handleSelectPreset = (presetId: string) => {
+    if (isLiveCarMode) {
+      setIsLiveCarMode(false);
+    }
     setSelectedPresetId(presetId);
     setIsPlaying(false);
     const coords = simRef.current.loadPreset(presetId);
@@ -426,7 +529,7 @@ export default function App() {
         <SafeAreaView style={styles.safeContainer} edges={['top', 'left', 'right']}>
           <StatusBar style="dark" />
 
-          {/* 1. Full-Bleed Map View with Floating Apple Maps Turn Header */}
+          {/* 1. Full-Bleed 3D Vector Map View with Floating Automotive Overlays */}
           <View style={styles.mapWrapper}>
             <ScreenErrorBoundary screenName="Vector Map Display">
               <LiveMap
@@ -436,45 +539,44 @@ export default function App() {
                 onToggleGhostBaseline={handleToggleGhostBaseline}
                 customOrigin={customOrigin}
                 customDestination={customDestination}
+                fitBounds={!isLiveCarMode}
+                is3DMode={is3DMode}
+                onToggle3DMode={() => setIs3DMode((prev) => !prev)}
               />
             </ScreenErrorBoundary>
 
-            {/* Floating Apple Maps Turn-by-Turn Automotive HUD */}
-            <TopBar
-              isConnected={isConnected}
+            {/* Top Floating Cockpit Overlay (Auto-adapts to Portrait and Landscape) */}
+            <CockpitTopOverlay
+              telemetry={telemetry}
               isPlaying={isPlaying}
               isBlackout={isBlackout}
               blackoutElapsedS={blackoutElapsedS}
               onTogglePlay={handleTogglePlay}
-              onReset={handleReset}
-              showGhostBaseline={showGhostBaseline}
-              onToggleGhostBaseline={handleToggleGhostBaseline}
-              onStartAutoDemo={() => handleRunScenario('scenario_a')}
+              onClearPoints={handleClearPoints}
               selectedPresetId={selectedPresetId}
               onSelectPreset={handleSelectPreset}
-              telemetry={telemetry}
-              roadName={activePreset.name.split(':')[0]}
+              isLiveCarMode={isLiveCarMode}
+              onToggleLiveCarMode={setIsLiveCarMode}
+              roadName={isLiveCarMode ? 'Real Road Navigation' : activePreset.name.split(':')[0]}
+              customOrigin={customOrigin}
+              customDestination={customDestination}
               chaosOverride={chaosOverride}
+              isLandscape={isLandscape}
             />
-          </View>
 
-          {/* 2. Lower Driver Cockpit & Primary Automotive Control Deck */}
-          <ScreenErrorBoundary screenName="Navigation Guidance HUD">
-            <NavigationCard
-              telemetry={telemetry}
-              totalDistanceKm={activePreset.distanceKm}
+            {/* Bottom Floating Action Bar: 3D Cockpit / 2D Freecam + Pause/Start + Outage Action + Settings */}
+            <CockpitBottomBar
               isPlaying={isPlaying}
               onTogglePlay={handleTogglePlay}
+              isBlackout={isBlackout}
               onToggleBlackout={handleToggleBlackout}
+              is3DMode={is3DMode}
+              onToggle3DMode={() => setIs3DMode((prev) => !prev)}
               onOpenDiagnostics={() => setShowDiagnostics(true)}
-              onOpenRoutePlanner={() => setShowRoutePlanner(true)}
-              onStartAutoDemo={() => handleRunScenario('scenario_a')}
-              onReset={handleReset}
-              roadName={activePreset.name.split(':')[0]}
-              chaosOverride={chaosOverride}
-              onRetryRoute={() => handleSelectPreset(selectedPresetId)}
+              isLiveCarMode={isLiveCarMode}
+              isLandscape={isLandscape}
             />
-          </ScreenErrorBoundary>
+          </View>
 
           {/* 4. Underlying Technical Architecture & Failure Lab Drawer */}
           <ScreenErrorBoundary screenName="Technical Diagnostics Drawer">

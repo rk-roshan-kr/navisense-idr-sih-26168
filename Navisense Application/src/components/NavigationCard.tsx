@@ -43,6 +43,7 @@ interface NavigationCardProps {
   roadName?: string;
   chaosOverride?: ChaosStateOverride;
   onRetryRoute?: () => void;
+  isLiveCarMode?: boolean;
 }
 
 export const NavigationCard: React.FC<NavigationCardProps> = ({
@@ -58,6 +59,7 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
   roadName = 'MG Road Corridor',
   chaosOverride = 'NONE',
   onRetryRoute,
+  isLiveCarMode = false,
 }) => {
   const handleSafeAction = (action?: () => void) => {
     if (action) {
@@ -434,7 +436,7 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
           {/* Status Line: Controlled Status Badge */}
           <View style={styles.statusLine}>
             <View style={styles.statusLeft}>
-              <ControlledStatusBadge status="GNSS CONNECTED" size="sm" />
+              <ControlledStatusBadge status={isLiveCarMode ? 'GNSS CONNECTED' : 'GNSS CONNECTED'} size="sm" />
               <Text style={styles.statusAccuracy}>({formattedAccuracy})</Text>
             </View>
             <Text style={styles.statusHeading} numberOfLines={1}>
@@ -452,10 +454,10 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
             </View>
             <View style={styles.alertTitles}>
               <Text style={styles.alertMainTitle} numberOfLines={1}>
-                {STRINGS.navigation.gnssSignalLost}
+                {isLiveCarMode ? 'LIVE GNSS OUTAGE ACTIVE' : STRINGS.navigation.gnssSignalLost}
               </Text>
               <Text style={styles.alertSubtitle} numberOfLines={1}>
-                {STRINGS.navigation.nidrDeadReckoningActive}
+                {isLiveCarMode ? 'Dead reckoning via physical phone IMU' : STRINGS.navigation.nidrDeadReckoningActive}
               </Text>
             </View>
             <View style={styles.outageTimer}>
@@ -469,7 +471,7 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
               Uncertainty: {formattedUncertainty}
             </Text>
             <Text style={styles.uncertaintyNote} numberOfLines={1} ellipsizeMode="tail">
-              Tracking along corridor • {formattedSpeed} km/h • Drift {formattedDriftRate}
+              {isLiveCarMode ? 'Empirical drift against phone GPS' : `Tracking along corridor • ${formattedSpeed} km/h • Drift ${formattedDriftRate}`}
             </Text>
           </View>
         </View>
@@ -478,17 +480,17 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
       {/* ══════════ 5. PRIMARY DRIVER ACTIONS (ROW 1) ══════════ */}
       <View style={styles.primaryActionRow}>
         <TouchableOpacity
-          style={[styles.driveBtn, isPlaying && styles.driveBtnPlaying]}
+          style={[styles.driveBtn, (isPlaying || isLiveCarMode) && styles.driveBtnPlaying]}
           onPress={() => handleSafeAction(onTogglePlay)}
           activeOpacity={0.8}
         >
-          {isPlaying ? (
+          {(isPlaying || isLiveCarMode) ? (
             <IconPause size={15} color="#ffffff" />
           ) : (
             <IconPlay size={15} color="#ffffff" />
           )}
           <Text style={styles.primaryBtnText} numberOfLines={1}>
-            {isPlaying ? 'PAUSE DRIVE' : 'START DRIVE'}
+            {isLiveCarMode ? 'PAUSE GPS' : (isPlaying ? 'PAUSE DRIVE' : 'START DRIVE')}
           </Text>
         </TouchableOpacity>
 
@@ -501,14 +503,14 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
             <>
               <IconCheckCircle size={15} color="#ffffff" />
               <Text style={styles.primaryBtnText} numberOfLines={1}>
-                RESTORE GNSS
+                {isLiveCarMode ? 'RESTORE REAL GPS' : 'RESTORE GNSS'}
               </Text>
             </>
           ) : (
             <>
               <IconAlertTriangle size={15} color="#ffffff" />
               <Text style={styles.primaryBtnText} numberOfLines={1}>
-                SIMULATE GNSS LOSS
+                {isLiveCarMode ? 'SIMULATE REAL OUTAGE' : 'SIMULATE GNSS LOSS'}
               </Text>
             </>
           )}

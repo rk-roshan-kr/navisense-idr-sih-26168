@@ -13,6 +13,10 @@ interface LiveMapProps {
   onMapClick?: (lat: number, lon: number) => void;
   customOrigin?: [number, number] | null;
   customDestination?: [number, number] | null;
+  fitBounds?: boolean;
+  is3DMode?: boolean;
+  onToggle3DMode?: () => void;
+  showFloatingControls?: boolean;
 }
 
 export const LiveMap: React.FC<LiveMapProps> = ({
@@ -23,9 +27,26 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   onMapClick,
   customOrigin,
   customDestination,
+  fitBounds = true,
+  is3DMode = true,
+  onToggle3DMode,
+  showFloatingControls = false,
 }) => {
   const webViewRef = useRef<WebView>(null);
-  const [is3DMode, setIs3DMode] = useState(false);
+  const [internal3D, setInternal3D] = useState(is3DMode);
+
+  // Sync external 3D mode changes
+  useEffect(() => {
+    setInternal3D(is3DMode);
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'SET_CAMERA_MODE',
+          is3D: is3DMode,
+        })
+      );
+    }
+  }, [is3DMode]);
 
   // Send telemetry updates to WebView map
   useEffect(() => {
@@ -57,15 +78,19 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         coordinates: routeCoordinates,
         origin: customOrigin,
         destination: customDestination,
+        fitBounds: fitBounds,
       },
     });
 
     webViewRef.current.postMessage(msg);
-  }, [routeCoordinates, customOrigin, customDestination]);
+  }, [routeCoordinates, customOrigin, customDestination, fitBounds]);
 
   const toggleCameraMode = () => {
-    const nextMode = !is3DMode;
-    setIs3DMode(nextMode);
+    const nextMode = !internal3D;
+    setInternal3D(nextMode);
+    if (onToggle3DMode) {
+      onToggle3DMode();
+    }
     if (webViewRef.current) {
       webViewRef.current.postMessage(
         JSON.stringify({
@@ -108,16 +133,25 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.osmbuildings.org/classic/0.2.2b/OSMBuildings-Leaflet.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; background: #f1f5f9; overflow: hidden; }
+    html, body { width: 100%; height: 100%; background: #f1f5f9; overflow: hidden; }
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #f1f5f9;
+      overflow: hidden;
+      transition: transform 0.4s ease;
+      transform: perspective(700px) rotateX(38deg) scale(1.12);
+    }
     .leaflet-control-attribution, .leaflet-control-zoom { display: none !important; }
 
-    /* Custom Vehicle Marker */
+    /* Custom Vehicle Marker Puck matching Screenshot */
     .car-puck {
       position: relative;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -126,28 +160,32 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       position: absolute;
       width: 0;
       height: 0;
-      border-left: 9px solid transparent;
-      border-right: 9px solid transparent;
-      border-bottom: 24px solid #2563eb;
-      filter: drop-shadow(0 2px 5px rgba(37,99,235,0.6));
-      top: 4px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 22px solid #0284c7;
+      filter: drop-shadow(0 2px 6px rgba(2, 132, 199, 0.7));
+      top: 3px;
       transition: transform 0.1s linear;
     }
-    .car-dot {
-      width: 12px;
-      height: 12px;
-      background: #ffffff;
-      border: 2px solid #1d4ed8;
+    .car-dot-a {
+      width: 22px;
+      height: 22px;
+      background: #09131f;
+      border: 2px solid #38bdf8;
       border-radius: 50%;
       z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.75);
     }
     .car-radar-pulse {
       position: absolute;
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      background: rgba(37, 99, 235, 0.15);
-      border: 1px solid rgba(37, 99, 235, 0.4);
+      background: rgba(2, 132, 199, 0.18);
+      border: 1.5px solid rgba(56, 189, 248, 0.45);
       animation: radarPulse 2s infinite ease-out;
     }
     @keyframes radarPulse {
@@ -172,15 +210,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       font-family: sans-serif;
     }
 
-    /* Stop Pin */
+    /* Stop Pins matching Screenshot */
     .stop-pin {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       border: 3px solid #ffffff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
     }
-    .pin-origin { background: #059669; }
+    .pin-origin { background: #10b981; }
     .pin-dest { background: #2563eb; }
 
     /* Ghost Car Puck */
@@ -200,17 +238,30 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   <script>
     var map = L.map('map', {
       center: [${initialCenter[0]}, ${initialCenter[1]}],
-      zoom: 15,
+      zoom: 16,
       zoomControl: false,
       attributionControl: false
     });
 
-    // Clean, high-contrast OpenStreetMap tiles
+    // Clean OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
 
-    var routePolyline = L.polyline([], { color: '#0f172a', weight: 4.5, opacity: 0.75 }).addTo(map);
+    // Load 3D Buildings
+    try {
+      if (typeof OSMBuildings !== 'undefined') {
+        var osmb = new OSMBuildings(map);
+        osmb.load('https://{s}.data.osmbuildings.org/0.2/59702c0a/tile/{z}/{x}/{y}.json');
+        osmb.style({ color: '#cbd5e1', roofColor: '#e2e8f0' });
+      }
+    } catch (e) {
+      console.log('OSMBuildings init fallback:', e);
+    }
+
+    // Two-tone polyline matching screenshot (gold casing + cyan/blue center)
+    var routeCasing = L.polyline([], { color: '#fbbf24', weight: 6.5, opacity: 0.7 }).addTo(map);
+    var routePolyline = L.polyline([], { color: '#0284c7', weight: 3.5, opacity: 1.0 }).addTo(map);
     var gnssTrail = L.polyline([], { color: '#059669', weight: 4.5, opacity: 0.9 }).addTo(map);
     var idrTrail = L.polyline([], { color: '#2563eb', weight: 4.5, opacity: 0.95 }).addTo(map);
     var ghostTrail = L.polyline([], { color: '#f97316', weight: 3, opacity: 0.85, dashArray: '5, 5' }).addTo(map);
@@ -223,12 +274,12 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     var isFollowing = true;
     var prevBlackout = false;
 
-    // Create custom vehicle HTML marker
+    // Custom Vehicle Marker Puck with (A) symbol
     var carIcon = L.divIcon({
       className: 'car-icon-wrap',
-      html: '<div class="car-puck"><div class="car-radar-pulse"></div><div id="carCone" class="car-cone"></div><div class="car-dot"></div></div>',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      html: '<div class="car-puck"><div class="car-radar-pulse"></div><div id="carCone" class="car-cone"></div><div class="car-dot-a"><span style="color:#ffffff;font-size:10px;font-weight:900;font-family:sans-serif;">A</span></div></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
     });
 
     var ghostIcon = L.divIcon({
@@ -262,8 +313,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         if (msg.type === 'ROUTE_UPDATE') {
           var pts = msg.data.coordinates;
           if (pts && pts.length > 0) {
+            routeCasing.setLatLngs(pts);
             routePolyline.setLatLngs(pts);
-            if (pts.length > 1) {
+            if (pts.length > 1 && msg.data.fitBounds !== false) {
               map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
             }
 
@@ -275,8 +327,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 icon: L.divIcon({
                   className: 'origin-wrap',
                   html: '<div class="stop-pin pin-origin"></div>',
-                  iconSize: [18, 18],
-                  iconAnchor: [9, 9]
+                  iconSize: [16, 16],
+                  iconAnchor: [8, 8]
                 })
               }).addTo(map);
             }
@@ -289,8 +341,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 icon: L.divIcon({
                   className: 'dest-wrap',
                   html: '<div class="stop-pin pin-dest"></div>',
-                  iconSize: [18, 18],
-                  iconAnchor: [9, 9]
+                  iconSize: [16, 16],
+                  iconAnchor: [8, 8]
                 })
               }).addTo(map);
             }
@@ -370,7 +422,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
           var container = document.getElementById('map');
           if (msg.is3D) {
             container.style.transition = 'transform 0.4s ease';
-            container.style.transform = 'perspective(650px) rotateX(35deg) scale(1.08)';
+            container.style.transform = 'perspective(700px) rotateX(38deg) scale(1.12)';
             if (carMarker) map.setView(carMarker.getLatLng(), 17, { animate: true });
           } else {
             container.style.transition = 'transform 0.4s ease';
@@ -413,37 +465,28 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         scrollEnabled={false}
       />
 
-      {/* Floating Map Controls */}
-      <View style={styles.mapControls}>
-        <TouchableOpacity
-          style={styles.controlBtn}
-          onPress={centerOnVehicle}
-          activeOpacity={0.7}
-          accessibilityLabel="Center on Vehicle"
-        >
-          <IconCrosshair size={18} color={theme.colors.slateDark} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.controlBtn, is3DMode && styles.controlBtnActive]}
-          onPress={toggleCameraMode}
-          activeOpacity={0.7}
-          accessibilityLabel="Toggle 2D / 3D Mode"
-        >
-          <IconCompass size={18} color={is3DMode ? theme.colors.idrBlue : theme.colors.slateDark} />
-        </TouchableOpacity>
-
-        {onToggleGhostBaseline && (
+      {/* Floating Map Controls (Optional) */}
+      {showFloatingControls && (
+        <View style={styles.mapControls}>
           <TouchableOpacity
-            style={[styles.controlBtn, showGhostBaseline && styles.controlBtnGhostActive]}
-            onPress={onToggleGhostBaseline}
+            style={styles.controlBtn}
+            onPress={centerOnVehicle}
             activeOpacity={0.7}
-            accessibilityLabel="Toggle Raw INS Baseline"
+            accessibilityLabel="Center on Vehicle"
           >
-            <IconEye size={18} color={showGhostBaseline ? theme.colors.alertRose : theme.colors.slateDark} />
+            <IconCrosshair size={18} color={theme.colors.slateDark} />
           </TouchableOpacity>
-        )}
-      </View>
+
+          <TouchableOpacity
+            style={[styles.controlBtn, internal3D && styles.controlBtnActive]}
+            onPress={toggleCameraMode}
+            activeOpacity={0.7}
+            accessibilityLabel="Toggle 2D / 3D Mode"
+          >
+            <IconCompass size={18} color={internal3D ? theme.colors.idrBlue : theme.colors.slateDark} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
