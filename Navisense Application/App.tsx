@@ -419,6 +419,8 @@ export default function App() {
   const handleClearPoints = () => {
     setCustomOrigin(null);
     setCustomDestination(null);
+    const coords = simRef.current.loadPreset(selectedPresetId);
+    setRouteCoordinates(coords);
     handleReset();
     setStatusMsg('Cleared custom points. Reset to corridor origin.');
   };
@@ -438,6 +440,8 @@ export default function App() {
     const newRoute = await simRef.current.fetchRoute(origin, destination);
     if (newRoute.length > 0) {
       setRouteCoordinates([...newRoute]);
+      const initialPacket = simRef.current.step();
+      if (initialPacket) setTelemetry(initialPacket);
       const totalKm = (simRef.current.totalDistanceM / 1000).toFixed(1);
       setStatusMsg(`Route calculated: ${totalKm} km to custom pin. Tap START DRIVING to begin!`);
     }
@@ -604,6 +608,8 @@ export default function App() {
                 onToggleAudioMuted={() => setIsAudioMuted((prev) => !prev)}
                 showGhostBaseline={showGhostBaseline}
                 onToggleGhostBaseline={handleToggleGhostBaseline}
+                isLiveCarMode={isLiveCarMode}
+                onToggleLiveCarMode={setIsLiveCarMode}
               />
             ) : (
               <>

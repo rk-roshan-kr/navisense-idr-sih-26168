@@ -442,7 +442,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     var originMarker = null;
     var destMarker = null;
     var ghostCoordinates = [];
-    var gnssCoordinates = [];
+    var gnssSegments = [[]];
     var idrCoordinates = [];
 
     // SVG Vehicle Chevron
@@ -605,7 +605,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
       // Reset live multi-trajectory trails & outage pins on new route
       idrCoordinates = [];
-      gnssCoordinates = [];
+      gnssSegments = [[]];
       ghostCoordinates = [];
       if (map.getSource('idr-trail')) {
         map.getSource('idr-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
@@ -614,7 +614,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         map.getSource('idr-trail-glow').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
       }
       if (map.getSource('gnss-trail')) {
-        map.getSource('gnss-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+        map.getSource('gnss-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
       }
       if (map.getSource('ghost-trail')) {
         map.getSource('ghost-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
@@ -744,7 +744,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       if (!map.getSource('gnss-trail')) {
         map.addSource('gnss-trail', {
           type: 'geojson',
-          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+          data: { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } }
         });
         map.addLayer({
           id: 'gnss-trail-line',
@@ -925,15 +925,21 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             });
           }
 
-          // 2. GNSS Satellite Trail (Only advances when GNSS is active - freezes during blackout!)
+          // 2. GNSS Satellite Trail: advances when GNSS is active (freezes during blackout with realistic gap!)
           if (!isBlackout && d.gnssPos) {
-            gnssCoordinates.push([d.gnssPos[1], d.gnssPos[0]]);
-            if (gnssCoordinates.length > 2500) gnssCoordinates.shift();
+            if (prevBlackout) {
+              // Emerged from blackout: start a new line segment so NO line cuts through tunnel!
+              gnssSegments.push([]);
+            }
+            if (gnssSegments.length === 0) gnssSegments.push([]);
+            var curSeg = gnssSegments[gnssSegments.length - 1];
+            curSeg.push([d.gnssPos[1], d.gnssPos[0]]);
+            if (curSeg.length > 2000) curSeg.shift();
             if (map.getSource('gnss-trail')) {
               map.getSource('gnss-trail').setData({
                 type: 'Feature',
                 properties: {},
-                geometry: { type: 'LineString', coordinates: gnssCoordinates }
+                geometry: { type: 'MultiLineString', coordinates: gnssSegments }
               });
             }
           }
@@ -989,7 +995,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
         if (msg.type === 'RESET_TRAILS') {
           idrCoordinates = [];
-          gnssCoordinates = [];
+          gnssSegments = [[]];
           ghostCoordinates = [];
           if (map.getSource('idr-trail')) {
             map.getSource('idr-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
@@ -998,7 +1004,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             map.getSource('idr-trail-glow').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
           }
           if (map.getSource('gnss-trail')) {
-            map.getSource('gnss-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+            map.getSource('gnss-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: [] } });
           }
           if (map.getSource('ghost-trail')) {
             map.getSource('ghost-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });

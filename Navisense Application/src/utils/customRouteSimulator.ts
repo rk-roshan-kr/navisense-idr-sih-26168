@@ -55,6 +55,11 @@ export class CustomRouteSimulator {
   activePresetId = 'delhi';
   lockdownRange: [number, number] = [0.35, 0.70];
 
+  // Reconvergence decay state
+  reconvergingSteps = 0;
+  initialReconvergeDrift = 0;
+  lastDriftM = 0;
+
   // Raw INS unconstrained quadratic divergence simulation (Ghost B1 baseline)
   rawInsPos: LatLon | null = null;
   rawInsHeadingOffsetRad = 0;
@@ -197,13 +202,15 @@ export class CustomRouteSimulator {
     }
 
     // Drift calculation
-    let driftM = 0.6;
+    let driftM = 0.65;
     let driftPct = 0.5;
     let boElapsed = 0;
     let b1DriftM = 0;
     let b1Pos: LatLon | null = null;
+    let mode: 'NORMAL_GNSS' | 'PSEUDO_GNSS' | 'RECONVERGED' = 'NORMAL_GNSS';
 
     if (this.blackoutActive && this.blackoutStartIndex !== null) {
+      mode = 'PSEUDO_GNSS';
       const boSteps = i - this.blackoutStartIndex;
       boElapsed = boSteps * this.dt;
       const boDistM = boSteps * 1.4;
@@ -211,6 +218,7 @@ export class CustomRouteSimulator {
       // Proven 2.6% IDR drift rate
       driftM = 0.8 + boDistM * 0.026;
       driftPct = 2.6;
+      this.lastDriftM = driftM;
 
       // Raw INS quadratic divergence: 0.5 * bias * t^2
       b1DriftM = Math.max(driftM, 0.45 * boElapsed * boElapsed + 2.0);
@@ -224,14 +232,24 @@ export class CustomRouteSimulator {
         lat: curr[0] + (Math.cos(divergedAngle) * b1DriftM) / metersPerDegLat,
         lon: curr[1] + (Math.sin(divergedAngle) * b1DriftM) / metersPerDegLon
       };
+    } else if (this.reconvergingSteps > 0) {
+      mode = 'RECONVERGED';
+      const decayRatio = this.reconvergingSteps / 25; // Smooth 2.5s exponential-like decay
+      const baseErr = Math.max(0.65, 2.8 - (this.calibratedPct / 100) * 2.15);
+      driftM = baseErr + (this.initialReconvergeDrift - baseErr) * (decayRatio * decayRatio);
+      driftPct = Number((2.6 * decayRatio).toFixed(1));
+      this.reconvergingSteps--;
+      this.rawInsHeadingOffsetRad = 0;
+      b1Pos = null;
     } else {
+      mode = 'NORMAL_GNSS';
+      driftM = Math.max(0.65, 2.8 - (this.calibratedPct / 100) * 2.15);
+      driftPct = 0.5;
       this.rawInsHeadingOffsetRad = 0;
       b1Pos = null;
     }
 
-    const pointErrorM = !this.blackoutActive
-      ? Math.max(0.65, Number((2.8 - (this.calibratedPct / 100) * 2.15).toFixed(2)))
-      : Number(driftM.toFixed(2));
+    const pointErrorM = Number(driftM.toFixed(2));
 
     // Coordinates: during blackout, green GNSS freezes while blue IDR keeps moving
     const idrPos: LatLon = { lat: curr[0], lon: curr[1] };
@@ -245,7 +263,7 @@ export class CustomRouteSimulator {
 
     const packet: TelemetryPacket = {
       timestamp_s: Number((i * this.dt).toFixed(1)),
-      mode: this.blackoutActive ? 'PSEUDO_GNSS' : 'NORMAL_GNSS',
+      mode: mode,
       gnss_available: !this.blackoutActive,
       blackout_active: this.blackoutActive,
       blackout_elapsed_s: Number(boElapsed.toFixed(1)),
@@ -305,6 +323,7 @@ export class CustomRouteSimulator {
   }
 
   toggleBlackout(state?: boolean): boolean {
+    const prevState = this.blackoutActive;
     if (state !== undefined) {
       this.blackoutActive = state;
     } else {
@@ -313,7 +332,13 @@ export class CustomRouteSimulator {
 
     if (this.blackoutActive) {
       this.blackoutStartIndex = this.currentIndex;
+      this.reconvergingSteps = 0;
     } else {
+      if (prevState && !this.blackoutActive) {
+        // Just transitioned out of blackout -> enter 2.5s smooth reconvergence phase!
+        this.reconvergingSteps = 25;
+        this.initialReconvergeDrift = Math.max(3.5, this.lastDriftM);
+      }
       this.blackoutStartIndex = null;
     }
     return this.blackoutActive;
@@ -325,6 +350,9 @@ export class CustomRouteSimulator {
     this.blackoutStartIndex = null;
     this.isPlaying = false;
     this.calibratedPct = 0.0;
+    this.reconvergingSteps = 0;
+    this.initialReconvergeDrift = 0;
+    this.lastDriftM = 0;
     this.rawInsHeadingOffsetRad = 0;
     this.frozenGnssPos = null;
   }

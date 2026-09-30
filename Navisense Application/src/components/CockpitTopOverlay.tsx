@@ -87,11 +87,18 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
     ? 'Real Vehicle Highway (Live Road Navigation)'
     : `${activePreset.name.split(':')[0]} ➔ ${activePreset.name.split('➔')[1] || activePreset.name.split(':')[1] || 'Gateway'} (${activePreset.distanceKm} km)`;
 
-  // Dynamic Turn Maneuver Direction
+  // Dynamic Turn Maneuver Direction & Distance Countdown
+  const distTravelledM = telemetry?.distance_traveled_m ?? 0;
+  const nextManeuverDist = Math.max(50, 450 - (Math.floor(distTravelledM) % 450));
+  const yawRate = telemetry?.technical_proof?.pred_wz_rads ?? 0;
+  const maneuverCycle = Math.floor(distTravelledM / 450) % 3;
+  const calPct = telemetry?.calibrated_pct ?? 0;
+  const navMode = telemetry?.mode ?? 'NORMAL_GNSS';
+
   const renderManeuverIcon = () => {
-    if (currentHeading >= 40 && currentHeading <= 140) {
+    if (yawRate > 0.04 || maneuverCycle === 1) {
       return <IconTurnRight size={22} color="#ffffff" />;
-    } else if (currentHeading >= 220 && currentHeading <= 320) {
+    } else if (yawRate < -0.04 || maneuverCycle === 2) {
       return <IconTurnLeft size={22} color="#ffffff" />;
     }
     return <IconArrowUp size={22} color="#ffffff" />;
@@ -110,7 +117,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
           {/* Turn Maneuver Box */}
           <View style={[styles.maneuverBox, isBlackout && styles.maneuverBoxOutage]}>
             {renderManeuverIcon()}
-            <Text style={styles.maneuverDist}>350m</Text>
+            <Text style={styles.maneuverDist}>{nextManeuverDist}m</Text>
           </View>
 
           {/* Road & Navigation Status (Tappable to expand) */}
@@ -128,7 +135,13 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
               <View
                 style={[
                   styles.compactStatusDot,
-                  { backgroundColor: isBlackout ? '#ef4444' : '#10b981' },
+                  {
+                    backgroundColor: isBlackout
+                      ? '#ef4444'
+                      : navMode === 'RECONVERGED'
+                      ? '#00e5ff'
+                      : '#10b981',
+                  },
                 ]}
               />
               <Text
@@ -140,7 +153,9 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
               >
                 {isBlackout
                   ? `IDR DEAD-RECKONING • Outage T+${elapsedOutage.toFixed(1)}s`
-                  : 'GNSS LOCKED • High Precision Fusion'}
+                  : navMode === 'RECONVERGED'
+                  ? `RECONVERGING • Innovation Gate Accepted (±${errorMargin.toFixed(1)}m)`
+                  : `GNSS LOCKED • Dual-Model Adaptation: ${calPct >= 95 ? `Active (${calPct.toFixed(1)}%)` : `Fitting (${calPct.toFixed(0)}%)`}`}
               </Text>
             </View>
           </TouchableOpacity>
@@ -419,7 +434,9 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
                 <View style={styles.metricRow}>
                   <View style={styles.metricCell}>
                     <Text style={styles.metricLabel}>CALIBRATED</Text>
-                    <Text style={styles.metricValue}>95.0% (Custom)</Text>
+                    <Text style={styles.metricValue}>
+                      {calPct >= 95 ? `${calPct.toFixed(1)}% (Custom)` : `${calPct.toFixed(1)}% (Fitting)`}
+                    </Text>
                   </View>
                   <View style={styles.metricCell}>
                     <Text style={styles.metricLabel}>DRIFT RATE</Text>

@@ -427,10 +427,18 @@ export class LiveVehicleTracker {
       },
       b1_position: this.isBlackout
         ? {
-            lat: this.currentLat + blackoutElapsed * 0.00004,
-            lon: this.currentLon + blackoutElapsed * 0.00004,
+            lat:
+              this.currentLat +
+              (0.5 * 0.42 * blackoutElapsed * blackoutElapsed + 2.0) / 111139,
+            lon:
+              this.currentLon +
+              (0.5 * 0.42 * blackoutElapsed * blackoutElapsed + 2.0) /
+                (111139 * Math.cos((this.currentLat * Math.PI) / 180)),
           }
         : null,
+      b1_drift_m: this.isBlackout
+        ? Number((0.5 * 0.42 * blackoutElapsed * blackoutElapsed + 2.0).toFixed(1))
+        : 0,
       speed_kmh: this.currentSpeedKmh,
       speed_mps: vMps,
       heading_deg: this.currentHeadingDeg,

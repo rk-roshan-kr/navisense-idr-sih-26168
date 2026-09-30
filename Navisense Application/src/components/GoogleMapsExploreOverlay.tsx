@@ -48,6 +48,8 @@ interface GoogleMapsExploreOverlayProps {
   onToggleAudioMuted?: () => void;
   showGhostBaseline?: boolean;
   onToggleGhostBaseline?: () => void;
+  isLiveCarMode?: boolean;
+  onToggleLiveCarMode?: (enableLive: boolean) => void;
 }
 
 export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> = ({
@@ -69,6 +71,8 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
   onToggleAudioMuted,
   showGhostBaseline = false,
   onToggleGhostBaseline,
+  isLiveCarMode = false,
+  onToggleLiveCarMode,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const activePreset = PRESET_ROUTES.find((p) => p.id === selectedPresetId) || PRESET_ROUTES[0];
@@ -358,13 +362,28 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
           contentContainerStyle={styles.chipsScroll}
           style={styles.chipsContainer}
         >
+          {/* Real Vehicle Live GPS Drive Chip */}
+          <TouchableOpacity
+            style={[styles.chip, isLiveCarMode && styles.chipActive]}
+            onPress={() => {
+              if (onToggleLiveCarMode) onToggleLiveCarMode(!isLiveCarMode);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.liveDotChip, { backgroundColor: isLiveCarMode ? '#ffffff' : '#10b981' }]} />
+            <Text style={[styles.chipText, isLiveCarMode && styles.chipTextActive]}>
+              {isLiveCarMode ? 'Real Car Drive (Active)' : 'Real Car Drive (GPS+IMU)'}
+            </Text>
+          </TouchableOpacity>
+
           {PRESET_ROUTES.map((route) => {
-            const isSelected = route.id === selectedPresetId;
+            const isSelected = !isLiveCarMode && route.id === selectedPresetId;
             return (
               <TouchableOpacity
                 key={route.id}
                 style={[styles.chip, isSelected && styles.chipActive]}
                 onPress={() => {
+                  if (isLiveCarMode && onToggleLiveCarMode) onToggleLiveCarMode(false);
                   onSelectPreset(route.id);
                   setSearchQuery('');
                   Keyboard.dismiss();
@@ -620,6 +639,11 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#ffffff',
+  },
+  liveDotChip: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
 
   /* Search Results Card */

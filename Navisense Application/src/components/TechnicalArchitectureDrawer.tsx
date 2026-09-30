@@ -158,7 +158,7 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
               onPress={() => setActiveTab('settings')}
             >
               <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
-                ⚙️ Settings
+                Settings
               </Text>
             </TouchableOpacity>
           </View>
