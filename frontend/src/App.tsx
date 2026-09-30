@@ -11,6 +11,9 @@ import { TurnGuidance } from './components/TurnGuidance';
 import { CustomRouteSimulator } from './utils/customRouteSimulator';
 import { RoutePlannerWidget, ROUTE_PRESETS } from './components/RoutePlannerWidget';
 
+const BACKEND_HTTP_URL = (import.meta.env.VITE_BACKEND_HTTP_URL as string) || 'http://127.0.0.1:8000';
+const BACKEND_WS_URL = (import.meta.env.VITE_BACKEND_WS_URL as string) || 'ws://127.0.0.1:8000/ws/telemetry';
+
 export const App: React.FC = () => {
   // Mode state: 2-Point Road Navigation by Default (Always Point A -> Point B!)
   const [appMode, setAppMode] = useState<AppMode>('CUSTOM_ROUTE');
@@ -76,7 +79,7 @@ export const App: React.FC = () => {
     setIsPlaying(false);
 
     // Notify backend Python runtime via both HTTP REST and WebSocket
-    fetch('http://127.0.0.1:8000/api/scenario/select', {
+    fetch(`${BACKEND_HTTP_URL}/api/scenario/select`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scenario_id: targetId })
@@ -119,7 +122,7 @@ export const App: React.FC = () => {
 
   // Fetch scenarios list on load
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/scenarios')
+    fetch(`${BACKEND_HTTP_URL}/api/scenarios`)
       .then((res) => res.json())
       .then((data) => {
         if (data.scenarios) setScenariosList(data.scenarios);
@@ -134,7 +137,7 @@ export const App: React.FC = () => {
     let reconnectTimer: any;
 
     function connect() {
-      ws = new WebSocket('ws://127.0.0.1:8000/ws/telemetry');
+      ws = new WebSocket(BACKEND_WS_URL);
 
       ws.onopen = () => {
         console.log('[WS] Connected to Navisense live engine');
@@ -228,7 +231,7 @@ export const App: React.FC = () => {
     }
 
     // Also notify HTTP API endpoint
-    fetch('http://127.0.0.1:8000/api/playback/control', {
+    fetch(`${BACKEND_HTTP_URL}/api/playback/control`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: nextState ? 'play' : 'pause' })
@@ -244,7 +247,7 @@ export const App: React.FC = () => {
       wsRef.current.send(JSON.stringify({ command: 'pause' }));
     }
 
-    fetch('http://127.0.0.1:8000/api/playback/control', {
+    fetch(`${BACKEND_HTTP_URL}/api/playback/control`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'reset' })
@@ -262,7 +265,7 @@ export const App: React.FC = () => {
     setIsPlaying(true);
     setShowGhostBaseline(true);
 
-    fetch('http://127.0.0.1:8000/api/playback/control', {
+    fetch(`${BACKEND_HTTP_URL}/api/playback/control`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'play' })
