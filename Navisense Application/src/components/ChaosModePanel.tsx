@@ -105,7 +105,7 @@ export const ChaosModePanel: React.FC<ChaosModePanelProps> = ({
         </View>
         <View style={styles.quickButtons}>
           <TouchableOpacity style={styles.randomBtn} onPress={onRandomize} activeOpacity={0.7}>
-            <Text style={styles.randomBtnText}>🎲 RANDOMIZE</Text>
+            <Text style={styles.randomBtnText}>RANDOMIZE</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.resetBtn} onPress={onReset} activeOpacity={0.7}>
             <IconRotateCcw size={12} color={theme.colors.textMuted} />

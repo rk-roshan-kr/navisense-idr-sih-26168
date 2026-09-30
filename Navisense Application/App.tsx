@@ -358,8 +358,8 @@ export default function App() {
       setActiveGnssFault(next ? 'BLACKOUT' : 'NONE');
       setStatusMsg(
         next
-          ? '⚠️ REAL GNSS OUTAGE: Switched to 50Hz Phone IMU Dead Reckoning'
-          : '✅ REAL GNSS RESTORED: Reconverging position'
+          ? 'REAL GNSS OUTAGE: Switched to 50Hz Phone IMU Dead Reckoning'
+          : 'REAL GNSS RESTORED: Reconverging position'
       );
       return;
     }

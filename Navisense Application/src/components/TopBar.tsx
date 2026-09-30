@@ -200,7 +200,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 activeOpacity={0.8}
               >
                 <Text style={[styles.segmentText, !isLiveCarMode && styles.segmentTextActive]}>
-                  🎮 BENCHMARK SIM
+                  BENCHMARK SIM
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

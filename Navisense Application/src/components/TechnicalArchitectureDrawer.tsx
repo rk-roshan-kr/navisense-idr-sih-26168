@@ -587,7 +587,7 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
                   <View style={styles.barBlock}>
                     <View style={styles.barHeader}>
                       <Text style={[styles.barTitle, { color: theme.colors.rawGhostOrange }]}>
-                        🟠 B1 Standard Raw INS (Double Integration)
+                        B1 Standard Raw INS (Double Integration)
                       </Text>
                       <Text style={[styles.barValue, { color: theme.colors.rawGhostOrange }]}>
                         ±{(p.b1_drift_m ?? 38.6).toFixed(1)} m
@@ -603,7 +603,7 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
                   <View style={styles.barBlock}>
                     <View style={styles.barHeader}>
                       <Text style={[styles.barTitle, { color: theme.colors.idrBlue }]}>
-                        🔵 B5 NaviSense NIDR (Learned + EKF + Map-Locked)
+                        B5 NaviSense NIDR (Learned + EKF + Map-Locked)
                       </Text>
                       <Text style={[styles.barValue, { color: theme.colors.idrBlue }]}>
                         ±{(p.b5_drift_m ?? effectiveTelemetry.drift_m).toFixed(1)} m
@@ -664,7 +664,7 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
                           appExperienceMode === 'GOOGLE_MAPS' && styles.experienceModeBtnTitleActive,
                         ]}
                       >
-                        🗺️ Google Maps Mode
+                        Google Maps Mode
                       </Text>
                       <Text style={styles.experienceModeBtnDesc}>
                         Search destination, place chips, route ETA & "Start Driving" bottom sheet
@@ -688,7 +688,7 @@ export const TechnicalArchitectureDrawer: React.FC<TechnicalArchitectureDrawerPr
                           appExperienceMode === 'COCKPIT_HUD' && styles.experienceModeBtnTitleActive,
                         ]}
                       >
-                        🏎️ Cockpit HUD Mode
+                        Cockpit HUD Mode
                       </Text>
                       <Text style={styles.experienceModeBtnDesc}>
                         Automotive Dynamic Island turn HUD, digital speedometer & 6-grid telemetry

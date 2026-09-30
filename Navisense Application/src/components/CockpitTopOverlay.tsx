@@ -462,7 +462,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
                     !isLiveCarMode && styles.dualModeTabTextActive,
                   ]}
                 >
-                  🎮 BENCHMARK SIM
+                  BENCHMARK SIM
                 </Text>
               </TouchableOpacity>
 
