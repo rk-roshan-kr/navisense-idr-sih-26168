@@ -4,11 +4,12 @@ Production-grade AI/ML vehicular dead-reckoning navigation system developed for 
 
 ---
 
-### Included Release Asset (Direct Download)
+### Included Release Assets (Direct Download)
 
 | Asset | Description | Size | Platform |
 | :--- | :--- | :--- | :--- |
-| **[`Navisense_SIH_Vehicle_App.apk`](https://github.com/rk-roshan-kr/navisense-idr-sih-26168/releases/download/v1.0.0/Navisense_SIH_Vehicle_App.apk)** | **Official Unified Android Vehicle Cockpit APK.** Fully standalone out of the box with zero external dependencies. Features real phone 50 Hz IMU sensors (`expo-sensors`), high-precision phone GPS (`expo-location`), MapLibre 3D Vector Map, HUD, audio/spoken cues, tap-on-map route planner, and live GPS blackout simulation. | ~151 MB | Android 8.0+ |
+| **[`Navisense_SIH_Vehicle_App_STANDALONE.apk`](https://github.com/rk-roshan-kr/navisense-idr-sih-26168/releases/download/v1.0.0/Navisense_SIH_Vehicle_App_STANDALONE.apk)** | **Official Standalone In-Vehicle Cockpit APK.** Fully standalone out of the box with zero external dependencies. Features real phone 50 Hz IMU sensors (`expo-sensors`), high-precision phone GPS (`expo-location`), MapLibre 3D Vector Map, HUD, audio/spoken cues, tap-on-map route planner, and live GPS blackout simulation. | ~151 MB | Android 8.0+ |
+| **[`Navisense_SIH_Vehicle_App.apk`](https://github.com/rk-roshan-kr/navisense-idr-sih-26168/releases/download/v1.0.0/Navisense_SIH_Vehicle_App.apk)** | **Standard Release APK.** Identical unified production binary with full standalone support and optional live telemetry backend streaming. | ~151 MB | Android 8.0+ |
 
 ---
 
@@ -42,6 +43,6 @@ Production-grade AI/ML vehicular dead-reckoning navigation system developed for 
 
 ### How to Install the APK on Android
 
-1. Download **`Navisense_SIH_Vehicle_App.apk`** to your Android device.
+1. Download either **`Navisense_SIH_Vehicle_App_STANDALONE.apk`** or **`Navisense_SIH_Vehicle_App.apk`** to your Android device.
 2. Tap the downloaded file to install (allow *"Install from unknown sources"* if prompted).
 3. Open **Navisense** and mount the phone on your car dashboard!

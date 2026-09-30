@@ -36,7 +36,7 @@ ZIPALIGN = Path(r"C:\Users\Admin\AppData\Local\Android\Sdk\build-tools\35.0.0\zi
 APKSIGNER = Path(r"C:\Users\Admin\AppData\Local\Android\Sdk\build-tools\35.0.0\apksigner.bat")
 
 OUTPUT_RELEASE_APK = ROOT_DIR / "Navisense_SIH_Vehicle_App.apk"
-OLD_STANDALONE_APK = ROOT_DIR / "Navisense_SIH_Vehicle_App_STANDALONE.apk"
+STANDALONE_APK = ROOT_DIR / "Navisense_SIH_Vehicle_App_STANDALONE.apk"
 
 TEMP_UNALIGNED = ROOT_DIR / "temp_pipeline_unaligned.apk"
 TEMP_ALIGNED = ROOT_DIR / "temp_pipeline_aligned.apk"
@@ -253,15 +253,9 @@ def run_gate6_package_and_sign(base_apk: Path):
     if res_sign.returncode != 0:
         print_fail("GATE 6", f"apksigner failed: {res_sign.stderr}")
         
-    # Copy to single official release output
+    # Copy to release outputs (both standard and standalone names)
     shutil.copyfile(TEMP_ALIGNED, OUTPUT_RELEASE_APK)
-    
-    # Remove old redundant standalone duplicate if present to prevent 2 apps confusion
-    if OLD_STANDALONE_APK.exists():
-        try:
-            OLD_STANDALONE_APK.unlink()
-        except Exception:
-            pass
+    shutil.copyfile(TEMP_ALIGNED, STANDALONE_APK)
     
     # Cleanup temps
     if TEMP_UNALIGNED.exists():
@@ -270,7 +264,7 @@ def run_gate6_package_and_sign(base_apk: Path):
         TEMP_ALIGNED.unlink()
         
     size_mb = OUTPUT_RELEASE_APK.stat().st_size / (1024 * 1024)
-    print_pass("GATE 6", f"Signed production APK packaged successfully: {OUTPUT_RELEASE_APK.name} ({size_mb:.1f} MB)!")
+    print_pass("GATE 6", f"Signed production APKs packaged successfully ({size_mb:.1f} MB)!")
 
 
 # ==============================================================================
