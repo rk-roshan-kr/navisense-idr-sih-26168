@@ -568,26 +568,32 @@ export default function App() {
                 onToggleGhostBaseline={handleToggleGhostBaseline}
                 customOrigin={customOrigin}
                 customDestination={customDestination}
-                fitBounds={!isLiveCarMode && appExperienceMode === 'GOOGLE_MAPS'}
+                fitBounds={appExperienceMode === 'GOOGLE_MAPS' && !isPlaying}
                 is3DMode={is3DMode}
                 onToggle3DMode={() => setIs3DMode((prev) => !prev)}
                 onMapClick={handleMapClick}
                 isAudioMuted={isAudioMuted}
                 onToggleAudioMuted={() => setIsAudioMuted((prev) => !prev)}
+                bottomOffset={appExperienceMode === 'GOOGLE_MAPS' ? (isPlaying ? 116 : 210) : 100}
               />
             </ScreenErrorBoundary>
 
-            {/* Conditional Navigation Experience: Google Maps Search Mode vs Automotive Cockpit HUD Mode */}
+            {/* Conditional Navigation Experience: Google Maps Search/Nav Mode vs Automotive Cockpit HUD Mode */}
             {appExperienceMode === 'GOOGLE_MAPS' ? (
               <GoogleMapsExploreOverlay
                 selectedPresetId={selectedPresetId}
                 onSelectPreset={handleSelectPreset}
                 onStartDriving={() => {
-                  setIsLiveCarMode(true);
-                  setAppExperienceMode('COCKPIT_HUD');
                   setIs3DMode(true);
                   if (!isPlaying) handleTogglePlay();
                 }}
+                onStopDriving={() => {
+                  if (isPlaying) handleTogglePlay();
+                }}
+                isNavigating={isPlaying}
+                telemetry={telemetry}
+                isBlackout={isBlackout}
+                onToggleBlackout={handleToggleBlackout}
                 onSwitchToCockpitHud={() => setAppExperienceMode('COCKPIT_HUD')}
                 onOpenSettings={() => setShowDiagnostics(true)}
                 isLandscape={isLandscape}
@@ -596,6 +602,8 @@ export default function App() {
                 onClearRoute={handleClearPoints}
                 isAudioMuted={isAudioMuted}
                 onToggleAudioMuted={() => setIsAudioMuted((prev) => !prev)}
+                showGhostBaseline={showGhostBaseline}
+                onToggleGhostBaseline={handleToggleGhostBaseline}
               />
             ) : (
               <>

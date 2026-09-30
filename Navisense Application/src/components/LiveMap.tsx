@@ -19,6 +19,7 @@ interface LiveMapProps {
   showFloatingControls?: boolean;
   isAudioMuted?: boolean;
   onToggleAudioMuted?: () => void;
+  bottomOffset?: number;
 }
 
 export const LiveMap: React.FC<LiveMapProps> = ({
@@ -35,6 +36,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   showFloatingControls = false,
   isAudioMuted = false,
   onToggleAudioMuted,
+  bottomOffset,
 }) => {
   const webViewRef = useRef<WebView>(null);
   const [internal3D, setInternal3D] = useState(is3DMode);
@@ -440,6 +442,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     var originMarker = null;
     var destMarker = null;
     var ghostCoordinates = [];
+    var gnssCoordinates = [];
+    var idrCoordinates = [];
 
     // SVG Vehicle Chevron
     var carEl = document.createElement('div');
@@ -599,6 +603,27 @@ export const LiveMap: React.FC<LiveMapProps> = ({
           .addTo(map);
       }
 
+      // Reset live multi-trajectory trails & outage pins on new route
+      idrCoordinates = [];
+      gnssCoordinates = [];
+      ghostCoordinates = [];
+      if (map.getSource('idr-trail')) {
+        map.getSource('idr-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+      }
+      if (map.getSource('idr-trail-glow')) {
+        map.getSource('idr-trail-glow').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+      }
+      if (map.getSource('gnss-trail')) {
+        map.getSource('gnss-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+      }
+      if (map.getSource('ghost-trail')) {
+        map.getSource('ghost-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+      }
+      if (lastGnssMarker) {
+        lastGnssMarker.remove();
+        lastGnssMarker = null;
+      }
+
       if (geoPts.length > 1 && data.fitBounds !== false) {
         var bounds = geoPts.reduce(function(b, coord) {
           return b.extend(coord);
@@ -715,18 +740,82 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         });
       }
 
-      // 5. Ghost B1 Trail
-      map.addSource('ghost-trail', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
-      });
-      map.addLayer({
-        id: 'ghost-trail-line',
-        type: 'line',
-        source: 'ghost-trail',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#f97316', 'line-width': 3, 'line-dasharray': [4, 3], 'line-opacity': 0.85 }
-      });
+      // 5. GNSS Satellite Truth Path Layer (Emerald Green #10b981)
+      if (!map.getSource('gnss-trail')) {
+        map.addSource('gnss-trail', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+        });
+        map.addLayer({
+          id: 'gnss-trail-line',
+          type: 'line',
+          source: 'gnss-trail',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#10b981',
+            'line-width': 4.5,
+            'line-opacity': 0.9
+          }
+        });
+      }
+
+      // 6. Navisense IDR Dead-Reckoning Trail Glow (Cyan Outer Glow)
+      if (!map.getSource('idr-trail-glow')) {
+        map.addSource('idr-trail-glow', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+        });
+        map.addLayer({
+          id: 'idr-trail-glow-line',
+          type: 'line',
+          source: 'idr-trail-glow',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#0284c7',
+            'line-width': 9,
+            'line-opacity': 0.4
+          }
+        });
+      }
+
+      // 7. Navisense IDR Dead-Reckoning Trail Line (Electric Cyan #00e5ff)
+      if (!map.getSource('idr-trail')) {
+        map.addSource('idr-trail', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+        });
+        map.addLayer({
+          id: 'idr-trail-line',
+          type: 'line',
+          source: 'idr-trail',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#00e5ff',
+            'line-width': 5,
+            'line-opacity': 0.95
+          }
+        });
+      }
+
+      // 8. Ghost B1 Trail (Fluorescent Orange #f97316 Dashed)
+      if (!map.getSource('ghost-trail')) {
+        map.addSource('ghost-trail', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+        });
+        map.addLayer({
+          id: 'ghost-trail-line',
+          type: 'line',
+          source: 'ghost-trail',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#f97316',
+            'line-width': 3.5,
+            'line-dasharray': [4, 3],
+            'line-opacity': 0.85
+          }
+        });
+      }
 
       // Render initial START & FINISH pins
       if (initialOrigin) {
@@ -818,9 +907,41 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             }
           }
 
-          // Ghost Baseline
+          // 1. Live Navisense IDR Dead-Reckoning Trail (Always advances with car)
+          idrCoordinates.push([lon, lat]);
+          if (idrCoordinates.length > 2500) idrCoordinates.shift();
+          if (map.getSource('idr-trail')) {
+            map.getSource('idr-trail').setData({
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: idrCoordinates }
+            });
+          }
+          if (map.getSource('idr-trail-glow')) {
+            map.getSource('idr-trail-glow').setData({
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: idrCoordinates }
+            });
+          }
+
+          // 2. GNSS Satellite Trail (Only advances when GNSS is active - freezes during blackout!)
+          if (!isBlackout && d.gnssPos) {
+            gnssCoordinates.push([d.gnssPos[1], d.gnssPos[0]]);
+            if (gnssCoordinates.length > 2500) gnssCoordinates.shift();
+            if (map.getSource('gnss-trail')) {
+              map.getSource('gnss-trail').setData({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: gnssCoordinates }
+              });
+            }
+          }
+
+          // 3. Ghost Baseline (Untreated raw IMU baseline showing divergence)
           if (d.showGhost && d.b1Pos) {
             ghostCoordinates.push([d.b1Pos[1], d.b1Pos[0]]);
+            if (ghostCoordinates.length > 2500) ghostCoordinates.shift();
             if (map.getSource('ghost-trail')) {
               map.getSource('ghost-trail').setData({
                 type: 'Feature',
@@ -864,6 +985,28 @@ export const LiveMap: React.FC<LiveMapProps> = ({
           }
 
           prevBlackout = isBlackout;
+        }
+
+        if (msg.type === 'RESET_TRAILS') {
+          idrCoordinates = [];
+          gnssCoordinates = [];
+          ghostCoordinates = [];
+          if (map.getSource('idr-trail')) {
+            map.getSource('idr-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+          }
+          if (map.getSource('idr-trail-glow')) {
+            map.getSource('idr-trail-glow').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+          }
+          if (map.getSource('gnss-trail')) {
+            map.getSource('gnss-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+          }
+          if (map.getSource('ghost-trail')) {
+            map.getSource('ghost-trail').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+          }
+          if (lastGnssMarker) {
+            lastGnssMarker.remove();
+            lastGnssMarker = null;
+          }
         }
 
         if (msg.type === 'SET_CAMERA_MODE') {
@@ -954,7 +1097,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       />
 
       {/* Floating Active Tracking Controls (Recenter Button + 3D/2D Tracking Toggle) */}
-      <View style={styles.trackingFloatingWrap} pointerEvents="box-none">
+      <View style={[styles.trackingFloatingWrap, { bottom: bottomOffset ?? 82 }]} pointerEvents="box-none">
         {/* 1. Dedicated Recenter Button (Appears separately above toggle when panned away) */}
         {!isTracking && (
           <TouchableOpacity
