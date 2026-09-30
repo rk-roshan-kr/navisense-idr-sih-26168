@@ -141,3 +141,18 @@ export const IconRefresh: React.FC<IconProps> = ({ size = 16, color = '#dc2626' 
   </Svg>
 );
 
+export const IconTurnRight: React.FC<IconProps> = ({ size = 20, color = '#ffffff' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 19V10a4 4 0 0 1 4-4h10" />
+    <Polyline points="14 2 18 6 14 10" />
+  </Svg>
+);
+
+export const IconTurnLeft: React.FC<IconProps> = ({ size = 20, color = '#ffffff' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M20 19V10a4 4 0 0 0-4-4H6" />
+    <Polyline points="10 2 6 6 10 10" />
+  </Svg>
+);
+
+

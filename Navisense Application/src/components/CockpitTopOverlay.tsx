@@ -8,7 +8,16 @@ import {
   ScrollView,
 } from 'react-native';
 import { theme } from '../theme';
-import { IconChevronDown, IconX, IconCheckCircle, IconCompass } from './Icons';
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconX,
+  IconCheckCircle,
+  IconCompass,
+  IconArrowUp,
+  IconTurnRight,
+  IconTurnLeft,
+} from './Icons';
 import { PRESET_ROUTES } from '../utils/customRouteSimulator';
 import type { TelemetryPacket } from '../types';
 import type { ChaosStateOverride } from './ChaosModePanel';
@@ -49,6 +58,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
   isLandscape = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const activePreset = PRESET_ROUTES.find((p) => p.id === selectedPresetId) || PRESET_ROUTES[0];
   const originCoord = customOrigin || activePreset.origin;
@@ -69,211 +79,327 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
     ? 'Real Vehicle Highway (Live Road Navigation)'
     : `${activePreset.name.split(':')[0]} ➔ ${activePreset.name.split('➔')[1] || activePreset.name.split(':')[1] || 'Gateway'} (${activePreset.distanceKm} km)`;
 
+  // Dynamic Turn Maneuver Direction
+  const renderManeuverIcon = () => {
+    if (currentHeading >= 40 && currentHeading <= 140) {
+      return <IconTurnRight size={22} color="#ffffff" />;
+    } else if (currentHeading >= 220 && currentHeading <= 320) {
+      return <IconTurnLeft size={22} color="#ffffff" />;
+    }
+    return <IconArrowUp size={22} color="#ffffff" />;
+  };
+
   return (
-    <View style={isLandscape ? styles.landscapeContainer : styles.container} pointerEvents="box-none">
-      {/* 1. Floating Top Header Card */}
-      <View style={styles.topCard}>
-        {/* Brand & Subtitle */}
-        <View style={styles.headerSubRow}>
-          <View style={styles.brandDot} />
-          <Text style={styles.brandText}>NAVISENSE IDR</Text>
-        </View>
-
-        {/* Corridor Title Dropdown Trigger */}
+    <View
+      style={isLandscape ? styles.landscapeContainer : styles.container}
+      pointerEvents="box-none"
+    >
+      {/* 1. Sleek Native Turn-by-Turn Dynamic Island (Compact HUD) */}
+      {!isExpanded ? (
         <TouchableOpacity
-          style={styles.corridorTitleRow}
-          onPress={() => setDropdownOpen(true)}
-          activeOpacity={0.7}
+          style={[styles.compactHud, isLandscape && styles.compactHudLandscape]}
+          activeOpacity={0.9}
+          onPress={() => setIsExpanded(true)}
         >
-          <Text style={styles.corridorTitleText} numberOfLines={1}>
-            {corridorTitle}
-          </Text>
-          <IconChevronDown size={18} color="#475569" />
-        </TouchableOpacity>
-
-        {/* Red / Green GNSS Outage Status Banner */}
-        <View
-          style={[
-            styles.outageBanner,
-            isBlackout ? styles.outageBannerActive : styles.outageBannerNormal,
-          ]}
-        >
-          <Text
-            style={[
-              styles.outageBannerText,
-              isBlackout ? styles.outageBannerTextActive : styles.outageBannerTextNormal,
-            ]}
-            numberOfLines={1}
-          >
-            {isBlackout
-              ? 'GNSS SIGNAL LOST — NAVISENSE IDR ACTIVE'
-              : '● ALL SYSTEMS OPTIMAL — HIGH PRECISION GNSS FIX'}
-          </Text>
-          <Text
-            style={[
-              styles.outageElapsedText,
-              isBlackout ? styles.outageElapsedTextActive : styles.outageElapsedTextNormal,
-            ]}
-          >
-            {isBlackout ? `${elapsedOutage.toFixed(1)}s outage` : '0.0s outage'}
-          </Text>
-        </View>
-      </View>
-
-      {/* 2. Side-by-Side Floating Cards */}
-      <View style={styles.cardsRow} pointerEvents="box-none">
-        {/* Left Card: CORRIDOR PLANNER */}
-        <View style={styles.cardLeft}>
-          <Text style={styles.cardTitle}>CORRIDOR PLANNER</Text>
-          <Text style={styles.cardSubtitle} numberOfLines={2}>
-            {isLiveCarMode
-              ? 'Live road navigation active. Using hardware GPS & 50Hz phone IMU.'
-              : `${activePreset.name.split(':')[0]} loaded. Click START SIMULATION to begin navigation!`}
-          </Text>
-
-          {/* Point A / Origin */}
-          <View style={styles.pointRow}>
-            <View style={[styles.pointDot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.pointLabel}>POINT A / ORIGIN</Text>
+          {/* Turn Maneuver Box */}
+          <View style={[styles.maneuverBox, isBlackout && styles.maneuverBoxOutage]}>
+            {renderManeuverIcon()}
+            <Text style={styles.maneuverDist}>350m</Text>
           </View>
-          <Text style={styles.pointCoord}>
-            {originCoord[0].toFixed(5)}°, {originCoord[1].toFixed(5)}°
-          </Text>
 
-          {/* Point B / Destination */}
-          <View style={[styles.pointRow, { marginTop: 4 }]}>
-            <View style={[styles.pointDot, { backgroundColor: '#2563eb' }]} />
-            <Text style={styles.pointLabel}>POINT B / DESTINATION</Text>
-          </View>
-          <Text style={styles.pointCoord}>
-            {destCoord[0].toFixed(5)}°, {destCoord[1].toFixed(5)}°
-          </Text>
-
-          {/* Preset Corridors Picker */}
-          <Text style={styles.presetPickerLabel}>PRESET CORRIDORS:</Text>
-          <TouchableOpacity
-            style={styles.presetPickerButton}
-            onPress={() => setDropdownOpen(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.presetPickerText} numberOfLines={1}>
-              {isLiveCarMode ? 'Live Car Drive' : activePreset.name.split(':')[0]}
-            </Text>
-            <IconChevronDown size={14} color="#64748b" />
-          </TouchableOpacity>
-
-          {/* Action Buttons: Pause / Start + Clear */}
-          <View style={styles.cardActionsRow}>
-            <TouchableOpacity
-              style={[styles.pauseBtn, !isPlaying && styles.startBtn]}
-              onPress={onTogglePlay}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.pauseBtnText}>
-                {isPlaying ? 'PAUSE NAVIGATION' : 'START NAVIGATION'}
+          {/* Road & Navigation Status */}
+          <View style={styles.compactInfoCol}>
+            <View style={styles.compactTitleRow}>
+              <Text style={styles.compactRoadText} numberOfLines={1}>
+                {roadName || corridorTitle.split('➔')[0].trim()}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.clearBtn}
-              onPress={onClearPoints}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.clearBtnText}>CLEAR</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Right Card: TELEMETRY / IDR METRICS DECK */}
-        <View style={styles.cardRight}>
-          {/* Badge & Monospace Timer */}
-          <View style={styles.telemetryTopRow}>
-            <View
-              style={[
-                styles.telemetryBadge,
-                isBlackout ? styles.badgeOutage : styles.badgeNormal,
-              ]}
-            >
+            </View>
+            <View style={styles.compactSubRow}>
               <View
                 style={[
-                  styles.badgeDot,
+                  styles.compactStatusDot,
                   { backgroundColor: isBlackout ? '#ef4444' : '#10b981' },
                 ]}
               />
               <Text
                 style={[
-                  styles.badgeText,
-                  { color: isBlackout ? '#0284c7' : '#059669' },
+                  styles.compactSubText,
+                  isBlackout ? styles.compactSubTextOutage : styles.compactSubTextNormal,
                 ]}
+                numberOfLines={1}
               >
-                {isBlackout ? 'IDR ACTIVE (OUTAGE)' : 'GNSS ACTIVE (FIXED)'}
+                {isBlackout
+                  ? `IDR DEAD-RECKONING • Outage T+${elapsedOutage.toFixed(1)}s`
+                  : 'GNSS LOCKED • High Precision Fusion'}
               </Text>
             </View>
-            <Text style={styles.timerText}>{timerDisplay}</Text>
           </View>
 
-          {/* Massive Speed Display */}
-          <View style={styles.speedSection}>
-            <Text style={styles.speedNumber}>{currentSpeed.toFixed(1)}</Text>
-            <Text style={styles.speedUnit}>KM / H</Text>
+          {/* Speed & Error Margin Cluster */}
+          <View style={styles.compactSpeedCluster}>
+            <View style={styles.compactSpeedWrap}>
+              <Text style={styles.compactSpeedVal}>{currentSpeed.toFixed(0)}</Text>
+              <Text style={styles.compactSpeedUnit}>KM/H</Text>
+            </View>
+            <View
+              style={[
+                styles.compactAccPill,
+                isBlackout ? styles.compactAccPillOutage : styles.compactAccPillNormal,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.compactAccText,
+                  isBlackout ? styles.compactAccTextOutage : styles.compactAccTextNormal,
+                ]}
+              >
+                ±{errorMargin.toFixed(1)}m
+              </Text>
+            </View>
           </View>
 
-          {/* 6-Grid Telemetry Metrics */}
-          <View style={styles.metricsGrid}>
-            {/* Row 1: GPS FIX | IDR EST */}
-            <View style={styles.metricRow}>
-              <View style={styles.metricCell}>
-                <Text style={styles.metricLabel}>GPS FIX</Text>
-                <Text
+          {/* Expand Details Trigger */}
+          <TouchableOpacity
+            style={styles.compactExpandBtn}
+            onPress={() => setIsExpanded(true)}
+            activeOpacity={0.7}
+          >
+            <IconChevronDown size={18} color="#94a3b8" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      ) : (
+        /* 2. Expanded Engineering & Telemetry Deck */
+        <View style={styles.expandedWrapper} pointerEvents="box-none">
+          {/* Top Header Card */}
+          <View style={styles.topCard}>
+            {/* Brand & Subtitle */}
+            <View style={styles.headerSubRow}>
+              <View style={styles.brandDot} />
+              <Text style={styles.brandText}>NAVISENSE IDR</Text>
+              <TouchableOpacity
+                style={styles.collapseHeaderBtn}
+                onPress={() => setIsExpanded(false)}
+                activeOpacity={0.7}
+              >
+                <IconChevronUp size={16} color="#64748b" />
+                <Text style={styles.collapseHeaderText}>MINIMIZE HUD</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Corridor Title Dropdown Trigger */}
+            <TouchableOpacity
+              style={styles.corridorTitleRow}
+              onPress={() => setDropdownOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.corridorTitleText} numberOfLines={1}>
+                {corridorTitle}
+              </Text>
+              <IconChevronDown size={18} color="#475569" />
+            </TouchableOpacity>
+
+            {/* Red / Green GNSS Outage Status Banner */}
+            <View
+              style={[
+                styles.outageBanner,
+                isBlackout ? styles.outageBannerActive : styles.outageBannerNormal,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.outageBannerText,
+                  isBlackout ? styles.outageBannerTextActive : styles.outageBannerTextNormal,
+                ]}
+                numberOfLines={1}
+              >
+                {isBlackout
+                  ? 'GNSS SIGNAL LOST — NAVISENSE IDR ACTIVE'
+                  : '● ALL SYSTEMS OPTIMAL — HIGH PRECISION GNSS FIX'}
+              </Text>
+              <Text
+                style={[
+                  styles.outageElapsedText,
+                  isBlackout ? styles.outageElapsedTextActive : styles.outageElapsedTextNormal,
+                ]}
+              >
+                {isBlackout ? `${elapsedOutage.toFixed(1)}s outage` : '0.0s outage'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Side-by-Side Floating Cards */}
+          <View style={isLandscape ? styles.landscapeCardsRow : styles.cardsRow} pointerEvents="box-none">
+            {/* Left Card: CORRIDOR PLANNER */}
+            <View style={styles.cardLeft}>
+              <Text style={styles.cardTitle}>CORRIDOR PLANNER</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={2}>
+                {isLiveCarMode
+                  ? 'Live road navigation active. Using hardware GPS & 50Hz phone IMU.'
+                  : `${activePreset.name.split(':')[0]} loaded. Click START to begin navigation!`}
+              </Text>
+
+              {/* Point A / Origin */}
+              <View style={styles.pointRow}>
+                <View style={[styles.pointDot, { backgroundColor: '#10b981' }]} />
+                <Text style={styles.pointLabel}>POINT A / ORIGIN</Text>
+              </View>
+              <Text style={styles.pointCoord}>
+                {originCoord[0].toFixed(5)}°, {originCoord[1].toFixed(5)}°
+              </Text>
+
+              {/* Point B / Destination */}
+              <View style={[styles.pointRow, { marginTop: 4 }]}>
+                <View style={[styles.pointDot, { backgroundColor: '#2563eb' }]} />
+                <Text style={styles.pointLabel}>POINT B / DESTINATION</Text>
+              </View>
+              <Text style={styles.pointCoord}>
+                {destCoord[0].toFixed(5)}°, {destCoord[1].toFixed(5)}°
+              </Text>
+
+              {/* Preset Corridors Picker */}
+              <Text style={styles.presetPickerLabel}>PRESET CORRIDORS:</Text>
+              <TouchableOpacity
+                style={styles.presetPickerButton}
+                onPress={() => setDropdownOpen(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.presetPickerText} numberOfLines={1}>
+                  {isLiveCarMode ? 'Live Car Drive' : activePreset.name.split(':')[0]}
+                </Text>
+                <IconChevronDown size={14} color="#64748b" />
+              </TouchableOpacity>
+
+              {/* Action Buttons: Pause / Start + Clear */}
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity
+                  style={[styles.pauseBtn, !isPlaying && styles.startBtn]}
+                  onPress={onTogglePlay}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.pauseBtnText}>
+                    {isPlaying ? 'PAUSE' : 'START'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={onClearPoints}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.clearBtnText}>CLEAR</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Right Card: TELEMETRY / IDR METRICS DECK */}
+            <View style={styles.cardRight}>
+              {/* Badge & Monospace Timer */}
+              <View style={styles.telemetryTopRow}>
+                <View
                   style={[
-                    styles.metricValue,
-                    { color: isBlackout ? '#dc2626' : '#16a34a' },
+                    styles.telemetryBadge,
+                    isBlackout ? styles.badgeOutage : styles.badgeNormal,
                   ]}
                 >
-                  {isBlackout ? 'DENIED' : 'LOCKED'}
-                </Text>
+                  <View
+                    style={[
+                      styles.badgeDot,
+                      { backgroundColor: isBlackout ? '#ef4444' : '#10b981' },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      { color: isBlackout ? '#0284c7' : '#059669' },
+                    ]}
+                  >
+                    {isBlackout ? 'IDR ACTIVE (OUTAGE)' : 'GNSS ACTIVE (FIXED)'}
+                  </Text>
+                </View>
+                <Text style={styles.timerText}>{timerDisplay}</Text>
               </View>
-              <View style={styles.metricCell}>
-                <Text style={styles.metricLabel}>IDR EST</Text>
-                <Text style={styles.metricValueSmall} numberOfLines={1}>
-                  {currentLat.toFixed(5)}°, {currentLon.toFixed(5)}°
-                </Text>
-              </View>
-            </View>
 
-            {/* Row 2: HEADING | ERROR MARGIN */}
-            <View style={styles.metricRow}>
-              <View style={styles.metricCell}>
-                <Text style={styles.metricLabel}>HEADING</Text>
-                <Text style={styles.metricValue}>{formattedHeading.full}</Text>
+              {/* Massive Speed Display */}
+              <View style={styles.speedSection}>
+                <Text style={styles.speedNumber}>{currentSpeed.toFixed(1)}</Text>
+                <Text style={styles.speedUnit}>KM / H</Text>
               </View>
-              <View style={styles.metricCell}>
-                <Text style={styles.metricLabel}>ERROR MARGIN</Text>
-                <Text style={styles.metricValue}>±{errorMargin.toFixed(1)}m</Text>
-              </View>
-            </View>
 
-            {/* Row 3: CALIBRATED | DRIFT RATE */}
-            <View style={styles.metricRow}>
-              <View style={styles.metricCell}>
-                <Text style={styles.metricLabel}>CALIBRATED</Text>
-                <Text style={styles.metricValue}>95.0% (Custom)</Text>
-              </View>
-              <View style={styles.metricCell}>
-                <Text style={styles.metricLabel}>DRIFT RATE</Text>
-                <Text
-                  style={[
-                    styles.metricValue,
-                    { color: isBlackout && driftRate > 0 ? '#dc2626' : '#1e293b' },
-                  ]}
-                >
-                  {driftRate.toFixed(1)}%
-                </Text>
+              {/* 6-Grid Telemetry Metrics */}
+              <View style={styles.metricsGrid}>
+                {/* Row 1: GPS FIX | IDR EST */}
+                <View style={styles.metricRow}>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>GPS FIX</Text>
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        { color: isBlackout ? '#dc2626' : '#16a34a' },
+                      ]}
+                    >
+                      {isBlackout ? 'DENIED' : 'LOCKED'}
+                    </Text>
+                  </View>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>IDR EST</Text>
+                    <Text style={styles.metricValueSmall} numberOfLines={1}>
+                      {currentLat.toFixed(5)}°, {currentLon.toFixed(5)}°
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Row 2: HEADING | ERROR MARGIN */}
+                <View style={styles.metricRow}>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>HEADING</Text>
+                    <Text style={styles.metricValue}>{formattedHeading.full}</Text>
+                  </View>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>ERROR MARGIN</Text>
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        { color: isBlackout ? '#ef4444' : '#10b981' },
+                      ]}
+                    >
+                      ±{errorMargin.toFixed(1)}m
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Row 3: CALIBRATED | DRIFT RATE */}
+                <View style={styles.metricRow}>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>CALIBRATED</Text>
+                    <Text style={styles.metricValue}>95.0% (Custom)</Text>
+                  </View>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>DRIFT RATE</Text>
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        { color: isBlackout && driftRate > 0 ? '#dc2626' : '#1e293b' },
+                      ]}
+                    >
+                      {driftRate.toFixed(1)}%
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
           </View>
+
+          {/* Bottom Quick-Minimize Bar */}
+          <TouchableOpacity
+            style={styles.minimizeBar}
+            onPress={() => setIsExpanded(false)}
+            activeOpacity={0.8}
+          >
+            <IconChevronUp size={15} color="#475569" />
+            <Text style={styles.minimizeBarText}>MINIMIZE TO NATIVE HUD</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      )}
 
       {/* Corridor Selection & Dual-Mode Modal */}
       <Modal
@@ -403,14 +529,141 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     left: 8,
-    width: 380,
+    right: 8,
     zIndex: 100,
   },
-  landscapeCardsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 6,
+  expandedWrapper: {
+    width: '100%',
   },
+
+  /* Compact Native Turn-by-Turn Dynamic Island */
+  compactHud: {
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  compactHudLandscape: {
+    maxWidth: 580,
+    alignSelf: 'center',
+  },
+  maneuverBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  maneuverBoxOutage: {
+    backgroundColor: '#b91c1c',
+  },
+  maneuverDist: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginTop: 1,
+  },
+  compactInfoCol: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+    justifyContent: 'center',
+  },
+  compactTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactRoadText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#f8fafc',
+    letterSpacing: 0.2,
+  },
+  compactSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 5,
+  },
+  compactStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  compactSubText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
+  compactSubTextNormal: {
+    color: '#94a3b8',
+  },
+  compactSubTextOutage: {
+    color: '#f87171',
+  },
+  compactSpeedCluster: {
+    alignItems: 'flex-end',
+    marginRight: 6,
+  },
+  compactSpeedWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
+  },
+  compactSpeedVal: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#ffffff',
+    fontVariant: ['tabular-nums'],
+  },
+  compactSpeedUnit: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#94a3b8',
+    letterSpacing: 0.5,
+  },
+  compactAccPill: {
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    marginTop: 1,
+  },
+  compactAccPillNormal: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  compactAccText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+  },
+  compactAccTextNormal: {
+    color: '#34d399',
+  },
+  compactAccPillOutage: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  compactAccTextOutage: {
+    color: '#f87171',
+  },
+  compactExpandBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+
+  /* Expanded HUD Elements */
   topCard: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
@@ -427,7 +680,7 @@ const styles = StyleSheet.create({
   headerSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
     marginBottom: 2,
   },
   brandDot: {
@@ -435,12 +688,28 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 3.5,
     backgroundColor: '#2563eb',
+    marginRight: 6,
   },
   brandText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#1e293b',
     letterSpacing: 0.8,
+    flex: 1,
+  },
+  collapseHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+  },
+  collapseHeaderText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#475569',
   },
   corridorTitleRow: {
     flexDirection: 'row',
@@ -498,6 +767,11 @@ const styles = StyleSheet.create({
 
   // 2-Column Floating Cards
   cardsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  landscapeCardsRow: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 8,
@@ -702,6 +976,26 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
     color: '#0f172a',
+  },
+
+  // Bottom Minimize Bar
+  minimizeBar: {
+    marginTop: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  minimizeBarText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#475569',
+    letterSpacing: 0.5,
   },
 
   // Modal

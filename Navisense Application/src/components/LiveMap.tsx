@@ -122,7 +122,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     }
   };
 
-  // Generate self-contained HTML with Leaflet & OpenStreetMap tiles
+  // Generate self-contained HTML with MapLibre GL 3D Vector Map & Extruded Buildings
   const initialCenter = routeCoordinates[0] || [28.6315, 77.2167];
 
   const htmlContent = `
@@ -131,97 +131,87 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.osmbuildings.org/classic/0.2.2b/OSMBuildings-Leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #f1f5f9; overflow: hidden; }
-    #map {
-      width: 100%;
-      height: 100%;
-      background: #f1f5f9;
-      overflow: hidden;
-      transition: transform 0.4s ease;
-      transform: perspective(700px) rotateX(38deg) scale(1.12);
-    }
-    .leaflet-control-attribution, .leaflet-control-zoom { display: none !important; }
+    html, body { width: 100%; height: 100%; background: #0f172a; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+    .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display: none !important; }
 
-    /* Custom Vehicle Marker Puck matching Screenshot */
-    .car-puck {
+    /* Custom 3D Vehicle Marker Element with Forward Direction Beam */
+    .nav-car-wrap {
+      width: 44px;
+      height: 44px;
       position: relative;
-      width: 36px;
-      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .car-cone {
-      position: absolute;
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-bottom: 22px solid #0284c7;
-      filter: drop-shadow(0 2px 6px rgba(2, 132, 199, 0.7));
-      top: 3px;
+    .nav-car-arrow {
+      width: 28px;
+      height: 28px;
       transition: transform 0.1s linear;
+      filter: drop-shadow(0 4px 10px rgba(2, 132, 199, 0.7));
     }
-    .car-dot-a {
-      width: 22px;
-      height: 22px;
-      background: #09131f;
-      border: 2px solid #38bdf8;
-      border-radius: 50%;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.75);
-    }
-    .car-radar-pulse {
+    .nav-car-halo {
       position: absolute;
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
-      background: rgba(2, 132, 199, 0.18);
-      border: 1.5px solid rgba(56, 189, 248, 0.45);
+      background: rgba(2, 132, 199, 0.2);
+      border: 1.5px solid rgba(56, 189, 248, 0.5);
       animation: radarPulse 2s infinite ease-out;
     }
     @keyframes radarPulse {
       0% { transform: scale(0.6); opacity: 1; }
-      100% { transform: scale(1.6); opacity: 0; }
+      100% { transform: scale(1.7); opacity: 0; }
+    }
+    .car-outage .nav-car-arrow {
+      filter: drop-shadow(0 4px 10px rgba(239, 68, 68, 0.8));
+    }
+    .car-outage .nav-car-halo {
+      background: rgba(239, 68, 68, 0.22);
+      border-color: rgba(248, 113, 113, 0.65);
     }
 
-    /* Last GNSS Pin Marker */
+    /* Outage GPS Freeze Marker */
     .last-gnss-marker {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       background: #dc2626;
       border: 2px solid #ffffff;
-      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.6);
+      box-shadow: 0 3px 10px rgba(220, 38, 38, 0.65);
       display: flex;
       align-items: center;
       justify-content: center;
       color: #ffffff;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Stop Pins matching Native Navigation Pins */
+    .stop-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      padding: 3px 8px;
       font-size: 10px;
       font-weight: 800;
-      font-family: sans-serif;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+      border: 2px solid #ffffff;
+      white-space: nowrap;
     }
+    .pin-origin { background: #059669; }
+    .pin-dest { background: #1d4ed8; }
 
-    /* Stop Pins matching Screenshot */
-    .stop-pin {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 3px solid #ffffff;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-    }
-    .pin-origin { background: #10b981; }
-    .pin-dest { background: #2563eb; }
-
-    /* Ghost Car Puck */
+    /* B1 Ghost Puck */
     .ghost-puck {
       width: 20px;
       height: 20px;
@@ -236,73 +226,150 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   <div id="map"></div>
 
   <script>
-    var map = L.map('map', {
-      center: [${initialCenter[0]}, ${initialCenter[1]}],
-      zoom: 16,
-      zoomControl: false,
-      attributionControl: false
+    var initialLon = ${initialCenter[1]};
+    var initialLat = ${initialCenter[0]};
+    var is3D = ${is3DMode ? 'true' : 'false'};
+    var isFollowing = true;
+    var currentHeading = 0;
+    var prevBlackout = false;
+
+    // Initialize Real MapLibre GL 3D Vector Map with All Native Gestures (Apple/Google Maps)
+    var map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/liberty', // Real 3D Vector Map with building extrusions
+      center: [initialLon, initialLat],
+      zoom: 16.5,
+      pitch: is3D ? 60 : 0, // Real 3D Perspective Pitch
+      bearing: 0,
+      maxPitch: 85,
+      attributionControl: false,
+      dragPan: true,
+      dragRotate: true,
+      touchZoomRotate: true,
+      touchPitch: true, // Two-finger vertical drag tilts camera in 3D (Google/Apple Maps gesture)
+      doubleClickZoom: true,
+      boxZoom: true,
+      keyboard: true,
+      scrollZoom: true
     });
-
-    // Clean OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
-
-    // Load 3D Buildings
-    try {
-      if (typeof OSMBuildings !== 'undefined') {
-        var osmb = new OSMBuildings(map);
-        osmb.load('https://{s}.data.osmbuildings.org/0.2/59702c0a/tile/{z}/{x}/{y}.json');
-        osmb.style({ color: '#cbd5e1', roofColor: '#e2e8f0' });
-      }
-    } catch (e) {
-      console.log('OSMBuildings init fallback:', e);
-    }
-
-    // Two-tone polyline matching screenshot (gold casing + cyan/blue center)
-    var routeCasing = L.polyline([], { color: '#fbbf24', weight: 6.5, opacity: 0.7 }).addTo(map);
-    var routePolyline = L.polyline([], { color: '#0284c7', weight: 3.5, opacity: 1.0 }).addTo(map);
-    var gnssTrail = L.polyline([], { color: '#059669', weight: 4.5, opacity: 0.9 }).addTo(map);
-    var idrTrail = L.polyline([], { color: '#2563eb', weight: 4.5, opacity: 0.95 }).addTo(map);
-    var ghostTrail = L.polyline([], { color: '#f97316', weight: 3, opacity: 0.85, dashArray: '5, 5' }).addTo(map);
 
     var carMarker = null;
     var ghostMarker = null;
     var lastGnssMarker = null;
     var originMarker = null;
     var destMarker = null;
-    var isFollowing = true;
-    var prevBlackout = false;
+    var ghostCoordinates = [];
 
-    // Custom Vehicle Marker Puck with (A) symbol
-    var carIcon = L.divIcon({
-      className: 'car-icon-wrap',
-      html: '<div class="car-puck"><div class="car-radar-pulse"></div><div id="carCone" class="car-cone"></div><div class="car-dot-a"><span style="color:#ffffff;font-size:10px;font-weight:900;font-family:sans-serif;">A</span></div></div>',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+    // SVG Vehicle Chevron
+    var carEl = document.createElement('div');
+    carEl.id = 'carPuckWrap';
+    carEl.className = 'nav-car-wrap';
+    carEl.innerHTML = '<div class="nav-car-halo"></div><svg id="carNavArrow" class="nav-car-arrow" viewBox="0 0 32 32"><path d="M16 3 L28 27 L16 21 L4 27 Z" fill="#0284c7" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round" /></svg>';
+
+    var ghostEl = document.createElement('div');
+    ghostEl.className = 'ghost-puck';
+
+    // Disable auto-follow when user manually manipulates map
+    map.on('dragstart', function() { isFollowing = false; });
+    map.on('rotatestart', function() { isFollowing = false; });
+    map.on('pitchstart', function() { isFollowing = false; });
+    map.on('zoomstart', function(e) {
+      if (e.originalEvent) isFollowing = false;
     });
 
-    var ghostIcon = L.divIcon({
-      className: 'ghost-icon-wrap',
-      html: '<div class="ghost-puck"></div>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    });
-
-    // Map Click Listener
+    // Tap on map
     map.on('click', function(e) {
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'MAP_CLICK',
-          lat: e.latlng.lat,
-          lon: e.latlng.lng
+          lat: e.lngLat.lat,
+          lon: e.lngLat.lng
         }));
       }
     });
 
-    // Disable auto-follow when user manually drags map
-    map.on('dragstart', function() {
-      isFollowing = false;
+    map.on('load', function() {
+      // 1. Add 3D Extruded Buildings Layer (Architectural shading in 3D WebGL)
+      var layers = map.getStyle().layers || [];
+      var labelLayer = layers.find(function(l) {
+        return l.type === 'symbol' && l.layout && l.layout['text-field'];
+      });
+      var labelLayerId = labelLayer ? labelLayer.id : undefined;
+
+      if (!map.getLayer('3d-buildings') && map.getSource('openmaptiles')) {
+        map.addLayer({
+          id: '3d-buildings',
+          source: 'openmaptiles',
+          'source-layer': 'building',
+          type: 'fill-extrusion',
+          minzoom: 14.5,
+          paint: {
+            'fill-extrusion-color': [
+              'interpolate',
+              ['linear'],
+              ['get', 'render_height'],
+              0, '#e2e8f0',
+              20, '#cbd5e1',
+              50, '#94a3b8'
+            ],
+            'fill-extrusion-height': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              14.5, 0,
+              15.5, ['get', 'render_height']
+            ],
+            'fill-extrusion-base': ['get', 'render_min_height'],
+            'fill-extrusion-opacity': 0.85
+          }
+        }, labelLayerId);
+      }
+
+      // 2. Route Casing Glow Layer
+      map.addSource('route-casing', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'route-casing-line',
+        type: 'line',
+        source: 'route-casing',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#0369a1', 'line-width': 9, 'line-opacity': 0.28 }
+      });
+
+      // 3. Navigation Route Polyline
+      map.addSource('route-polyline', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'route-polyline-line',
+        type: 'line',
+        source: 'route-polyline',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#0284c7', 'line-width': 5, 'line-opacity': 0.95 }
+      });
+
+      // 4. Ghost B1 Trail
+      map.addSource('ghost-trail', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
+      });
+      map.addLayer({
+        id: 'ghost-trail-line',
+        type: 'line',
+        source: 'ghost-trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#f97316', 'line-width': 3, 'line-dasharray': [4, 3], 'line-opacity': 0.85 }
+      });
+
+      // Add Car Marker
+      carMarker = new maplibregl.Marker({ element: carEl, anchor: 'center' })
+        .setLngLat([initialLon, initialLat])
+        .addTo(map);
+
+      ghostMarker = new maplibregl.Marker({ element: ghostEl, anchor: 'center' });
     });
 
     // Communication receiver
@@ -311,130 +378,190 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         var msg = JSON.parse(event.data);
 
         if (msg.type === 'ROUTE_UPDATE') {
-          var pts = msg.data.coordinates;
-          if (pts && pts.length > 0) {
-            routeCasing.setLatLngs(pts);
-            routePolyline.setLatLngs(pts);
-            if (pts.length > 1 && msg.data.fitBounds !== false) {
-              map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+          var rawPts = msg.data.coordinates;
+          if (rawPts && rawPts.length > 0) {
+            // Convert [lat, lon] to GeoJSON [lon, lat]
+            var geoPts = rawPts.map(function(p) { return [p[1], p[0]]; });
+
+            if (map.getSource('route-casing')) {
+              map.getSource('route-casing').setData({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: geoPts }
+              });
+            }
+            if (map.getSource('route-polyline')) {
+              map.getSource('route-polyline').setData({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: geoPts }
+              });
             }
 
-            // Origin Pin
-            var orig = msg.data.origin || pts[0];
+            if (geoPts.length > 1 && msg.data.fitBounds !== false) {
+              var bounds = geoPts.reduce(function(b, coord) {
+                return b.extend(coord);
+              }, new maplibregl.LngLatBounds(geoPts[0], geoPts[0]));
+              map.fitBounds(bounds, { padding: 50, duration: 600, maxZoom: 17 });
+            }
+
+            // Origin Marker
+            var orig = msg.data.origin || rawPts[0];
             if (orig) {
-              if (originMarker) map.removeLayer(originMarker);
-              originMarker = L.marker(orig, {
-                icon: L.divIcon({
-                  className: 'origin-wrap',
-                  html: '<div class="stop-pin pin-origin"></div>',
-                  iconSize: [16, 16],
-                  iconAnchor: [8, 8]
-                })
-              }).addTo(map);
+              if (originMarker) originMarker.remove();
+              var origEl = document.createElement('div');
+              origEl.className = 'stop-pin pin-origin';
+              origEl.innerText = 'START';
+              originMarker = new maplibregl.Marker({ element: origEl, anchor: 'center' })
+                .setLngLat([orig[1], orig[0]])
+                .addTo(map);
             }
 
-            // Destination Pin
-            var dest = msg.data.destination || pts[pts.length - 1];
+            // Destination Marker
+            var dest = msg.data.destination || rawPts[rawPts.length - 1];
             if (dest) {
-              if (destMarker) map.removeLayer(destMarker);
-              destMarker = L.marker(dest, {
-                icon: L.divIcon({
-                  className: 'dest-wrap',
-                  html: '<div class="stop-pin pin-dest"></div>',
-                  iconSize: [16, 16],
-                  iconAnchor: [8, 8]
-                })
-              }).addTo(map);
+              if (destMarker) destMarker.remove();
+              var destEl = document.createElement('div');
+              destEl.className = 'stop-pin pin-dest';
+              destEl.innerText = 'FINISH';
+              destMarker = new maplibregl.Marker({ element: destEl, anchor: 'center' })
+                .setLngLat([dest[1], dest[0]])
+                .addTo(map);
             }
           }
         }
 
         if (msg.type === 'TELEMETRY_UPDATE') {
           var d = msg.data;
-          var pos = d.carPos;
+          var lat = d.carPos[0];
+          var lon = d.carPos[1];
           var heading = d.heading;
           var isBlackout = d.isBlackout;
+          currentHeading = heading;
 
-          // 1. Update Car Marker
-          if (!carMarker) {
-            carMarker = L.marker(pos, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
-          } else {
-            carMarker.setLatLng(pos);
+          if (carMarker) {
+            carMarker.setLngLat([lon, lat]);
           }
 
-          // Rotate heading cone
-          var cone = document.getElementById('carCone');
-          if (cone) {
-            cone.style.transform = 'rotate(' + heading + 'deg)';
+          var arrow = document.getElementById('carNavArrow');
+          var puck = document.getElementById('carPuckWrap');
+          if (arrow) {
+            arrow.style.transform = 'rotate(' + heading + 'deg)';
+            var p = arrow.querySelector('path');
+            if (p) {
+              p.setAttribute('fill', isBlackout ? '#ef4444' : '#0284c7');
+            }
+          }
+          if (puck) {
+            if (isBlackout) puck.classList.add('car-outage');
+            else puck.classList.remove('car-outage');
           }
 
-          // 2. Trails Management
-          if (!isBlackout) {
-            gnssTrail.addLatLng(pos);
-            idrTrail.addLatLng(pos);
-
-            // Remove last GNSS marker when restored
-            if (prevBlackout && lastGnssMarker) {
-              map.removeLayer(lastGnssMarker);
+          // Outage Drop Pin
+          if (isBlackout && !prevBlackout) {
+            if (!lastGnssMarker) {
+              var gnssEl = document.createElement('div');
+              gnssEl.className = 'last-gnss-marker';
+              gnssEl.innerText = 'GPS';
+              lastGnssMarker = new maplibregl.Marker({ element: gnssEl, anchor: 'center' })
+                .setLngLat([lon, lat])
+                .addTo(map);
+            }
+          } else if (!isBlackout && prevBlackout) {
+            if (lastGnssMarker) {
+              lastGnssMarker.remove();
               lastGnssMarker = null;
             }
-          } else {
-            // In Blackout: IDR trail keeps growing, GNSS trail stops!
-            idrTrail.addLatLng(pos);
-
-            // Place Last GNSS Freeze Pin at blackout inception
-            if (!prevBlackout && !lastGnssMarker) {
-              lastGnssMarker = L.marker(pos, {
-                icon: L.divIcon({
-                  className: 'last-gnss-wrap',
-                  html: '<div class="last-gnss-marker">GPS</div>',
-                  iconSize: [24, 24],
-                  iconAnchor: [12, 12]
-                }),
-                zIndexOffset: 900
-              }).addTo(map);
-            }
           }
 
-          // 3. Ghost Baseline Trail (B1 Raw INS)
+          // Ghost Baseline
           if (d.showGhost && d.b1Pos) {
-            ghostTrail.addLatLng(d.b1Pos);
-            if (!ghostMarker) {
-              ghostMarker = L.marker(d.b1Pos, { icon: ghostIcon, zIndexOffset: 800 }).addTo(map);
-            } else {
-              ghostMarker.setLatLng(d.b1Pos);
+            ghostCoordinates.push([d.b1Pos[1], d.b1Pos[0]]);
+            if (map.getSource('ghost-trail')) {
+              map.getSource('ghost-trail').setData({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: ghostCoordinates }
+              });
+            }
+            if (ghostMarker) {
+              ghostMarker.setLngLat([d.b1Pos[1], d.b1Pos[0]]).addTo(map);
             }
           } else if (ghostMarker) {
-            map.removeLayer(ghostMarker);
-            ghostMarker = null;
-            ghostTrail.setLatLngs([]);
+            ghostMarker.remove();
+            ghostCoordinates = [];
+            if (map.getSource('ghost-trail')) {
+              map.getSource('ghost-trail').setData({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: [] }
+              });
+            }
           }
 
-          // 4. Auto-center Camera
+          // Camera Follow with Real 3D Perspective
           if (isFollowing) {
-            map.panTo(pos, { animate: true, duration: 0.1 });
+            if (is3D) {
+              map.easeTo({
+                center: [lon, lat],
+                bearing: heading,
+                pitch: 60,
+                zoom: 16.8,
+                duration: 120,
+                easing: function(t) { return t; }
+              });
+            } else {
+              map.easeTo({
+                center: [lon, lat],
+                duration: 120,
+                easing: function(t) { return t; }
+              });
+            }
           }
 
           prevBlackout = isBlackout;
         }
 
         if (msg.type === 'SET_CAMERA_MODE') {
-          var container = document.getElementById('map');
-          if (msg.is3D) {
-            container.style.transition = 'transform 0.4s ease';
-            container.style.transform = 'perspective(700px) rotateX(38deg) scale(1.12)';
-            if (carMarker) map.setView(carMarker.getLatLng(), 17, { animate: true });
+          is3D = msg.is3D;
+          isFollowing = true;
+          if (is3D) {
+            map.easeTo({
+              pitch: 60,
+              bearing: currentHeading || 0,
+              zoom: 16.8,
+              duration: 800
+            });
           } else {
-            container.style.transition = 'transform 0.4s ease';
-            container.style.transform = 'none';
-            if (carMarker) map.setView(carMarker.getLatLng(), 15, { animate: true });
+            map.easeTo({
+              pitch: 0,
+              bearing: 0,
+              zoom: 15.5,
+              duration: 800
+            });
           }
         }
 
         if (msg.type === 'RECENTER_VEHICLE') {
           isFollowing = true;
           if (carMarker) {
-            map.setView(carMarker.getLatLng(), 16, { animate: true });
+            var curLngLat = carMarker.getLngLat();
+            if (is3D) {
+              map.flyTo({
+                center: curLngLat,
+                pitch: 60,
+                bearing: currentHeading || 0,
+                zoom: 16.8,
+                duration: 800
+              });
+            } else {
+              map.flyTo({
+                center: curLngLat,
+                pitch: 0,
+                zoom: 15.5,
+                duration: 800
+              });
+            }
           }
         }
       } catch (err) {
@@ -467,24 +594,33 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
       {/* Floating Map Controls (Optional) */}
       {showFloatingControls && (
-        <View style={styles.mapControls}>
+        <View style={styles.floatingControls}>
           <TouchableOpacity
             style={styles.controlBtn}
-            onPress={centerOnVehicle}
-            activeOpacity={0.7}
-            accessibilityLabel="Center on Vehicle"
+            onPress={toggleCameraMode}
+            activeOpacity={0.8}
           >
-            <IconCrosshair size={18} color={theme.colors.slateDark} />
+            <IconCompass size={18} color="#0f172a" />
+            <Text style={styles.controlText}>{internal3D ? '3D' : '2D'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.controlBtn, internal3D && styles.controlBtnActive]}
-            onPress={toggleCameraMode}
-            activeOpacity={0.7}
-            accessibilityLabel="Toggle 2D / 3D Mode"
+            style={styles.controlBtn}
+            onPress={centerOnVehicle}
+            activeOpacity={0.8}
           >
-            <IconCompass size={18} color={internal3D ? theme.colors.idrBlue : theme.colors.slateDark} />
+            <IconCrosshair size={18} color="#0f172a" />
           </TouchableOpacity>
+
+          {onToggleGhostBaseline && (
+            <TouchableOpacity
+              style={[styles.controlBtn, showGhostBaseline && styles.controlBtnActive]}
+              onPress={onToggleGhostBaseline}
+              activeOpacity={0.8}
+            >
+              <IconEye size={18} color={showGhostBaseline ? '#ffffff' : '#0f172a'} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
@@ -494,41 +630,41 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#0f172a',
   },
   webview: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#0f172a',
   },
-  mapControls: {
+  floatingControls: {
     position: 'absolute',
-    right: 12,
-    top: 86,
+    right: 14,
+    bottom: 90,
     gap: 8,
-    zIndex: 20,
+    zIndex: 50,
   },
   controlBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    elevation: 4,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
   },
   controlBtnActive: {
-    backgroundColor: theme.colors.idrBgSoft,
-    borderColor: theme.colors.idrBlue,
+    backgroundColor: '#09131f',
   },
-  controlBtnGhostActive: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+  controlText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: -2,
   },
 });
