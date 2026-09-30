@@ -212,7 +212,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 activeOpacity={0.8}
               >
                 <Text style={[styles.segmentText, isLiveCarMode && styles.segmentTextLiveActive]}>
-                  🚗 LIVE CAR DRIVE
+                  LIVE CAR DRIVE
                 </Text>
               </TouchableOpacity>
             </View>
@@ -221,8 +221,8 @@ export const TopBar: React.FC<TopBarProps> = ({
             <View style={[styles.modeInfoBox, isLiveCarMode && styles.modeInfoBoxLive]}>
               <Text style={[styles.modeInfoTitle, isLiveCarMode && styles.modeInfoTitleLive]}>
                 {isLiveCarMode
-                  ? '🚗 REAL CAR DRIVE ACTIVE'
-                  : '🎮 HACKATHON BENCHMARK SIMULATOR ACTIVE'}
+                  ? 'REAL CAR DRIVE ACTIVE'
+                  : 'HACKATHON BENCHMARK SIMULATOR ACTIVE'}
               </Text>
               <Text style={styles.modeInfoDesc}>
                 {isLiveCarMode

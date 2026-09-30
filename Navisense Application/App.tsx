@@ -559,6 +559,7 @@ export default function App() {
                 selectedPresetId={selectedPresetId}
                 onSelectPreset={handleSelectPreset}
                 onStartDriving={() => {
+                  setIsLiveCarMode(true);
                   setAppExperienceMode('COCKPIT_HUD');
                   setIs3DMode(true);
                   if (!isPlaying) handleTogglePlay();

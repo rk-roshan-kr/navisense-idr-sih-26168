@@ -199,7 +199,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
                   onPress={onSwitchToMapsMode}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.mapsHeaderText}>🗺️ MAPS MODE</Text>
+                  <Text style={styles.mapsHeaderText}>MAPS MODE</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -480,7 +480,7 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
                     isLiveCarMode && styles.dualModeTabTextActive,
                   ]}
                 >
-                  🚗 LIVE CAR DRIVE
+                  LIVE CAR DRIVE
                 </Text>
               </TouchableOpacity>
             </View>

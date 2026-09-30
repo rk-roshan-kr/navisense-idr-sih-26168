@@ -866,7 +866,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             activeOpacity={0.8}
           >
             <IconCrosshair size={16} color="#ffffff" />
-            <Text style={styles.recenterBtnText}>🎯 RECENTER CAR</Text>
+            <Text style={styles.recenterBtnText}>RECENTER CAR</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.trackingSegment}>

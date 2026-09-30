@@ -12,7 +12,6 @@ import {
 import { theme } from '../theme';
 import {
   IconSearch,
-  IconMic,
   IconX,
   IconNavigation,
   IconMapPin,
@@ -54,10 +53,12 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
 
   const originTitle = activePreset.name.split('➔')[0]?.split(':')[0]?.trim() || 'My Location';
 
-  // Search filter
+  // Search filter - matches name, city, destination or keywords
+  const queryLower = searchQuery.toLowerCase().trim();
   const filteredPresets = PRESET_ROUTES.filter((r) =>
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.city.toLowerCase().includes(searchQuery.toLowerCase())
+    r.name.toLowerCase().includes(queryLower) ||
+    r.city.toLowerCase().includes(queryLower) ||
+    r.id.toLowerCase().includes(queryLower)
   );
 
   return (
@@ -79,19 +80,16 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
             returnKeyType="search"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
-          {searchQuery.length > 0 ? (
+          {searchQuery.length > 0 && (
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => {
                 setSearchQuery('');
                 Keyboard.dismiss();
               }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <IconX size={18} color="#5f6368" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.iconBtn}>
-              <IconMic size={20} color="#ea4335" />
             </TouchableOpacity>
           )}
 
@@ -137,25 +135,39 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
         {/* Search Results Dropdown (if user is typing) */}
         {searchQuery.length > 0 && (
           <View style={styles.searchResultsCard}>
-            {filteredPresets.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={styles.searchResultItem}
-                onPress={() => {
-                  onSelectPreset(r.id);
-                  setSearchQuery('');
-                  Keyboard.dismiss();
-                }}
-              >
-                <IconMapPin size={16} color="#ea4335" />
+            {filteredPresets.length > 0 ? (
+              filteredPresets.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    onSelectPreset(r.id);
+                    setSearchQuery('');
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <IconMapPin size={16} color="#ea4335" />
+                  <View style={styles.searchResultInfo}>
+                    <Text style={styles.searchResultTitle}>{r.name}</Text>
+                    <Text style={styles.searchResultSubtitle}>
+                      {r.distanceKm} km • {r.city} • OpenFreeMap 3D Vector Corridor
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={[styles.searchResultItem, { paddingVertical: 12 }]}>
+                <IconSearch size={16} color="#94a3b8" />
                 <View style={styles.searchResultInfo}>
-                  <Text style={styles.searchResultTitle}>{r.name}</Text>
+                  <Text style={[styles.searchResultTitle, { color: '#64748b' }]}>
+                    No offline corridor matches "{searchQuery}"
+                  </Text>
                   <Text style={styles.searchResultSubtitle}>
-                    {r.distanceKm} km • {r.city} • OpenFreeMap 3D Vector Corridor
+                    Select Delhi, Bangalore, or Chandigarh, or tap START for Live Car Drive
                   </Text>
                 </View>
-              </TouchableOpacity>
-            ))}
+              </View>
+            )}
           </View>
         )}
       </View>

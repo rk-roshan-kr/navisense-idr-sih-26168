@@ -75,31 +75,31 @@ export const CockpitBottomBar: React.FC<CockpitBottomBarProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {/* 3. GNSS Outage Simulator / Restore Button */}
-      <TouchableOpacity
-        style={[
-          styles.outageBtn,
-          isBlackout ? styles.outageBtnActive : styles.outageBtnNormal,
-        ]}
-        onPress={onToggleBlackout}
-        activeOpacity={0.8}
-      >
-        {isBlackout ? (
-          <IconRefresh size={13} color="#dc2626" />
-        ) : (
-          <IconZap size={13} color="#b45309" />
-        )}
-        <Text
+      {/* 3. GNSS Outage Simulator / Restore Button — ONLY shown in Benchmark Simulator mode! */}
+      {!isLiveCarMode && (
+        <TouchableOpacity
           style={[
-            styles.outageBtnText,
-            isBlackout ? styles.outageBtnTextActive : styles.outageBtnTextNormal,
+            styles.outageBtn,
+            isBlackout ? styles.outageBtnActive : styles.outageBtnNormal,
           ]}
+          onPress={onToggleBlackout}
+          activeOpacity={0.8}
         >
-          {isBlackout
-            ? (isLiveCarMode ? 'RESTORE REAL GPS' : 'RESTORE GNSS FIX')
-            : (isLiveCarMode ? 'SIMULATE REAL OUTAGE' : 'SIMULATE BLACKOUT')}
-        </Text>
-      </TouchableOpacity>
+          {isBlackout ? (
+            <IconRefresh size={13} color="#dc2626" />
+          ) : (
+            <IconZap size={13} color="#b45309" />
+          )}
+          <Text
+            style={[
+              styles.outageBtnText,
+              isBlackout ? styles.outageBtnTextActive : styles.outageBtnTextNormal,
+            ]}
+          >
+            {isBlackout ? 'RESTORE GNSS FIX' : 'SIMULATE BLACKOUT'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* 4. Diagnostics & Failure Lab Gear Button */}
       <TouchableOpacity
