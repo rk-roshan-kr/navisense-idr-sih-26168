@@ -1,0 +1,13 @@
+{
+  "map_registration": {
+    "method": "robust_gnss_to_osm_alignment",
+    "offset_e_m": 8.3551,
+    "offset_n_m": 2.2516,
+    "offset_norm_m": 8.6531,
+    "rotation_deg": 0.0,
+    "num_calibration_points": 300,
+    "raw_rmse_m": 8.076,
+    "residual_rmse_m": 4.6847,
+    "estimated_at": "2026-09-20T05:53:48Z"
+  }
+}

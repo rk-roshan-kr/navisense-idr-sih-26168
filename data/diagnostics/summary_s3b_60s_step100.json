@@ -1,0 +1,16 @@
+{
+  "scenario": "s3b",
+  "outage_duration_s": 60,
+  "start_step": 100,
+  "final_error_m": 230.53,
+  "peak_error_m": 230.53,
+  "peak_error_time_s": 60.0,
+  "t_10pct_crossing_s": 5.3,
+  "along_track_rmse_m": 33.12,
+  "cross_track_rmse_m": 45.54,
+  "error_mode_ratio_rho": 0.346,
+  "dominant_failure_mode": "HEADING / CROSS-TRACK",
+  "yaw_burst_events_count": 263,
+  "junction_decisions_count": 542,
+  "csv_trace_path": "D:\\SIH prototype\\data\\diagnostics\\trace_s3b_60s_step100.csv"
+}

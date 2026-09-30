@@ -35,6 +35,11 @@ app.add_middleware(
 
 # Global Runtime Instance
 runtime = NaviSenseRuntime(device="cpu")
+try:
+    runtime.load_scenario("s3b")
+    print(f"[SERVER] Preloaded default scenario s3b (total steps: {runtime.total_steps})")
+except Exception as e:
+    print(f"[SERVER] Warning: Could not preload s3b scenario: {e}")
 
 # Active WebSocket connections
 active_connections: Set[WebSocket] = set()

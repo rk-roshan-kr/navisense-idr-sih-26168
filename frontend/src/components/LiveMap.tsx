@@ -400,6 +400,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     if (!telemetry || !mapRef.current) return;
 
     const { idr_position, heading_deg, blackout_active } = telemetry;
+    // Guard against uninitialized / Null Island (0,0) packets in middle of ocean
+    if (Math.abs(idr_position.lat) < 0.001 && Math.abs(idr_position.lon) < 0.001) return;
+
     const currCoord: [number, number] = [idr_position.lon, idr_position.lat];
 
     // Distance metric in meters to detect teleportations, resets, or scenario jumps

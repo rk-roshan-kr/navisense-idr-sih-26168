@@ -1,5 +1,7 @@
 # Large dataset files & archives
-data/
+data/IO-VNBD/
+data/raw/
+data/cache/*.pt
 *.zip
 *.tar.gz
 *.7z
