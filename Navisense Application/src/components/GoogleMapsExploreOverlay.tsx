@@ -17,6 +17,8 @@ import {
   IconMapPin,
   IconCompass,
   IconPlay,
+  IconVolume2,
+  IconVolumeX,
 } from './Icons';
 import { PRESET_ROUTES } from '../utils/customRouteSimulator';
 import type { TelemetryPacket } from '../types';
@@ -31,6 +33,8 @@ interface GoogleMapsExploreOverlayProps {
   destinationCoord?: [number, number] | null;
   originCoord?: [number, number] | null;
   onClearRoute?: () => void;
+  isAudioMuted?: boolean;
+  onToggleAudioMuted?: () => void;
 }
 
 export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> = ({
@@ -43,15 +47,21 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
   destinationCoord,
   originCoord,
   onClearRoute,
+  isAudioMuted = false,
+  onToggleAudioMuted,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const activePreset = PRESET_ROUTES.find((p) => p.id === selectedPresetId) || PRESET_ROUTES[0];
 
-  const destinationTitle = activePreset.name.split('➔')[1]?.trim() ||
-    activePreset.name.split(':')[1]?.trim() ||
-    activePreset.name;
+  const destinationTitle = destinationCoord
+    ? `Custom Pin (${destinationCoord[0].toFixed(4)}°, ${destinationCoord[1].toFixed(4)}°)`
+    : activePreset.name.split('➔')[1]?.trim() ||
+      activePreset.name.split(':')[1]?.trim() ||
+      activePreset.name;
 
-  const originTitle = activePreset.name.split('➔')[0]?.split(':')[0]?.trim() || 'My Location';
+  const originTitle = originCoord
+    ? `Point (${originCoord[0].toFixed(4)}°, ${originCoord[1].toFixed(4)}°)`
+    : activePreset.name.split('➔')[0]?.split(':')[0]?.trim() || 'My Location';
 
   // Search filter - matches name, city, destination or keywords
   const queryLower = searchQuery.toLowerCase().trim();
@@ -90,6 +100,22 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <IconX size={18} color="#5f6368" />
+            </TouchableOpacity>
+          )}
+
+          {/* Audio Mute / Unmute Button */}
+          {onToggleAudioMuted && (
+            <TouchableOpacity
+              style={styles.audioMuteBtn}
+              onPress={onToggleAudioMuted}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isAudioMuted ? (
+                <IconVolumeX size={17} color="#94a3b8" />
+              ) : (
+                <IconVolume2 size={17} color="#1a73e8" />
+              )}
             </TouchableOpacity>
           )}
 
@@ -185,6 +211,11 @@ export const GoogleMapsExploreOverlay: React.FC<GoogleMapsExploreOverlayProps> =
               </View>
               <Text style={styles.distanceText}>({activePreset.distanceKm} km)</Text>
               <Text style={styles.fastestRouteText}>• Fastest route</Text>
+              {destinationCoord && onClearRoute && (
+                <TouchableOpacity onPress={onClearRoute} style={styles.clearPinBtn}>
+                  <Text style={styles.clearPinText}>CLEAR PIN</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <Text style={styles.destName} numberOfLines={1}>
@@ -307,6 +338,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  audioMuteBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
+  },
+  clearPinBtn: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+  },
+  clearPinText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#b91c1c',
+    letterSpacing: 0.4,
   },
 
   /* Quick Destination Chips */

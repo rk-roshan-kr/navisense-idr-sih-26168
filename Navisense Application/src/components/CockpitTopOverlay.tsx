@@ -17,6 +17,8 @@ import {
   IconArrowUp,
   IconTurnRight,
   IconTurnLeft,
+  IconVolume2,
+  IconVolumeX,
 } from './Icons';
 import { PRESET_ROUTES } from '../utils/customRouteSimulator';
 import type { TelemetryPacket } from '../types';
@@ -40,6 +42,8 @@ interface CockpitTopOverlayProps {
   chaosOverride?: ChaosStateOverride;
   isLandscape?: boolean;
   onSwitchToMapsMode?: () => void;
+  isAudioMuted?: boolean;
+  onToggleAudioMuted?: () => void;
 }
 
 export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
@@ -58,6 +62,8 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
   customDestination,
   isLandscape = false,
   onSwitchToMapsMode,
+  isAudioMuted = false,
+  onToggleAudioMuted,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -161,6 +167,22 @@ export const CockpitTopOverlay: React.FC<CockpitTopOverlayProps> = ({
               </Text>
             </View>
           </View>
+
+          {/* Audio Mute / Unmute Button */}
+          {onToggleAudioMuted && (
+            <TouchableOpacity
+              style={styles.compactMuteBtn}
+              onPress={onToggleAudioMuted}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isAudioMuted ? (
+                <IconVolumeX size={15} color="#94a3b8" />
+              ) : (
+                <IconVolume2 size={15} color="#38bdf8" />
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Switch to Maps Mode */}
           {onSwitchToMapsMode && (
@@ -691,6 +713,15 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  compactMuteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 3,
   },
   compactExpandBtn: {
     width: 32,

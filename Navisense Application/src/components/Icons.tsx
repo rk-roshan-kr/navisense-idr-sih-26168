@@ -184,5 +184,37 @@ export const IconMapPin: React.FC<IconProps> = ({ size = 20, color = '#ea4335' }
   </Svg>
 );
 
+export const IconVolume2: React.FC<IconProps> = ({ size = 20, color = '#1a73e8' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <Path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+  </Svg>
+);
 
+export const IconVolumeX: React.FC<IconProps> = ({ size = 20, color = '#64748b' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <Line x1="23" y1="9" x2="17" y2="15" />
+    <Line x1="17" y1="9" x2="23" y2="15" />
+  </Svg>
+);
 
+export const IconSignalSlash: React.FC<IconProps> = ({ size = 16, color = '#f59e0b' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="2" y1="2" x2="22" y2="22" stroke={color} strokeWidth={2.2} />
+    <Path d="M8.5 16.5a5 5 0 0 1 7 0" />
+    <Path d="M5 12.5a10 10 0 0 1 5.5-2" />
+    <Path d="M18.5 12.5a10 10 0 0 1 .5 0" />
+    <Circle cx="12" cy="20" r="1.5" fill={color} />
+  </Svg>
+);
+
+export const IconSatelliteOff: React.FC<IconProps> = ({ size = 16, color = '#f59e0b' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="2" y1="2" x2="22" y2="22" stroke={color} strokeWidth={2.2} />
+    <Path d="M9.4 4.6L12 2l4.2 4.2-2.6 2.6" />
+    <Path d="M14.8 14.8L12 17.6l-4.2-4.2 2.6-2.6" />
+    <Path d="M19 9a7 7 0 0 1 2 5" />
+    <Path d="M5 15a7 7 0 0 0-2-5" />
+  </Svg>
+);

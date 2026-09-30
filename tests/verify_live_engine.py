@@ -9,6 +9,7 @@ from backend.engine.runtime import NaviSenseRuntime
 
 def verify_engine():
     runtime = NaviSenseRuntime()
+    runtime.load_scenario("s3b")
     print("\n--- 1. Testing Normal GNSS Driving ---")
     for _ in range(50):
         pkt = runtime.step()

@@ -79,6 +79,7 @@ export default function App() {
   const [showRoutePlanner, setShowRoutePlanner] = useState<boolean>(false);
   const [showPreflightModal, setShowPreflightModal] = useState<boolean>(false);
   const [chaosOverride, setChaosOverride] = useState<ChaosStateOverride>('NONE');
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
 
   // Ensure Delhi preset route is loaded if empty
   useEffect(() => {
@@ -422,6 +423,26 @@ export default function App() {
     setStatusMsg('Cleared custom points. Reset to corridor origin.');
   };
 
+  const handleMapClick = async (lat: number, lon: number) => {
+    const origin: [number, number] = telemetry
+      ? [telemetry.idr_position.lat, telemetry.idr_position.lon]
+      : routeCoordinates[0] || [28.6315, 77.2167];
+    const destination: [number, number] = [lat, lon];
+
+    setCustomDestination(destination);
+    setCustomOrigin(origin);
+
+    const directDistKm = (simRef.current.haversineM(origin[0], origin[1], destination[0], destination[1]) / 1000).toFixed(1);
+    setStatusMsg(`Selected custom pin (${lat.toFixed(4)}°, ${lon.toFixed(4)}° • ${directDistKm} km). Calculating route...`);
+
+    const newRoute = await simRef.current.fetchRoute(origin, destination);
+    if (newRoute.length > 0) {
+      setRouteCoordinates([...newRoute]);
+      const totalKm = (simRef.current.totalDistanceM / 1000).toFixed(1);
+      setStatusMsg(`Route calculated: ${totalKm} km to custom pin. Tap START DRIVING to begin!`);
+    }
+  };
+
   // Fault Lab Toggles
   const handleSetGnssFault = (f: GnssFault) => {
     setActiveGnssFault(f);
@@ -550,6 +571,9 @@ export default function App() {
                 fitBounds={!isLiveCarMode && appExperienceMode === 'GOOGLE_MAPS'}
                 is3DMode={is3DMode}
                 onToggle3DMode={() => setIs3DMode((prev) => !prev)}
+                onMapClick={handleMapClick}
+                isAudioMuted={isAudioMuted}
+                onToggleAudioMuted={() => setIsAudioMuted((prev) => !prev)}
               />
             </ScreenErrorBoundary>
 
@@ -570,6 +594,8 @@ export default function App() {
                 destinationCoord={customDestination}
                 originCoord={customOrigin}
                 onClearRoute={handleClearPoints}
+                isAudioMuted={isAudioMuted}
+                onToggleAudioMuted={() => setIsAudioMuted((prev) => !prev)}
               />
             ) : (
               <>
@@ -591,6 +617,8 @@ export default function App() {
                   chaosOverride={chaosOverride}
                   isLandscape={isLandscape}
                   onSwitchToMapsMode={() => setAppExperienceMode('GOOGLE_MAPS')}
+                  isAudioMuted={isAudioMuted}
+                  onToggleAudioMuted={() => setIsAudioMuted((prev) => !prev)}
                 />
 
                 {/* Bottom Floating Action Bar: 3D Cockpit / 2D Freecam + Pause/Start + Outage Action + Settings */}

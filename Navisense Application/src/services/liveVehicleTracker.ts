@@ -1,6 +1,24 @@
-import * as Location from 'expo-location';
-import { Accelerometer, Gyroscope } from 'expo-sensors';
 import type { TelemetryPacket } from '../types';
+import type { LocationSubscription, LocationObject } from 'expo-location';
+
+// Defensive Native Module Resolvers (Prevents red screen crashes if running on an APK missing native bindings)
+let LocationModule: any = null;
+let AccelerometerModule: any = null;
+let GyroscopeModule: any = null;
+
+try {
+  LocationModule = require('expo-location');
+} catch (e) {
+  console.warn('[LiveVehicleTracker] expo-location not available:', e);
+}
+
+try {
+  const sensors = require('expo-sensors');
+  AccelerometerModule = sensors?.Accelerometer ?? null;
+  GyroscopeModule = sensors?.Gyroscope ?? null;
+} catch (e) {
+  console.warn('[LiveVehicleTracker] expo-sensors not available:', e);
+}
 
 export interface LiveTrackerState {
   hasPermission: boolean;
@@ -36,7 +54,7 @@ type TelemetryCallback = (packet: TelemetryPacket) => void;
  * - Smooth exponential decay reconvergence when exiting tunnels
  */
 export class LiveVehicleTracker {
-  private locationSub: Location.LocationSubscription | null = null;
+  private locationSub: LocationSubscription | null = null;
   private accelSub: any = null;
   private gyroSub: any = null;
   private motionTimer: any = null;
@@ -91,8 +109,12 @@ export class LiveVehicleTracker {
   }
 
   public async requestPermissions(): Promise<boolean> {
+    if (!LocationModule || !LocationModule.requestForegroundPermissionsAsync) {
+      console.warn('[LiveVehicleTracker] LocationModule not available on this device');
+      return false;
+    }
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await LocationModule.requestForegroundPermissionsAsync();
       return status === 'granted';
     } catch (e) {
       console.warn('Error requesting location permissions:', e);
@@ -103,6 +125,9 @@ export class LiveVehicleTracker {
   public async start(): Promise<boolean> {
     const granted = await this.requestPermissions();
     if (!granted) {
+      // Even if GPS permission denied, still allow motion simulation/ZUPT
+      this.isTracking = true;
+      this.lastMotionUpdateTs = Date.now();
       return false;
     }
 
@@ -111,34 +136,43 @@ export class LiveVehicleTracker {
     this.lastGpsFixTs = Date.now();
 
     // 1. Subscribe to Live GPS
-    try {
-      this.locationSub = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 200, // 5 Hz location updates
-          distanceInterval: 1, // 1 meter resolution
-        },
-        (location) => this.handleLocationUpdate(location)
-      );
-    } catch (err) {
-      console.warn('Failed to start location updates:', err);
+    if (LocationModule && LocationModule.watchPositionAsync) {
+      try {
+        this.locationSub = await LocationModule.watchPositionAsync(
+          {
+            accuracy: LocationModule.Accuracy?.BestForNavigation ?? 6,
+            timeInterval: 200, // 5 Hz location updates
+            distanceInterval: 1, // 1 meter resolution
+          },
+          (location: any) => this.handleLocationUpdate(location)
+        );
+      } catch (err) {
+        console.warn('Failed to start location updates:', err);
+      }
     }
 
     // 2. Subscribe to Physical IMU Sensors (50 Hz / 20ms)
-    try {
-      Accelerometer.setUpdateInterval(20);
-      this.accelSub = Accelerometer.addListener((data) => {
-        // Dynamic tilt filtering
-        this.latestAx = data.x * 9.80665;
-        this.latestAy = data.y * 9.80665;
-      });
+    if (AccelerometerModule && AccelerometerModule.addListener) {
+      try {
+        if (AccelerometerModule.setUpdateInterval) AccelerometerModule.setUpdateInterval(20);
+        this.accelSub = AccelerometerModule.addListener((data: any) => {
+          this.latestAx = (data.x ?? 0) * 9.80665;
+          this.latestAy = (data.y ?? 0) * 9.80665;
+        });
+      } catch (err) {
+        console.warn('Failed to start accelerometer:', err);
+      }
+    }
 
-      Gyroscope.setUpdateInterval(20);
-      this.gyroSub = Gyroscope.addListener((data) => {
-        this.latestGz = data.z; // rad/s yaw rate
-      });
-    } catch (err) {
-      console.warn('Failed to start motion sensor listeners:', err);
+    if (GyroscopeModule && GyroscopeModule.addListener) {
+      try {
+        if (GyroscopeModule.setUpdateInterval) GyroscopeModule.setUpdateInterval(20);
+        this.gyroSub = GyroscopeModule.addListener((data: any) => {
+          this.latestGz = data.z ?? 0;
+        });
+      } catch (err) {
+        console.warn('Failed to start gyroscope:', err);
+      }
     }
 
     // 3. Autonomous 10 Hz On-Device Motion Propagation Loop (100ms)
@@ -210,7 +244,7 @@ export class LiveVehicleTracker {
     return this.routeBreadcrumbs;
   }
 
-  private handleLocationUpdate(loc: Location.LocationObject) {
+  private handleLocationUpdate(loc: LocationObject) {
     const coords = loc.coords;
     const now = Date.now();
     this.lastGpsFixTs = now;

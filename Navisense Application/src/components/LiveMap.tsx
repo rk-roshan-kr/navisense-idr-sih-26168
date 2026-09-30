@@ -17,6 +17,8 @@ interface LiveMapProps {
   is3DMode?: boolean;
   onToggle3DMode?: () => void;
   showFloatingControls?: boolean;
+  isAudioMuted?: boolean;
+  onToggleAudioMuted?: () => void;
 }
 
 export const LiveMap: React.FC<LiveMapProps> = ({
@@ -31,6 +33,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   is3DMode = true,
   onToggle3DMode,
   showFloatingControls = false,
+  isAudioMuted = false,
+  onToggleAudioMuted,
 }) => {
   const webViewRef = useRef<WebView>(null);
   const [internal3D, setInternal3D] = useState(is3DMode);
@@ -60,6 +64,18 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       );
     }
   }, [is3DMode]);
+
+  // Sync audio mute state to WebView
+  useEffect(() => {
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'SET_AUDIO_MUTED',
+          muted: isAudioMuted,
+        })
+      );
+    }
+  }, [isAudioMuted]);
 
   // Send telemetry updates to WebView map
   useEffect(() => {
@@ -334,6 +350,69 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     var prevBlackout = false;
     var mapIsLoaded = false;
     var pendingRoute = null;
+    var audioCtx = null;
+    var voiceMuted = ${isAudioMuted ? 'true' : 'false'};
+
+    function initAudio() {
+      if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playChime(type) {
+      try {
+        if (voiceMuted) return;
+        initAudio();
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        var now = audioCtx.currentTime;
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'outage') {
+          // Warning sweep (Dual Tone Frequency Drop: 640Hz -> 380Hz)
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(640, now);
+          osc.frequency.exponentialRampToValueAtTime(380, now + 0.3);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        } else if (type === 'restored') {
+          // Positive Reconnection Chord (520Hz -> 820Hz)
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(820, now + 0.25);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } else if (type === 'tap') {
+          // Subtle feedback click
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(750, now);
+          gain.gain.setValueAtTime(0.06, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        }
+      } catch (e) {}
+    }
+
+    function speakVoice(text) {
+      try {
+        if (voiceMuted || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.05;
+        u.pitch = 1.0;
+        u.volume = 0.95;
+        window.speechSynthesis.speak(u);
+      } catch (e) {}
+    }
 
     // Initialize Real MapLibre GL 3D Vector Map with All Native Gestures (Apple/Google Maps)
     var map = new maplibregl.Map({
@@ -393,7 +472,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       }
     }
 
-    // Disable auto-follow ONLY when user manually interacts with map via touch/mouse
+    // Differentiate Pan (detach from vehicle) vs Zoom (adjust scale without detaching):
+    // 1. Drag/Pan: User explicitly drags the map away from vehicle -> Detach tracking into Freecam mode
     map.on('dragstart', function(e) {
       if (e && e.originalEvent) {
         isFollowing = false;
@@ -412,15 +492,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         notifyTracking(false);
       }
     });
-    map.on('zoomstart', function(e) {
-      if (e && e.originalEvent) {
-        isFollowing = false;
-        notifyTracking(false);
-      }
+
+    // 2. Zooming (pinch, double-tap, scroll wheel): User changes magnification -> Maintain tracking without snapping back
+    map.on('zoom', function() {
+      // Zoom changes naturally without forcing center or breaking tracking state
     });
 
     // Tap on map
     map.on('click', function(e) {
+      playChime('tap');
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'MAP_CLICK',
@@ -717,8 +797,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             else puck.classList.remove('car-outage');
           }
 
-          // Outage Drop Pin
+          // Outage Drop Pin & Audio Feedback
           if (isBlackout && !prevBlackout) {
+            playChime('outage');
+            speakVoice("GNSS signal lost. Navisense IDR active.");
             if (!lastGnssMarker) {
               var gnssEl = document.createElement('div');
               gnssEl.className = 'last-gnss-marker';
@@ -728,6 +810,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 .addTo(map);
             }
           } else if (!isBlackout && prevBlackout) {
+            playChime('restored');
+            speakVoice("GNSS signal restored. Reconverging position.");
             if (lastGnssMarker) {
               lastGnssMarker.remove();
               lastGnssMarker = null;
@@ -759,20 +843,20 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             }
           }
 
-          // Camera Follow with Real 3D Perspective
+          // Camera Follow with Real 3D Perspective (Preserves User-Selected Zoom!)
           if (isFollowing) {
             if (is3D) {
               map.easeTo({
                 center: [lon, lat],
                 bearing: heading,
                 pitch: 60,
-                zoom: 16.8,
                 duration: 90,
                 easing: function(t) { return t; }
               });
             } else {
               map.easeTo({
                 center: [lon, lat],
+                pitch: 0,
                 duration: 90,
                 easing: function(t) { return t; }
               });
@@ -785,19 +869,21 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         if (msg.type === 'SET_CAMERA_MODE') {
           is3D = msg.is3D;
           isFollowing = true;
+          notifyTracking(true);
+          var curTarget = carMarker ? carMarker.getLngLat() : map.getCenter();
           if (is3D) {
             map.easeTo({
+              center: curTarget,
               pitch: 60,
               bearing: currentHeading || 0,
-              zoom: 16.8,
-              duration: 800
+              duration: 700
             });
           } else {
             map.easeTo({
+              center: curTarget,
               pitch: 0,
               bearing: 0,
-              zoom: 15.5,
-              duration: 800
+              duration: 700
             });
           }
         }
@@ -812,19 +898,29 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 center: curLngLat,
                 pitch: 60,
                 bearing: currentHeading || 0,
-                zoom: 16.8,
-                duration: 600
+                zoom: Math.max(map.getZoom(), 16.5),
+                duration: 650
               });
             } else {
               map.flyTo({
                 center: curLngLat,
                 pitch: 0,
                 bearing: 0,
-                zoom: 16.5,
-                duration: 600
+                zoom: Math.max(map.getZoom(), 15.5),
+                duration: 650
               });
             }
           }
+        }
+
+        if (msg.type === 'SPEAK') {
+          speakVoice(msg.text);
+        }
+        if (msg.type === 'PLAY_CHIME') {
+          playChime(msg.chimeType);
+        }
+        if (msg.type === 'SET_AUDIO_MUTED') {
+          voiceMuted = !!msg.muted;
         }
       } catch (err) {
         console.error(err);
@@ -857,58 +953,60 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         scrollEnabled={false}
       />
 
-      {/* Floating Active Tracking Control (3D & 2D Car Follow) */}
+      {/* Floating Active Tracking Controls (Recenter Button + 3D/2D Tracking Toggle) */}
       <View style={styles.trackingFloatingWrap} pointerEvents="box-none">
-        {!isTracking ? (
+        {/* 1. Dedicated Recenter Button (Appears separately above toggle when panned away) */}
+        {!isTracking && (
           <TouchableOpacity
-            style={styles.recenterBtn}
+            style={styles.recenterFloatBtn}
             onPress={centerOnVehicle}
             activeOpacity={0.8}
           >
-            <IconCrosshair size={16} color="#ffffff" />
-            <Text style={styles.recenterBtnText}>RECENTER CAR</Text>
+            <IconCrosshair size={14} color="#1a73e8" />
+            <Text style={styles.recenterFloatBtnText}>RECENTER CAR</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.trackingSegment}>
-            <TouchableOpacity
-              style={[
-                styles.trackingSegmentBtn,
-                internal3D && styles.trackingSegmentBtnActive,
-              ]}
-              onPress={trackIn3D}
-              activeOpacity={0.8}
-            >
-              <IconNavigation size={13} color={internal3D ? '#ffffff' : '#64748b'} />
-              <Text
-                style={[
-                  styles.trackingSegmentText,
-                  internal3D && styles.trackingSegmentTextActive,
-                ]}
-              >
-                3D TRACK
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.trackingSegmentBtn,
-                !internal3D && styles.trackingSegmentBtnActive,
-              ]}
-              onPress={trackIn2D}
-              activeOpacity={0.8}
-            >
-              <IconCompass size={13} color={!internal3D ? '#ffffff' : '#64748b'} />
-              <Text
-                style={[
-                  styles.trackingSegmentText,
-                  !internal3D && styles.trackingSegmentTextActive,
-                ]}
-              >
-                2D TRACK
-              </Text>
-            </TouchableOpacity>
-          </View>
         )}
+
+        {/* 2. Persistent 3D / 2D Tracking Mode Selector */}
+        <View style={styles.trackingSegment}>
+          <TouchableOpacity
+            style={[
+              styles.trackingSegmentBtn,
+              internal3D && isTracking && styles.trackingSegmentBtnActive,
+            ]}
+            onPress={trackIn3D}
+            activeOpacity={0.8}
+          >
+            <IconNavigation size={13} color={internal3D && isTracking ? '#ffffff' : '#64748b'} />
+            <Text
+              style={[
+                styles.trackingSegmentText,
+                internal3D && isTracking && styles.trackingSegmentTextActive,
+              ]}
+            >
+              3D TRACK
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.trackingSegmentBtn,
+              !internal3D && isTracking && styles.trackingSegmentBtnActive,
+            ]}
+            onPress={trackIn2D}
+            activeOpacity={0.8}
+          >
+            <IconCompass size={13} color={!internal3D && isTracking ? '#ffffff' : '#64748b'} />
+            <Text
+              style={[
+                styles.trackingSegmentText,
+                !internal3D && isTracking && styles.trackingSegmentTextActive,
+              ]}
+            >
+              2D TRACK
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Floating Map Controls (Optional) */}
@@ -960,28 +1058,30 @@ const styles = StyleSheet.create({
     right: 14,
     bottom: 82,
     zIndex: 60,
+    alignItems: 'flex-end',
   },
-  recenterBtn: {
+  recenterFloatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 22,
-    backgroundColor: '#1a73e8',
-    borderColor: '#1557b0',
+    paddingHorizontal: 13,
+    paddingVertical: 7.5,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
     borderWidth: 1,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  recenterBtnText: {
-    fontSize: 11,
+  recenterFloatBtnText: {
+    fontSize: 10.5,
     fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 0.5,
+    color: '#1a73e8',
+    letterSpacing: 0.4,
   },
   trackingSegment: {
     flexDirection: 'row',
